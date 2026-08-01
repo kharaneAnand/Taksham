@@ -9,7 +9,7 @@ export const AUTH_MESSAGES = {
 
   TOKEN_EXPIRED: "Token expired",
   INVALID_TOKEN: "Invalid token",
-
+  TOKEN_REFRESHED: "Token refreshed successfully",
   ACCOUNT_NOT_VERIFIED: "Please verify your account first",
 };
 
