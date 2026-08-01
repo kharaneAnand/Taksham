@@ -1,8 +1,11 @@
 import { Router } from "express";
 import AuthController from "../controllers/auth.controller.js";
 import validate from "../middleware/validate.middleware.js";
-import { registerSchema } from "../validators/auth.validator.js";
-import { loginSchema } from "../validators/auth.validator.js";
+import { registerSchema , loginSchema } from "../validators/auth.validator.js";
+import authenticate from "../middleware/auth.middleware.js";
+import authorize from "../middleware/authorize.middleware.js";
+
+import { UserRole } from "../constants/role.js";
 
 const router = Router();
 
@@ -26,6 +29,19 @@ router.post(
 router.post(
   "/logout",
   AuthController.logout
+);
+
+router.get(
+  "/me",
+  authenticate,
+  AuthController.me
+);
+
+router.get(
+    "/admin",
+    authenticate,
+    authorize(UserRole.ADMIN),
+    AuthController.admin
 );
 
 export default router;

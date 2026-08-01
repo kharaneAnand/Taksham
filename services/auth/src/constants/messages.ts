@@ -12,6 +12,9 @@ export const AUTH_MESSAGES = {
   TOKEN_REFRESHED: "Token refreshed successfully",
   ACCOUNT_NOT_VERIFIED: "Please verify your account first",
 
+  UNAUTHORIZED: "Unauthorized",
+  FORBIDDEN: "You are not authorized to perform this action",
+
 };
 
 export const VALIDATION_MESSAGES = {

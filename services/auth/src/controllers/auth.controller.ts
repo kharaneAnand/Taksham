@@ -120,6 +120,29 @@ res.cookie(
   }
 );
 
+  me = asyncHandler(async (req: Request, res: Response) => {
+
+    return successResponse(
+      res,
+      StatusCodes.OK,
+      "User fetched successfully",
+      req.user
+    );
+  }
+);
+
+admin = asyncHandler(async (req: Request, res: Response) => {
+
+    return successResponse(
+      res,
+      StatusCodes.OK,
+      "Welcome Admin"
+    );
+
+  }
+);
+
+
 }
 
 export default new AuthController();
