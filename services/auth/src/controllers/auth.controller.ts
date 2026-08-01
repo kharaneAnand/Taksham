@@ -1,12 +1,16 @@
 import { Request, Response } from "express";
+import asyncHandler from "../helpers/asyncHandler.js";
+import { successResponse } from "../helpers/response.js";
+import { StatusCodes } from "../constants/http.js";
 
 class AuthController {
-  async register(req: Request, res: Response) {
-    res.status(201).json({
-      success: true,
-      message: "Register endpoint working",
-    });
-  }
+  register = asyncHandler(async (req: Request, res: Response) => {
+    return successResponse(
+      res,
+      StatusCodes.CREATED,
+      "Register endpoint working"
+    );
+  });
 }
 
 export default new AuthController();

@@ -1,20 +1,22 @@
-import { Request, Response, NextFunction } from "express";
-import { ZodTypeAny, ZodError } from "zod";
+import { NextFunction, Request, Response } from "express";
+import { ZodError, ZodType } from "zod";
+import { StatusCodes } from "../constants/http.js";
+import { errorResponse } from "../helpers/response.js";
 
 const validate =
-  (schema: ZodTypeAny) =>
+  (schema: ZodType) =>
   (req: Request, res: Response, next: NextFunction): void => {
     try {
       req.body = schema.parse(req.body);
-
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        res.status(400).json({
-          success: false,
-          message: "Validation Failed",
-          errors: error.issues,
-        });
+        errorResponse(
+          res,
+          StatusCodes.BAD_REQUEST,
+          "Validation Failed",
+          error.issues
+        );
 
         return;
       }

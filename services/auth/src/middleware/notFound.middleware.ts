@@ -1,5 +1,6 @@
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
 import ApiError from "../helpers/ApiError.js";
+import { StatusCodes } from "../constants/http.js";
 
 const notFound = (
   req: Request,
@@ -8,7 +9,7 @@ const notFound = (
 ): void => {
   next(
     new ApiError(
-      404,
+      StatusCodes.NOT_FOUND,
       `Route ${req.originalUrl} not found`
     )
   );
