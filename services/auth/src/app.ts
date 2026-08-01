@@ -20,7 +20,13 @@ app.use(
 
 app.use(helmet());
 app.use(compression()) ;
-app.use(morgan("dev"));
+
+morgan.token("time", (req, res) => {
+  return `${res.getHeader("X-Response-Time") || ""}`;
+});
+
+app.use(morgan(":method :url :status :response-time ms"));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

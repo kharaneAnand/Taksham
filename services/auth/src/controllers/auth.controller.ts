@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-
+import { AUTH_MESSAGES } from "../constants/messages.js";
 import asyncHandler from "../helpers/asyncHandler.js";
 import { successResponse } from "../helpers/response.js";
 import { StatusCodes } from "../constants/http.js";
@@ -13,7 +13,7 @@ class AuthController {
     return successResponse(
       res,
       StatusCodes.CREATED,
-      "User registered successfully",
+      AUTH_MESSAGES.REGISTER_SUCCESS,
       user
     );
   });

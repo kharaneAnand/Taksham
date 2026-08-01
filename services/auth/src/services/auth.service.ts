@@ -1,6 +1,9 @@
 import User from "../models/user.model.js";
 import ApiError from "../helpers/ApiError.js";
+
+import { AUTH_MESSAGES } from "../constants/messages.js";
 import { StatusCodes } from "../constants/http.js";
+
 import { hashPassword } from "../utils/bcrypt.js";
 import { RegisterInput } from "../validators/auth.validator.js";
 
@@ -13,7 +16,7 @@ class AuthService {
     if (existingUser) {
       throw new ApiError(
         StatusCodes.CONFLICT,
-        "Email already exists"
+        AUTH_MESSAGES.EMAIL_EXISTS
       );
     }
 
