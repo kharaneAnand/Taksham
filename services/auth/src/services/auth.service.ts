@@ -10,6 +10,7 @@ import { LoginInput } from "../validators/auth.validator.js";
 import { comparePassword } from "../utils/bcrypt.js";
 import {generateAccessToken,generateRefreshToken,} from "../utils/jwt.js";
 import { verifyRefreshToken } from "../utils/jwt.js";
+import crypto from "crypto";
 
 
 
@@ -136,6 +137,38 @@ class AuthService {
     refreshToken: newRefreshToken,
   };
 }
+
+  async logout(refreshToken: string) {
+    const payload = verifyRefreshToken(refreshToken);
+
+    const user = await User.findById(payload.userId)
+      .select("+refreshToken");
+
+    if (!user) {
+      throw new ApiError(
+        StatusCodes.UNAUTHORIZED,
+        AUTH_MESSAGES.INVALID_TOKEN
+      );
+    }
+
+    const isRefreshTokenValid = await comparePassword(
+      refreshToken,
+      user.refreshToken
+    );
+
+    if (!isRefreshTokenValid) {
+      throw new ApiError(
+        StatusCodes.UNAUTHORIZED,
+        AUTH_MESSAGES.INVALID_TOKEN
+      );
+    }
+
+    user.refreshToken = await hashPassword(
+      crypto.randomUUID()
+    );
+
+    await user.save();
+  }
 }
 
 export default new AuthService();

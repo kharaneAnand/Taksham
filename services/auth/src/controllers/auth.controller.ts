@@ -88,6 +88,38 @@ res.cookie(
   }
 );
 
+  logout = asyncHandler(async (req: Request, res: Response) => {
+
+    const refreshToken =
+      req.cookies[COOKIE_NAMES.REFRESH_TOKEN];
+
+    if (!refreshToken) {
+      throw new ApiError(
+        StatusCodes.UNAUTHORIZED,
+        AUTH_MESSAGES.INVALID_TOKEN
+      );
+    }
+
+    await authService.logout(refreshToken);
+
+    res.clearCookie(
+      COOKIE_NAMES.ACCESS_TOKEN,
+      accessTokenCookieOptions
+    );
+
+    res.clearCookie(
+      COOKIE_NAMES.REFRESH_TOKEN,
+      refreshTokenCookieOptions
+    );
+
+    return successResponse(
+      res,
+      StatusCodes.OK,
+      AUTH_MESSAGES.LOGOUT_SUCCESS
+    );
+  }
+);
+
 }
 
 export default new AuthController();
