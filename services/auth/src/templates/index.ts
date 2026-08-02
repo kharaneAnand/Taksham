@@ -1,0 +1,1 @@
+export { default as verifyEmailTemplate } from "./verify-email.template.js";

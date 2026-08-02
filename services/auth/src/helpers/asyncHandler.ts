@@ -1,12 +1,30 @@
-import { RequestHandler } from "express";
+import { Request, Response, NextFunction } from "express";
 
-const asyncHandler = (handler: RequestHandler): RequestHandler => {
-  return async (req, res, next) => {
-    try {
-      await handler(req, res, next);
-    } catch (error) {
-      next(error);
-    }
+type AsyncHandler<
+  P = Record<string, string>,
+  ResBody = unknown,
+  ReqBody = unknown,
+  ReqQuery = unknown,
+> = (
+  req: Request<P, ResBody, ReqBody, ReqQuery>,
+  res: Response<ResBody>,
+  next: NextFunction
+) => Promise<void>;
+
+const asyncHandler = <
+  P = Record<string, string>,
+  ResBody = unknown,
+  ReqBody = unknown,
+  ReqQuery = unknown,
+>(
+  handler: AsyncHandler<P, ResBody, ReqBody, ReqQuery>
+) => {
+  return (
+    req: Request<P, ResBody, ReqBody, ReqQuery>,
+    res: Response<ResBody>,
+    next: NextFunction
+  ) => {
+    Promise.resolve(handler(req, res, next)).catch(next);
   };
 };
 

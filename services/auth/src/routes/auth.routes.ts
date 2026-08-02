@@ -44,4 +44,9 @@ router.get(
     AuthController.admin
 );
 
+router.post(
+  "/verify-email/:token",
+  AuthController.verifyEmail
+);
+
 export default router;

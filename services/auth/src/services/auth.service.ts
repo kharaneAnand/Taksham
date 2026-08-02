@@ -1,16 +1,17 @@
 import User from "../models/user.model.js";
 import ApiError from "../helpers/ApiError.js";
-
+import env from "../config/env.js";
 import { AUTH_MESSAGES } from "../constants/messages.js";
 import { StatusCodes } from "../constants/http.js";
+import { hashPassword , comparePassword} from "../utils/bcrypt.js";
+import { RegisterInput , LoginInput } from "../validators/auth.validator.js";
+import {generateAccessToken,generateRefreshToken,verifyRefreshToken} from "../utils/jwt.js";
+import VerificationToken from "../models/verification-token.model.js";
+import { generateRandomToken } from "../utils/token.js";
+import { sendEmail } from "../utils/email.js";
+import { verifyEmailTemplate } from "../templates/index.js";
+import { hashToken } from "../utils/hash.js";
 
-import { hashPassword } from "../utils/bcrypt.js";
-import { RegisterInput } from "../validators/auth.validator.js";
-import { LoginInput } from "../validators/auth.validator.js";
-import { comparePassword } from "../utils/bcrypt.js";
-import {generateAccessToken,generateRefreshToken,} from "../utils/jwt.js";
-import { verifyRefreshToken } from "../utils/jwt.js";
-import crypto from "crypto";
 
 
 
@@ -24,28 +25,59 @@ class AuthService {
   }
 
   async register(data: RegisterInput) {
-    const existingUser = await User.findOne({
-      email: data.email,
-    });
+  const existingUser = await User.findOne({
+    email: data.email,
+  });
 
-    if (existingUser) {
-      throw new ApiError(
-        StatusCodes.CONFLICT,
-        AUTH_MESSAGES.EMAIL_EXISTS
-      );
-    }
-
-    const hashedPassword = await hashPassword(data.password);
-
-    const user = await User.create({
-      ...data,
-      password: hashedPassword,
-    });
-
-    const userObject = user.toObject();
-    const { password, refreshToken, ...userData } = userObject;
-    return userData;
+  if (existingUser) {
+    throw new ApiError(
+      StatusCodes.CONFLICT,
+      AUTH_MESSAGES.EMAIL_EXISTS
+    );
   }
+
+  const hashedPassword = await hashPassword(data.password);
+
+  const user = await User.create({
+    ...data,
+    password: hashedPassword,
+  });
+
+  // Generate verification token
+  const verificationToken = generateRandomToken();
+
+  // Hash verification token
+  const hashedVerificationToken = hashToken(verificationToken);
+
+  // Save token
+  await VerificationToken.create({
+    userId: user._id,
+    token: hashedVerificationToken,
+    expiresAt: new Date(
+      Date.now() + 15 * 60 * 1000
+    ),
+  });
+
+  // Verification link
+  const verificationLink =
+    `${env.CLIENT_URL}/verify-email/${verificationToken}`;
+
+  // Send verification email
+  await sendEmail({
+    to: user.email,
+    subject: "Verify Your Email",
+    html: verifyEmailTemplate({
+      firstName: user.firstName,
+      verificationLink,
+    }),
+  });
+
+  const userObject = user.toObject();
+
+  const { password, refreshToken, ...userData } = userObject;
+
+  return userData;
+}
 
   async login(data: LoginInput) {
   const user = await User.findOne({
@@ -58,6 +90,13 @@ class AuthService {
       AUTH_MESSAGES.INVALID_CREDENTIALS
     );
   }
+
+  if (!user.isVerified) {
+  throw new ApiError(
+    StatusCodes.UNAUTHORIZED,
+    AUTH_MESSAGES.EMAIL_NOT_VERIFIED
+  );
+}
 
   const isPasswordValid = await comparePassword(
     data.password,
@@ -169,6 +208,51 @@ class AuthService {
 
     await user.save();
   }
+
+async verifyEmail(token: string) {
+
+  const hashedToken = hashToken(token);
+
+  const verificationToken =
+    await VerificationToken.findOne({
+      token: hashedToken,
+    });
+
+  if (!verificationToken) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      AUTH_MESSAGES.INVALID_TOKEN
+    );
+  }
+
+  const user = await User.findById(
+    verificationToken.userId
+  );
+
+  if (!user) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      AUTH_MESSAGES.USER_NOT_FOUND
+    );
+  }
+
+  if (user.isVerified) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      AUTH_MESSAGES.EMAIL_ALREADY_VERIFIED
+    );
+  }
+
+  user.isVerified = true;
+
+  await user.save();
+
+  await VerificationToken.deleteOne({
+    _id: verificationToken._id,
+  });
+}
+
+
 }
 
 export default new AuthService();

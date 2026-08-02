@@ -142,6 +142,20 @@ admin = asyncHandler(async (req: Request, res: Response) => {
   }
 );
 
+verifyEmail = asyncHandler<{ token: string }>(
+  async (req, res) => {
+
+    await authService.verifyEmail(req.params.token);
+
+    return successResponse(
+      res,
+      StatusCodes.OK,
+      AUTH_MESSAGES.EMAIL_VERIFIED
+    );
+
+  }
+);
+
 
 }
 

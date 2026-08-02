@@ -4,6 +4,9 @@ export const AUTH_MESSAGES = {
   LOGOUT_SUCCESS: "Logout successful",
 
   EMAIL_EXISTS: "Email already exists",
+  EMAIL_VERIFIED: "Email verified successfully",
+  EMAIL_ALREADY_VERIFIED: "Email is already verified",
+  EMAIL_NOT_VERIFIED:"Please verify your email before logging in",
   USER_NOT_FOUND: "User not found",
   INVALID_CREDENTIALS: "Invalid email or password",
 
