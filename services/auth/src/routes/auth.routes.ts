@@ -1,7 +1,7 @@
 import { Router } from "express";
 import AuthController from "../controllers/auth.controller.js";
 import validate from "../middleware/validate.middleware.js";
-import { registerSchema , loginSchema } from "../validators/auth.validator.js";
+import { registerSchema , loginSchema , resendVerificationEmailSchema} from "../validators/auth.validator.js";
 import authenticate from "../middleware/auth.middleware.js";
 import authorize from "../middleware/authorize.middleware.js";
 
@@ -47,6 +47,12 @@ router.get(
 router.post(
   "/verify-email/:token",
   AuthController.verifyEmail
+);
+
+router.post(
+  "/resend-verification-email",
+  validate(resendVerificationEmailSchema),
+  AuthController.resendVerificationEmail
 );
 
 export default router;

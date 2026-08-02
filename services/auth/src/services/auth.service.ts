@@ -11,7 +11,8 @@ import { generateRandomToken } from "../utils/token.js";
 import { sendEmail } from "../utils/email.js";
 import { verifyEmailTemplate } from "../templates/index.js";
 import { hashToken } from "../utils/hash.js";
-
+import type { IUser } from "../types/user.types.js";
+import crypto from "crypto";
 
 
 
@@ -23,6 +24,44 @@ class AuthService {
       refreshToken: generateRefreshToken(userId),
     };
   }
+
+  private async sendVerificationEmail(user: IUser) {
+  // Generate verification token
+  const verificationToken = generateRandomToken();
+
+  // Hash verification token
+  const hashedVerificationToken = hashToken(
+    verificationToken
+  );
+
+  // Delete old verification token (if any)
+  await VerificationToken.deleteMany({
+    userId: user._id,
+  });
+
+  // Save new verification token
+  await VerificationToken.create({
+    userId: user._id,
+    token: hashedVerificationToken,
+    expiresAt: new Date(
+      Date.now() + 15 * 60 * 1000
+    ),
+  });
+
+  // Verification link
+  const verificationLink =
+    `${env.CLIENT_URL}/verify-email/${verificationToken}`;
+
+  // Send email
+  await sendEmail({
+    to: user.email,
+    subject: "Verify Your Email",
+    html: verifyEmailTemplate({
+      firstName: user.firstName,
+      verificationLink,
+    }),
+  });
+}
 
   async register(data: RegisterInput) {
   const existingUser = await User.findOne({
@@ -43,34 +82,7 @@ class AuthService {
     password: hashedPassword,
   });
 
-  // Generate verification token
-  const verificationToken = generateRandomToken();
-
-  // Hash verification token
-  const hashedVerificationToken = hashToken(verificationToken);
-
-  // Save token
-  await VerificationToken.create({
-    userId: user._id,
-    token: hashedVerificationToken,
-    expiresAt: new Date(
-      Date.now() + 15 * 60 * 1000
-    ),
-  });
-
-  // Verification link
-  const verificationLink =
-    `${env.CLIENT_URL}/verify-email/${verificationToken}`;
-
-  // Send verification email
-  await sendEmail({
-    to: user.email,
-    subject: "Verify Your Email",
-    html: verifyEmailTemplate({
-      firstName: user.firstName,
-      verificationLink,
-    }),
-  });
+  await this.sendVerificationEmail(user);
 
   const userObject = user.toObject();
 
@@ -91,13 +103,6 @@ class AuthService {
     );
   }
 
-  if (!user.isVerified) {
-  throw new ApiError(
-    StatusCodes.UNAUTHORIZED,
-    AUTH_MESSAGES.EMAIL_NOT_VERIFIED
-  );
-}
-
   const isPasswordValid = await comparePassword(
     data.password,
     user.password
@@ -109,6 +114,13 @@ class AuthService {
       AUTH_MESSAGES.INVALID_CREDENTIALS
     );
   }
+
+  if (!user.isVerified) {
+  throw new ApiError(
+    StatusCodes.UNAUTHORIZED,
+    AUTH_MESSAGES.EMAIL_NOT_VERIFIED
+  );
+}
 
   const {accessToken,refreshToken,} = this.generateTokens(user._id.toString());
 
@@ -252,6 +264,28 @@ async verifyEmail(token: string) {
   });
 }
 
+
+async resendVerificationEmail(email: string) {
+  const user = await User.findOne({
+    email,
+  });
+
+  if (!user) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      AUTH_MESSAGES.USER_NOT_FOUND
+    );
+  }
+
+  if (user.isVerified) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      AUTH_MESSAGES.EMAIL_ALREADY_VERIFIED
+    );
+  }
+
+  await this.sendVerificationEmail(user);
+}
 
 }
 

@@ -45,3 +45,12 @@ export const loginSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+
+export const resendVerificationEmailSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .email("Please enter a valid email"),
+});
+
+export type ResendVerificationEmailInput = z.infer<typeof resendVerificationEmailSchema>;

@@ -7,6 +7,7 @@ import ApiError from "../helpers/ApiError.js";
 import { COOKIE_NAMES } from "../constants/cookies.js";
 import authService from "../services/auth.service.js";
 import {accessTokenCookieOptions,refreshTokenCookieOptions,} from "../utils/cookie.js";
+import { ResendVerificationEmailInput,} from "../validators/auth.validator.js";
 
 class AuthController {
   register = asyncHandler(async (req: Request, res: Response) => {
@@ -156,6 +157,24 @@ verifyEmail = asyncHandler<{ token: string }>(
   }
 );
 
+resendVerificationEmail = asyncHandler<
+  Record<string, string>,
+  unknown,
+  ResendVerificationEmailInput
+>(
+  async (req, res) => {
+
+    await authService.resendVerificationEmail(
+      req.body.email
+    );
+
+    return successResponse(
+      res,
+      StatusCodes.OK,
+      AUTH_MESSAGES.VERIFICATION_EMAIL_SENT
+    );
+  }
+);
 
 }
 
