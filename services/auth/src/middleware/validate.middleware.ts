@@ -8,6 +8,8 @@ const validate =
   (schema: ZodType) =>
   (req: Request, res: Response, next: NextFunction): void => {
     try {
+      console.log("Headers:", req.headers);
+      console.log("Body:", req.body);
       req.body = schema.parse(req.body);
       next();
     } catch (error) {

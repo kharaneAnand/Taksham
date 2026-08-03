@@ -54,3 +54,22 @@ export const resendVerificationEmailSchema = z.object({
 });
 
 export type ResendVerificationEmailInput = z.infer<typeof resendVerificationEmailSchema>;
+
+export const forgotPasswordSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .email("Please enter a valid email"),
+});
+
+export type ForgotPasswordInput =
+  z.infer<typeof forgotPasswordSchema>;
+
+  export const resetPasswordSchema = z.object({
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters"),
+});
+
+export type ResetPasswordInput =
+  z.infer<typeof resetPasswordSchema>;

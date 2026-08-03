@@ -6,10 +6,10 @@ import { StatusCodes } from "../constants/http.js";
 import { hashPassword , comparePassword} from "../utils/bcrypt.js";
 import { RegisterInput , LoginInput } from "../validators/auth.validator.js";
 import {generateAccessToken,generateRefreshToken,verifyRefreshToken} from "../utils/jwt.js";
-import VerificationToken from "../models/verification-token.model.js";
+import UserToken, {TokenType,} from "../models/user-token.model.js";
 import { generateRandomToken } from "../utils/token.js";
 import { sendEmail } from "../utils/email.js";
-import { verifyEmailTemplate } from "../templates/index.js";
+import { verifyEmailTemplate , forgotPasswordTemplate } from "../templates/index.js";
 import { hashToken } from "../utils/hash.js";
 import type { IUser } from "../types/user.types.js";
 import crypto from "crypto";
@@ -25,28 +25,44 @@ class AuthService {
     };
   }
 
-  private async sendVerificationEmail(user: IUser) {
-  // Generate verification token
-  const verificationToken = generateRandomToken();
+  private async createUserToken(
+  userId: string,
+  type: TokenType
+): Promise<string> {
 
-  // Hash verification token
-  const hashedVerificationToken = hashToken(
-    verificationToken
-  );
+  // Generate random token
+  const plainToken = generateRandomToken();
 
-  // Delete old verification token (if any)
-  await VerificationToken.deleteMany({
-    userId: user._id,
+  // Hash token
+  const hashedToken = hashToken(plainToken);
+
+  // Delete existing token of same type
+  await UserToken.deleteOne({
+    userId,
+    type,
   });
 
-  // Save new verification token
-  await VerificationToken.create({
-    userId: user._id,
-    token: hashedVerificationToken,
+  // Save new token
+  await UserToken.create({
+    userId,
+    token: hashedToken,
+    type,
     expiresAt: new Date(
       Date.now() + 15 * 60 * 1000
     ),
   });
+
+  return plainToken;
+}
+
+  private async sendVerificationEmail(user: IUser) {
+ 
+    const verificationToken =
+    await this.createUserToken(
+      user._id.toString(),
+      TokenType.EMAIL_VERIFICATION
+  );
+
 
   // Verification link
   const verificationLink =
@@ -226,9 +242,10 @@ async verifyEmail(token: string) {
   const hashedToken = hashToken(token);
 
   const verificationToken =
-    await VerificationToken.findOne({
-      token: hashedToken,
-    });
+  await UserToken.findOne({
+    token: hashedToken,
+    type: TokenType.EMAIL_VERIFICATION,
+  });
 
   if (!verificationToken) {
     throw new ApiError(
@@ -259,9 +276,9 @@ async verifyEmail(token: string) {
 
   await user.save();
 
-  await VerificationToken.deleteOne({
-    _id: verificationToken._id,
-  });
+  await UserToken.deleteOne({
+  _id: verificationToken._id,
+});
 }
 
 
@@ -287,6 +304,86 @@ async resendVerificationEmail(email: string) {
   await this.sendVerificationEmail(user);
 }
 
+
+  async forgotPassword(email: string) {
+
+  const user = await User.findOne({
+    email,
+  });
+
+  if (!user) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      AUTH_MESSAGES.USER_NOT_FOUND
+    );
+  }
+
+  const resetToken =
+    await this.createUserToken(
+      user._id.toString(),
+      TokenType.PASSWORD_RESET
+    );
+
+  const resetLink =
+    `${env.CLIENT_URL}/reset-password/${resetToken}`;
+
+  await sendEmail({
+    to: user.email,
+    subject: "Reset Your Password",
+    html: forgotPasswordTemplate({
+      firstName: user.firstName,
+      resetLink,
+    }),
+  });
 }
+
+async resetPassword(token: string,password: string) {
+
+  const hashedToken = hashToken(token);
+
+  const resetToken =
+    await UserToken.findOne({
+      token: hashedToken,
+      type: TokenType.PASSWORD_RESET,
+    });
+
+  if (!resetToken) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      AUTH_MESSAGES.INVALID_TOKEN
+    );
+  }
+
+  const user = await User.findById(
+    resetToken.userId
+  ).select("+refreshToken");
+
+  if (!user) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      AUTH_MESSAGES.USER_NOT_FOUND
+    );
+  }
+
+  user.password = await hashPassword(
+    password
+  );
+
+  // Invalidate every previous login
+  user.refreshToken = await hashPassword(
+    crypto.randomUUID()
+  );
+
+  await user.save();
+
+  await UserToken.deleteOne({
+    _id: resetToken._id,
+  });
+
+}
+
+}
+
+           
 
 export default new AuthService();

@@ -11,6 +11,9 @@ export const AUTH_MESSAGES = {
   USER_NOT_FOUND: "User not found",
   INVALID_CREDENTIALS: "Invalid email or password",
 
+  FORGOT_PASSWORD_EMAIL_SENT:"Password reset email sent successfully",
+  PASSWORD_RESET_SUCCESS:"Password reset successfully",
+
   TOKEN_EXPIRED: "Token expired",
   INVALID_TOKEN: "Invalid token",
   TOKEN_REFRESHED: "Token refreshed successfully",
