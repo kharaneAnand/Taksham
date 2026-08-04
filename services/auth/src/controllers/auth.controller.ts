@@ -7,7 +7,7 @@ import ApiError from "../helpers/ApiError.js";
 import { COOKIE_NAMES } from "../constants/cookies.js";
 import authService from "../services/auth.service.js";
 import {accessTokenCookieOptions,refreshTokenCookieOptions,} from "../utils/cookie.js";
-import { ResendVerificationEmailInput, ForgotPasswordInput , ResetPasswordInput , ChangePasswordInput} from "../validators/auth.validator.js";
+import { ResendVerificationEmailInput, ForgotPasswordInput , ResetPasswordInput , ChangePasswordInput , UpdateProfileInput} from "../validators/auth.validator.js";
 
 
 class AuthController {
@@ -237,6 +237,30 @@ changePassword = asyncHandler<
       StatusCodes.OK,
       AUTH_MESSAGES.PASSWORD_CHANGED
     );
+  }
+);
+
+
+updateProfile = asyncHandler<
+  Record<string, string>,
+  unknown,
+  UpdateProfileInput
+>(
+  async (req, res) => {
+
+    const user =
+      await authService.updateProfile(
+        req.user!.id,
+        req.body
+      );
+
+    return successResponse(
+      res,
+      StatusCodes.OK,
+      AUTH_MESSAGES.PROFILE_UPDATED,
+      user
+    );
+
   }
 );
 

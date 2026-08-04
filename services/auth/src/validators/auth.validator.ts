@@ -86,3 +86,35 @@ export type ResetPasswordInput =
 
 export type ChangePasswordInput =
   z.infer<typeof changePasswordSchema>;
+
+  export const updateProfileSchema = z.object({
+  firstName: z
+    .string()
+    .trim()
+    .min(2, "First name must be at least 2 characters")
+    .optional(),
+
+  lastName: z
+    .string()
+    .trim()
+    .min(2, "Last name must be at least 2 characters")
+    .optional(),
+
+  phone: z
+    .string()
+    .trim()
+    .min(10, "Phone number must be at least 10 digits")
+    .max(15, "Phone number is too long")
+    .optional(),
+}).refine(
+  (data) =>
+    data.firstName ||
+    data.lastName ||
+    data.phone,
+  {
+    message: "At least one field is required",
+  }
+);
+
+export type UpdateProfileInput =
+  z.infer<typeof updateProfileSchema>;

@@ -4,7 +4,7 @@ import env from "../config/env.js";
 import { AUTH_MESSAGES } from "../constants/messages.js";
 import { StatusCodes } from "../constants/http.js";
 import { hashPassword , comparePassword} from "../utils/bcrypt.js";
-import { RegisterInput , LoginInput } from "../validators/auth.validator.js";
+import { RegisterInput , LoginInput , UpdateProfileInput } from "../validators/auth.validator.js";
 import {generateAccessToken,generateRefreshToken,verifyRefreshToken} from "../utils/jwt.js";
 import UserToken, {TokenType,} from "../models/user-token.model.js";
 import { generateRandomToken } from "../utils/token.js";
@@ -425,6 +425,42 @@ async changePassword( userId: string,currentPassword: string,newPassword: string
   );
 
   await user.save();
+}
+
+async updateProfile(userId: string,data: UpdateProfileInput) {
+
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      AUTH_MESSAGES.USER_NOT_FOUND
+    );
+  }
+
+  if (data.firstName !== undefined) {
+    user.firstName = data.firstName;
+  }
+
+  if (data.lastName !== undefined) {
+    user.lastName = data.lastName;
+  }
+
+  if (data.phone !== undefined) {
+    user.phone = data.phone;
+  }
+
+  await user.save();
+
+  const userObject = user.toObject();
+
+  const {
+    password,
+    refreshToken,
+    ...userData
+  } = userObject;
+
+  return userData;
 }
 
 }

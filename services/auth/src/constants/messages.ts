@@ -15,6 +15,8 @@ export const AUTH_MESSAGES = {
   PASSWORD_RESET_SUCCESS:"Password reset successfully",
   PASSWORD_CHANGED:"Password changed successfully",
 
+  PROFILE_UPDATED:"Profile updated successfully",
+
   TOKEN_EXPIRED: "Token expired",
   INVALID_TOKEN: "Invalid token",
   TOKEN_REFRESHED: "Token refreshed successfully",

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import AuthController from "../controllers/auth.controller.js";
 import validate from "../middleware/validate.middleware.js";
-import { registerSchema , loginSchema , resendVerificationEmailSchema , forgotPasswordSchema , resetPasswordSchema , changePasswordSchema} from "../validators/auth.validator.js";
+import { registerSchema , loginSchema , resendVerificationEmailSchema , forgotPasswordSchema , resetPasswordSchema , changePasswordSchema , updateProfileSchema} from "../validators/auth.validator.js";
 import authenticate from "../middleware/auth.middleware.js";
 import authorize from "../middleware/authorize.middleware.js";
 
@@ -72,6 +72,13 @@ router.patch(
   authenticate,
   validate(changePasswordSchema),
   AuthController.changePassword
+);
+
+router.patch(
+  "/profile",
+  authenticate,
+  validate(updateProfileSchema),
+  AuthController.updateProfile
 );
 
 export default router;
