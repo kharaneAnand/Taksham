@@ -35,10 +35,16 @@ const userSchema = new mongoose.Schema<IUser>(
       default: "",
     },
 
-    avatar: {
+   avatar: {
+    url: {
       type: String,
       default: "",
     },
+    publicId: {
+      type: String,
+      default: "",
+    },
+  },
 
     role: {
       type: String,
