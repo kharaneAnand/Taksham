@@ -73,3 +73,16 @@ export type ForgotPasswordInput =
 
 export type ResetPasswordInput =
   z.infer<typeof resetPasswordSchema>;
+
+  export const changePasswordSchema = z.object({
+  currentPassword: z
+    .string()
+    .min(8, "Current password is required"),
+
+  newPassword: z
+    .string()
+    .min(8, "New password must be at least 8 characters"),
+});
+
+export type ChangePasswordInput =
+  z.infer<typeof changePasswordSchema>;

@@ -382,6 +382,51 @@ async resetPassword(token: string,password: string) {
 
 }
 
+async changePassword( userId: string,currentPassword: string,newPassword: string) {
+
+  const user = await User.findById(userId)
+    .select("+password +refreshToken");
+
+  if (!user) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      AUTH_MESSAGES.USER_NOT_FOUND
+    );
+  }
+
+  const isPasswordValid =
+    await comparePassword(
+      currentPassword,
+      user.password
+    );
+
+  if (!isPasswordValid) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      AUTH_MESSAGES.INVALID_CREDENTIALS
+    );
+  }
+
+  // Optional but recommended
+  if (currentPassword === newPassword) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "New password must be different from current password"
+    );
+  }
+
+  user.password = await hashPassword(
+    newPassword
+  );
+
+  // Logout from every device
+  user.refreshToken = await hashPassword(
+    crypto.randomUUID()
+  );
+
+  await user.save();
+}
+
 }
 
            

@@ -7,7 +7,8 @@ import ApiError from "../helpers/ApiError.js";
 import { COOKIE_NAMES } from "../constants/cookies.js";
 import authService from "../services/auth.service.js";
 import {accessTokenCookieOptions,refreshTokenCookieOptions,} from "../utils/cookie.js";
-import { ResendVerificationEmailInput, ForgotPasswordInput , ResetPasswordInput} from "../validators/auth.validator.js";
+import { ResendVerificationEmailInput, ForgotPasswordInput , ResetPasswordInput , ChangePasswordInput} from "../validators/auth.validator.js";
+
 
 class AuthController {
   register = asyncHandler(async (req: Request, res: Response) => {
@@ -216,6 +217,29 @@ resetPassword = asyncHandler<
 
   }
 );
+
+
+changePassword = asyncHandler<
+  Record<string, string>,
+  unknown,
+  ChangePasswordInput
+>(
+  async (req, res) => {
+
+    await authService.changePassword(
+      req.user!.id,
+      req.body.currentPassword,
+      req.body.newPassword
+    );
+
+    return successResponse(
+      res,
+      StatusCodes.OK,
+      AUTH_MESSAGES.PASSWORD_CHANGED
+    );
+  }
+);
+
 
 }
 

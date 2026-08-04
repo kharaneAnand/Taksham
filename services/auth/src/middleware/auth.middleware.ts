@@ -28,7 +28,7 @@ const authenticate = async (req: Request,res: Response, next: NextFunction) => {
     }
 
      req.user = {
-        id: user.id,
+        id: user.id.toString(),
         email: user.email,
         role: user.role,
     };

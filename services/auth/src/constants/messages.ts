@@ -13,6 +13,7 @@ export const AUTH_MESSAGES = {
 
   FORGOT_PASSWORD_EMAIL_SENT:"Password reset email sent successfully",
   PASSWORD_RESET_SUCCESS:"Password reset successfully",
+  PASSWORD_CHANGED:"Password changed successfully",
 
   TOKEN_EXPIRED: "Token expired",
   INVALID_TOKEN: "Invalid token",
