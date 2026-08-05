@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+
 import { IUser } from "../types/user.types.js";
 import { UserRole } from "../constants/role.js";
 
@@ -20,6 +21,7 @@ const userSchema = new mongoose.Schema<IUser>(
       type: String,
       required: true,
       unique: true,
+      index: true,
       lowercase: true,
       trim: true,
     },
@@ -27,24 +29,26 @@ const userSchema = new mongoose.Schema<IUser>(
     password: {
       type: String,
       required: true,
-      select:false,
+      select: false,
     },
 
     phone: {
       type: String,
       default: "",
+      trim: true,
     },
 
-   avatar: {
-    url: {
-      type: String,
-      default: "",
+    avatar: {
+      url: {
+        type: String,
+        default: "",
+      },
+
+      publicId: {
+        type: String,
+        default: "",
+      },
     },
-    publicId: {
-      type: String,
-      default: "",
-    },
-  },
 
     role: {
       type: String,
@@ -60,11 +64,12 @@ const userSchema = new mongoose.Schema<IUser>(
     refreshToken: {
       type: String,
       default: "",
-      select:false,
+      select: false,
     },
   },
   {
     timestamps: true,
+    versionKey: false,
   }
 );
 

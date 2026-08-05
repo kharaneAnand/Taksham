@@ -127,7 +127,7 @@ res.cookie(
     return successResponse(
       res,
       StatusCodes.OK,
-      "User fetched successfully",
+      AUTH_MESSAGES.USER_FETCHED,
       req.user
     );
   }
@@ -264,6 +264,47 @@ updateProfile = asyncHandler<
   }
 );
 
+updateAvatar = asyncHandler(
+  async (req: Request, res: Response) => {
+
+    if (!req.file) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        AUTH_MESSAGES.IMAGE_REQUIRED
+      );
+    }
+
+    const user = await authService.updateAvatar(
+      req.user!.id,
+      req.file
+    );
+
+    return successResponse(
+      res,
+      StatusCodes.OK,
+      AUTH_MESSAGES.AVATAR_UPDATED,
+      user
+    );
+
+  }
+);
+
+deleteAvatar = asyncHandler(
+  async (req: Request, res: Response) => {
+
+    const user = await authService.deleteAvatar(
+      req.user!.id
+    );
+
+    return successResponse(
+      res,
+      StatusCodes.OK,
+      AUTH_MESSAGES.AVATAR_DELETED,
+      user
+    );
+
+  }
+);
 
 }
 

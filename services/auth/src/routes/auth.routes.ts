@@ -4,7 +4,7 @@ import validate from "../middleware/validate.middleware.js";
 import { registerSchema , loginSchema , resendVerificationEmailSchema , forgotPasswordSchema , resetPasswordSchema , changePasswordSchema , updateProfileSchema} from "../validators/auth.validator.js";
 import authenticate from "../middleware/auth.middleware.js";
 import authorize from "../middleware/authorize.middleware.js";
-
+import upload from "../utils/multer.js";
 import { UserRole } from "../constants/role.js";
 
 const router = Router();
@@ -28,6 +28,7 @@ router.post(
 
 router.post(
   "/logout",
+  authenticate,
   AuthController.logout
 );
 
@@ -44,7 +45,7 @@ router.get(
     AuthController.admin
 );
 
-router.post(
+router.get(
   "/verify-email/:token",
   AuthController.verifyEmail
 );
@@ -80,5 +81,19 @@ router.patch(
   validate(updateProfileSchema),
   AuthController.updateProfile
 );
+
+router.patch(
+  "/profile/avatar",
+  authenticate,
+  upload.single("image"),
+  AuthController.updateAvatar
+);
+
+router.delete(
+  "/profile/avatar",
+  authenticate,
+  AuthController.deleteAvatar
+);
+
 
 export default router;

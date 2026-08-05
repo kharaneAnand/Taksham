@@ -14,8 +14,15 @@ export const AUTH_MESSAGES = {
   FORGOT_PASSWORD_EMAIL_SENT:"Password reset email sent successfully",
   PASSWORD_RESET_SUCCESS:"Password reset successfully",
   PASSWORD_CHANGED:"Password changed successfully",
-
+  PASSWORD_MUST_BE_DIFFERENT:"New password must be different from current password",
   PROFILE_UPDATED:"Profile updated successfully",
+  
+  USER_FETCHED:"User fetched successfully",
+
+  IMAGE_REQUIRED: "Image is required.",
+  AVATAR_UPDATED: "Avatar updated successfully.",
+  AVATAR_DELETED: "Avatar deleted successfully.",
+  AVATAR_NOT_FOUND: "Avatar not found.",
 
   TOKEN_EXPIRED: "Token expired",
   INVALID_TOKEN: "Invalid token",

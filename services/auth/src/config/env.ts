@@ -11,6 +11,7 @@ const requiredEnvVariables = [
   "JWT_ACCESS_EXPIRES_IN",
   "JWT_REFRESH_EXPIRES_IN",
   "CLIENT_URL",
+  "MEDIA_SERVICE_URL",
 ] as const;
 
 for (const key of requiredEnvVariables) {
@@ -34,12 +35,11 @@ interface Env {
 
   CLIENT_URL: string;
 
-  CLOUDINARY_CLOUD_NAME: string;
-  CLOUDINARY_API_KEY: string;
-  CLOUDINARY_API_SECRET: string;
 
   EMAIL_USER: string;
   EMAIL_PASSWORD: string;
+
+  MEDIA_SERVICE_URL: string;
 }
 
 const env: Env = {
@@ -60,15 +60,12 @@ const env: Env = {
 
   CLIENT_URL: process.env.CLIENT_URL!,
 
-  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || "",
-
-  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || "",
-
-  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || "",
-
   EMAIL_USER: process.env.EMAIL_USER || "",
 
   EMAIL_PASSWORD: process.env.EMAIL_PASSWORD || "",
+
+  MEDIA_SERVICE_URL: process.env.MEDIA_SERVICE_URL!,
+
 };
 
 export default env;

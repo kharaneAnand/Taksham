@@ -13,6 +13,7 @@ import { verifyEmailTemplate , forgotPasswordTemplate } from "../templates/index
 import { hashToken } from "../utils/hash.js";
 import type { IUser } from "../types/user.types.js";
 import crypto from "crypto";
+import MediaService from "./media.service.js";
 
 
 
@@ -407,13 +408,12 @@ async changePassword( userId: string,currentPassword: string,newPassword: string
     );
   }
 
-  // Optional but recommended
-  if (currentPassword === newPassword) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      "New password must be different from current password"
-    );
-  }
+ if (currentPassword === newPassword) {
+  throw new ApiError(
+    StatusCodes.BAD_REQUEST,
+    AUTH_MESSAGES.PASSWORD_MUST_BE_DIFFERENT
+  );
+}
 
   user.password = await hashPassword(
     newPassword
@@ -449,6 +449,90 @@ async updateProfile(userId: string,data: UpdateProfileInput) {
   if (data.phone !== undefined) {
     user.phone = data.phone;
   }
+
+  await user.save();
+
+  const userObject = user.toObject();
+
+  const {
+    password,
+    refreshToken,
+    ...userData
+  } = userObject;
+
+  return userData;
+}
+
+async updateAvatar(
+  userId: string,
+  file: Express.Multer.File
+) {
+
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      AUTH_MESSAGES.USER_NOT_FOUND
+    );
+  }
+
+  
+  if (user.avatar.publicId) {
+    await MediaService.deleteImage(
+      user.avatar.publicId
+    );
+  }
+
+  const avatar =
+    await MediaService.uploadAvatar(file);
+
+  user.avatar = {
+    url: avatar.url,
+    publicId: avatar.publicId,
+  };
+
+  await user.save();
+
+  const userObject = user.toObject();
+
+  const {
+    password,
+    refreshToken,
+    ...userData
+  } = userObject;
+
+  return userData;
+}
+
+async deleteAvatar(
+  userId: string
+) {
+
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      AUTH_MESSAGES.USER_NOT_FOUND
+    );
+  }
+
+  if (!user.avatar.publicId) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      AUTH_MESSAGES.AVATAR_NOT_FOUND
+    );
+  }
+
+  await MediaService.deleteImage(
+    user.avatar.publicId
+  );
+
+  user.avatar = {
+    url: "",
+    publicId: "",
+  };
 
   await user.save();
 

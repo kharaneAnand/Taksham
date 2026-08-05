@@ -1,6 +1,11 @@
 import { Document } from "mongoose";
 import { UserRole } from "../constants/role.js";
 
+export interface IUserAvatar {
+  url: string;
+  publicId: string;
+}
+
 export interface IUser extends Document {
   firstName: string;
   lastName: string;
@@ -9,7 +14,8 @@ export interface IUser extends Document {
   password: string;
 
   phone: string;
-  avatar: string;
+
+  avatar: IUserAvatar;
 
   role: UserRole;
 
