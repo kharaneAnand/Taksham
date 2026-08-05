@@ -1,1 +1,0 @@
-export const COOKIE_NAMES = {} as const;
