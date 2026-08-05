@@ -42,27 +42,24 @@ class MediaController {
     }
   );
 
-  deleteImage = asyncHandler(
-    async (req: Request, res: Response) => {
-      const publicId = req.params.publicId as string;
+ deleteImage = asyncHandler(
+  async (req: Request, res: Response) => {
 
-      if (!publicId) {
-        throw new ApiError(
-          StatusCodes.BAD_REQUEST,
-          "Public ID is required."
-        );
-      }
+    const { publicId } = req.body;
 
-      await MediaService.deleteImage(publicId);
+    await MediaService.deleteImage(publicId);
 
-      successResponse(
-        res,
-        StatusCodes.OK,
-        MEDIA_MESSAGES.IMAGE_DELETED,
-        null
-      );
-    }
-  );
+    successResponse(
+      res,
+      StatusCodes.OK,
+      MEDIA_MESSAGES.IMAGE_DELETED,
+      null
+    );
+
+  }
+);
+
+
 }
 
 export default new MediaController();

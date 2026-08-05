@@ -1,5 +1,7 @@
 import { Router } from "express";
 
+import validate from "../middleware/validate.middleware.js";
+import {deleteImageSchema,} from "../validators/media.validator.js";
 import MediaController from "../controllers/media.controller.js";
 import upload from "../utils/multer.js";
 
@@ -12,8 +14,10 @@ router.post(
 );
 
 router.delete(
-  "/:publicId",
+  "/delete",
+  validate(deleteImageSchema),
   MediaController.deleteImage
 );
+
 
 export default router;

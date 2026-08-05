@@ -23,11 +23,17 @@ class MediaService {
     };
   }
 
-  async deleteImage(
-    publicId: string
-  ): Promise<void> {
-    await cloudinary.uploader.destroy(publicId);
+ async deleteImage(
+  publicId: string
+): Promise<void> {
+
+  const result = await cloudinary.uploader.destroy(publicId);
+
+  if (result.result !== "ok") {
+    throw new Error("Image not found or already deleted.");
   }
+
+}
 }
 
 export default new MediaService();
