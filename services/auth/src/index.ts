@@ -7,11 +7,7 @@ const startServer = async (): Promise<void> => {
     await connectDB();
 
     app.listen(env.PORT, () => {
-      console.log("==================================");
-      console.log("🚀 Auth Service Started");
-      console.log(`🌍 Environment : ${env.NODE_ENV}`);
-      console.log(`🚪 Port        : ${env.PORT}`);
-      console.log("==================================");
+      console.log(`auth service is running on the ${env.PORT}`) ;
     });
   } catch (error) {
     console.error("Failed to start server:", error);

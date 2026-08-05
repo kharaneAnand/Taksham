@@ -11,7 +11,9 @@ const requiredEnvVariables = [
 
 for (const key of requiredEnvVariables) {
   if (!process.env[key]) {
-    throw new Error(`❌ Missing environment variable: ${key}`);
+    throw new Error(
+      `❌ Missing environment variable: ${key}`
+    );
   }
 }
 
@@ -30,11 +32,14 @@ const env: Env = {
 
   PORT: Number(process.env.PORT),
 
-  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME!,
+  CLOUDINARY_CLOUD_NAME:
+    process.env.CLOUDINARY_CLOUD_NAME!,
 
-  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY!,
+  CLOUDINARY_API_KEY:
+    process.env.CLOUDINARY_API_KEY!,
 
-  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET!,
+  CLOUDINARY_API_SECRET:
+    process.env.CLOUDINARY_API_SECRET!,
 };
 
 export default env;
