@@ -4,6 +4,8 @@ import {
   Search,
   ShoppingCart,
 } from "lucide-react";
+import Navigation from "./Navigation";
+
 
 const Navbar = () => {
   return (
@@ -163,6 +165,7 @@ const Navbar = () => {
         </div>
 
       </div>
+      <Navigation />
     </header>
   );
 };
