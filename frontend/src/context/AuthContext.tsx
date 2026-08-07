@@ -1,35 +1,40 @@
-import {createContext,useContext,useState,} from "react";
-import type {ReactNode,} from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 
+import type { ReactNode } from "react";
+import type {
+  LoginInput,
+  User,
+} from "../types/auth";
 
-interface User {
-  _id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  role: string;
-  isVerified: boolean;
-  avatar: {
-    url: string;
-    publicId: string;
-  };
-}
+import AuthService from "../services/auth.service";
 
 interface AuthContextType {
   user: User | null;
-  isAuthenticated: boolean;
+
   loading: boolean;
 
-  setUser: (user: User | null) => void;
-  setLoading: (loading: boolean) => void;
+  isAuthenticated: boolean;
 
-  logout: () => void;
+  login: (
+    data: LoginInput
+  ) => Promise<void>;
+
+  logout: () => Promise<void>;
+
+  checkAuth: () => Promise<void>;
+
+  setUser: (user: User | null) => void;
 }
 
-const AuthContext = createContext<AuthContextType | null>(
-  null
-);
+const AuthContext =
+  createContext<AuthContextType | null>(
+    null
+  );
 
 export const AuthProvider = ({
   children,
@@ -41,11 +46,53 @@ export const AuthProvider = ({
     useState<User | null>(null);
 
   const [loading, setLoading] =
-    useState(false);
+    useState(true);
 
-  const logout = () => {
-    setUser(null);
+  const login = async (
+    data: LoginInput
+  ) => {
+
+    const user =
+      await AuthService.login(data);
+
+    setUser(user);
+
   };
+
+  const logout = async () => {
+
+    await AuthService.logout();
+
+    setUser(null);
+
+  };
+
+  const checkAuth = async () => {
+
+    try {
+
+      const user =
+        await AuthService.me();
+
+      setUser(user);
+
+    } catch {
+
+      setUser(null);
+
+    } finally {
+
+      setLoading(false);
+
+    }
+
+  };
+
+  useEffect(() => {
+
+    checkAuth();
+
+  }, []);
 
   return (
     <AuthContext.Provider
@@ -53,14 +100,16 @@ export const AuthProvider = ({
         user,
         loading,
         isAuthenticated: !!user,
-        setUser,
-        setLoading,
+        login,
         logout,
+        checkAuth,
+        setUser,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
+
 };
 
 export const useAuth = () => {
@@ -75,4 +124,5 @@ export const useAuth = () => {
   }
 
   return context;
+
 };
