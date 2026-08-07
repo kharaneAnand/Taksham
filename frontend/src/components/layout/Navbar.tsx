@@ -15,11 +15,11 @@ const Navbar = () => {
         {/* Logo */}
 
         <div className="shrink-0 cursor-pointer">
-          <h1 className="text-[34px] font-semibold leading-none tracking-tight">
+          <h1 className="text-[40px] font-semibold leading-none tracking-tight">
             तक्षम्
           </h1>
 
-          <p className="mt-1 pl-0.5 text-[10px] tracking-[0.45em] text-neutral-500">
+          <p className="mt-1 pl-0.5 text-[12px] tracking-[0.45em] text-neutral-500">
             TAKSHAM
           </p>
         </div>
@@ -40,8 +40,7 @@ const Navbar = () => {
               bg-[#F4E4C8]
               px-6
               text-[14px]
-              font-medium
-              transition
+              font-bold
               hover:bg-[#EEDAB8]
             "
           >
@@ -98,7 +97,7 @@ const Navbar = () => {
               bg-white
               px-6
               text-[14px]
-              font-medium
+              font-bold
               transition
               hover:bg-[#F8F5F0]
             "
