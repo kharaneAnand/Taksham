@@ -2,36 +2,36 @@ import { useState } from "react";
 
 import { ArrowRight } from "lucide-react";
 
-import livingRoom from "../../../assets/images/rooms/living-room.png";
-import bedroom from "../../../assets/images/rooms/bedroom.png";
-import kitchen from "../../../assets/images/rooms/kitchen.png";
-import diningRoom from "../../../assets/images/rooms/diningroom.png";
-import homeOffice from "../../../assets/images/rooms/office.png";
-import Study from "../../../assets/images/rooms/Study.png";
-import Balcony from "../../../assets/images/rooms/Balcony.png";
-import Entertainment from "../../../assets/images/rooms/Entertainment.png";
+import livingRoom from "../../assets/images/rooms/living-room.png";
+import bedroom from "../../assets/images/rooms/bedroom.png";
+import kitchen from "../../assets/images/rooms/kitchen.png";
+import diningRoom from "../../assets/images/rooms/diningroom.png";
+import homeOffice from "../../assets/images/rooms/office.png";
+import Study from "../../assets/images/rooms/Study.png";
+import Balcony from "../../assets/images/rooms/Balcony.png";
+import Entertainment from "../../assets/images/rooms/Entertainment.png";
 
 /* =========================================================
    CATEGORY IMAGES
 ========================================================= */
 
-import sofa from "../../../assets/images/categories/sofa.png";
-import chair from "../../../assets/images/categories/chair.png";
-import table from "../../../assets/images/categories/Table.png";
-import storage from "../../../assets/images/categories/Storage.png";
-import beds from "../../../assets/images/categories/beds.png";
-import lighting from "../../../assets/images/categories/Lighting.png";
-import decor from "../../../assets/images/categories/Dacore.png";
-import rugs from "../../../assets/images/categories/Rugs.png";
+import sofa from "../../assets/images/categories/sofa.png";
+import chair from "../../assets/images/categories/chair.png";
+import table from "../../assets/images/categories/Table.png";
+import storage from "../../assets/images/categories/Storage.png";
+import beds from "../../assets/images/categories/beds.png";
+import lighting from "../../assets/images/categories/Lighting.png";
+import decor from "../../assets/images/categories/Dacore.png";
+import rugs from "../../assets/images/categories/Rugs.png";
 
-import wardrobes from "../../../assets/images/categories/wardrobes.png";
-import dressers from "../../../assets/images/categories/Dressers.png";
-import sideTable from "../../../assets/images/categories/sidetable.png";
-import mirrors from "../../../assets/images/categories/mirrors.png";
-import curtains from "../../../assets/images/categories/curtains.png";
-import plants from "../../../assets/images/categories/organizers.png";
-import shelves from "../../../assets/images/categories/shalves.png";
-import organizers from "../../../assets/images/categories/organizers.png";
+import wardrobes from "../../assets/images/categories/wardrobes.png";
+import dressers from "../../assets/images/categories/Dressers.png";
+import sideTable from "../../assets/images/categories/sidetable.png";
+import mirrors from "../../assets/images/categories/mirrors.png";
+import curtains from "../../assets/images/categories/curtains.png";
+import plants from "../../assets/images/categories/organizers.png";
+import shelves from "../../assets/images/categories/shalves.png";
+import organizers from "../../assets/images/categories/organizers.png";
 
 
 /* =========================================================

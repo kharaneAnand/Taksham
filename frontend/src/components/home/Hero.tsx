@@ -1,8 +1,8 @@
-import hero1 from "../../../assets/images/hero/hero-01.png";
-import hero2 from "../../../assets/images/hero/hero-02.png";
-import hero3 from "../../../assets/images/hero/hero-03.png";
-import hero4 from "../../../assets/images/hero/hero-04.png";
-import hero5 from "../../../assets/images/hero/hero-05.png";
+import hero1 from "../../assets/images/hero/hero-01.png";
+import hero2 from "../../assets/images/hero/hero-02.png";
+import hero3 from "../../assets/images/hero/hero-03.png";
+import hero4 from "../../assets/images/hero/hero-04.png";
+import hero5 from "../../assets/images/hero/hero-05.png";
 
 import { useEffect, useState } from "react";
 

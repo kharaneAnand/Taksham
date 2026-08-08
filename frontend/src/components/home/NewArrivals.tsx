@@ -8,12 +8,12 @@ import {
   Headphones,
 } from "lucide-react";
 
-import sofa from "../../../assets/images/products/sofa.png";
-import diningTable from "../../../assets/images/products/dining-table.png";
-import accentChair from "../../../assets/images/products/accent-chair.png";
-import tvUnit from "../../../assets/images/products/tv-unit.png";
-import floorLamp from "../../../assets/images/products/floor-lamp.png";
-import storageCabinet from "../../../assets/images/products/storage-cabinet.png";
+import sofa from "../../assets/images/products/sofa.png";
+import diningTable from "../../assets/images/products/dining-table.png";
+import accentChair from "../../assets/images/products/accent-chair.png";
+import tvUnit from "../../assets/images/products/tv-unit.png";
+import floorLamp from "../../assets/images/products/floor-lamp.png";
+import storageCabinet from "../../assets/images/products/storage-cabinet.png";
 
 
 
