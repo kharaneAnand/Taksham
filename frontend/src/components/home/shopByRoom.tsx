@@ -11,9 +11,6 @@ import Study from "../../assets/images/rooms/Study.png";
 import Balcony from "../../assets/images/rooms/Balcony.png";
 import Entertainment from "../../assets/images/rooms/Entertainment.png";
 
-/* =========================================================
-   CATEGORY IMAGES
-========================================================= */
 
 import sofa from "../../assets/images/categories/sofa.png";
 import chair from "../../assets/images/categories/chair.png";
@@ -34,9 +31,6 @@ import shelves from "../../assets/images/categories/shalves.png";
 import organizers from "../../assets/images/categories/organizers.png";
 
 
-/* =========================================================
-   ROOMS
-========================================================= */
 
 const rooms = [
   {
@@ -81,10 +75,6 @@ const rooms = [
   },
 ];
 
-
-/* =========================================================
-   POPULAR CATEGORIES
-========================================================= */
 
 const categories = [
   {
@@ -154,9 +144,7 @@ const categories = [
 ];
 
 
-/* =========================================================
-   COMPONENT
-========================================================= */
+
 
 const ShopByRoom = () => {
 
@@ -179,10 +167,6 @@ const ShopByRoom = () => {
   return (
     <section className="bg-[#FAF8F5] py-12 sm:py-14">
 
-
-      {/* =====================================================
-          SHOP BY ROOM
-      ===================================================== */}
 
       <div className="mx-auto max-w-350 px-4 sm:px-6 lg:px-8">
 
@@ -254,10 +238,6 @@ const ShopByRoom = () => {
         </div>
 
 
-        {/* ===================================================
-            ROOM GRID
-        =================================================== */}
-
         <div
           className="
             grid
@@ -292,7 +272,6 @@ const ShopByRoom = () => {
               "
             >
 
-              {/* Image */}
 
               <div
                 className="
@@ -426,10 +405,6 @@ const ShopByRoom = () => {
       </div>
 
 
-      {/* =====================================================
-          POPULAR CATEGORIES
-      ===================================================== */}
-
       <div
         className="
           mx-auto
@@ -506,9 +481,7 @@ const ShopByRoom = () => {
         </div>
 
 
-        {/* ===================================================
-            CATEGORY GRID
-        =================================================== */}
+   
 
         <div
           className="
@@ -551,7 +524,6 @@ const ShopByRoom = () => {
               "
             >
 
-              {/* Soft Glow */}
 
               <span
                 className="
@@ -608,7 +580,6 @@ const ShopByRoom = () => {
               </div>
 
 
-              {/* Category Name */}
 
               <span
                 className="
@@ -628,7 +599,6 @@ const ShopByRoom = () => {
               </span>
 
 
-              {/* Gold Indicator */}
 
               <span
                 className="
