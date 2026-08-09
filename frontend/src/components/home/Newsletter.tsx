@@ -7,7 +7,7 @@ import {
 
 const Newsletter = () => {
   return (
-    <section className="relative w-full overflow-hidden  bg-[#FAF8F5] py-8 sm:py-10 lg:py-12">
+    <section className="relative w-full overflow-hidden bg-[#FAF8F4] py-8 sm:py-10 lg:py-12">
       <div className="mx-auto max-w-370 px-4 sm:px-6 lg:px-8 xl:px-10">
 
         {/* Main Editorial Card */}

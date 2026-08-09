@@ -610,6 +610,7 @@ const Footer = () => {
             <span className="text-[9px] text-[#A49B91]">
               © 2026 Taksham
             </span>
+            
 
           </div>
 
