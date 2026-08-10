@@ -15,8 +15,6 @@ import tvUnit from "../../assets/images/products/tv-unit.png";
 import floorLamp from "../../assets/images/products/floor-lamp.png";
 import storageCabinet from "../../assets/images/products/storage-cabinet.png";
 
-
-
 const products = [
   {
     name: "Luna Sofa",
@@ -62,8 +60,6 @@ const products = [
   },
 ];
 
-
-
 const benefits = [
   {
     title: "Free Delivery",
@@ -92,8 +88,6 @@ const benefits = [
   },
 ];
 
-
-
 type Product = {
   name: string;
   type: string;
@@ -107,8 +101,6 @@ type ProductCardProps = {
   mobile?: boolean;
 };
 
-
-
 const NewArrivals = () => {
   return (
     <section
@@ -116,12 +108,13 @@ const NewArrivals = () => {
         w-full
         overflow-hidden
         bg-[#FAF8F5]
-        py-3
-        sm:py-4
+        py-4
+        sm:py-5
         lg:py-5
       "
     >
-     
+
+      
 
       <div
         className="
@@ -133,11 +126,10 @@ const NewArrivals = () => {
           lg:px-8
         "
       >
-        
 
         <div
           className="
-            mb-7
+            mb-6
             flex
             items-end
             justify-between
@@ -145,32 +137,32 @@ const NewArrivals = () => {
             lg:mb-9
           "
         >
-          <div>
-            {/* Eyebrow */}
 
-            <div className="mb-2 flex items-center gap-3">
+          <div>
+
+            <div className="mb-2 flex items-center gap-2.5">
+
               <span
                 className="
-                  text-[9px]
+                  text-[8px]
                   font-semibold
                   uppercase
-                  tracking-[0.32em]
-                  text-[#B18343]
+                  tracking-[0.3em]
+                  text-[#A4773E]
                   sm:text-[10px]
                 "
               >
                 Just In
               </span>
 
-              <span className="h-px w-7 bg-[#D2B27D]" />
-            </div>
+              <span className="h-px w-6 bg-[#D2B27D]" />
 
-            {/* Heading */}
+            </div>
 
             <h2
               className="
                 font-serif
-                text-[32px]
+                text-[29px]
                 font-medium
                 leading-none
                 tracking-[-0.035em]
@@ -181,15 +173,15 @@ const NewArrivals = () => {
             >
               New Arrivals
             </h2>
+
           </div>
 
-          {/* View All */}
+          
 
           <button
             className="
               group
-              flex
-              shrink-0
+              hidden
               items-center
               gap-2
               border-b
@@ -202,6 +194,7 @@ const NewArrivals = () => {
               duration-300
               hover:border-[#B58A4A]
               hover:text-[#9A7138]
+              sm:flex
               sm:text-[11px]
               lg:text-[12px]
             "
@@ -218,25 +211,28 @@ const NewArrivals = () => {
               "
             />
           </button>
+
         </div>
 
-       
 
-        <div className="w-full min-w-0">
-          
+        
+
+        <div className="relative sm:hidden">
 
           <div
             className="
+              -mx-4
               flex
-              w-full
-              min-w-0
-              gap-4
+              gap-3
               overflow-x-auto
-              pb-4
+              px-4
+              pb-3
               scrollbar-none
-              sm:hidden
+              snap-x
+              snap-mandatory
             "
           >
+
             {products.map((product) => (
               <ProductCard
                 key={product.name}
@@ -244,54 +240,90 @@ const NewArrivals = () => {
                 mobile
               />
             ))}
+
           </div>
 
+          {/* Mobile Swipe Indicator */}
 
-          <div
-            className="
-              hidden
-              w-full
-              min-w-0
-              grid-cols-2
-              gap-4
-              sm:grid
-              lg:hidden
-            "
-          >
-            {products.map((product) => (
-              <ProductCard
-                key={product.name}
-                product={product}
-              />
-            ))}
+          <div className="mt-1 flex items-center justify-end gap-1.5">
+
+            <span
+              className="
+                text-[7px]
+                font-medium
+                uppercase
+                tracking-[0.14em]
+                text-[#A0988D]
+              "
+            >
+              Swipe to explore
+            </span>
+
+            <ArrowRight
+              size={9}
+              strokeWidth={1.5}
+              className="text-[#B7894A]"
+            />
+
           </div>
 
-
-          <div
-            className="
-              hidden
-              w-full
-              min-w-0
-              grid-cols-6
-              gap-4
-              lg:grid
-              xl:gap-5
-            "
-          >
-            {products.map((product) => (
-              <ProductCard
-                key={product.name}
-                product={product}
-              />
-            ))}
-          </div>
         </div>
+
+
+        
+
+        <div
+          className="
+            hidden
+            w-full
+            min-w-0
+            grid-cols-2
+            gap-4
+            sm:grid
+            lg:hidden
+          "
+        >
+
+          {products.map((product) => (
+            <ProductCard
+              key={product.name}
+              product={product}
+            />
+          ))}
+
+        </div>
+
+
+        
+
+        <div
+          className="
+            hidden
+            w-full
+            min-w-0
+            grid-cols-6
+            gap-4
+            lg:grid
+            xl:gap-5
+          "
+        >
+
+          {products.map((product) => (
+            <ProductCard
+              key={product.name}
+              product={product}
+            />
+          ))}
+
+        </div>
+
       </div>
+
 
       <div
         className="
           mx-auto
-          mt-12
+          mt-10
           w-full
           max-w-350
           px-4
@@ -301,8 +333,103 @@ const NewArrivals = () => {
           lg:px-8
         "
       >
+
+        {/* MOBILE BENEFITS */}
+
         <div
           className="
+            -mx-4
+            flex
+            gap-2
+            overflow-x-auto
+            px-4
+            pb-1
+            scrollbar-none
+            sm:hidden
+          "
+        >
+
+          {benefits.map((benefit) => {
+
+            const Icon = benefit.icon;
+
+            return (
+              <div
+                key={benefit.title}
+                className="
+                  flex
+                  min-w-48
+                  items-center
+                  gap-3
+                  rounded-xl
+                  border
+                  border-[#E2D8CB]
+                  bg-[#F4EEE5]
+                  px-3.5
+                  py-3
+                  shadow-[0_3px_12px_rgba(58,46,34,0.035)]
+                "
+              >
+
+                <div
+                  className="
+                    flex
+                    h-9
+                    w-9
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-full
+                    border
+                    border-[#D5C5AF]
+                    bg-[#FBF8F3]
+                    text-[#A4773E]
+                  "
+                >
+                  <Icon
+                    size={17}
+                    strokeWidth={1.5}
+                  />
+                </div>
+
+                <div className="min-w-0">
+
+                  <p
+                    className="
+                      text-[9px]
+                      font-semibold
+                      text-[#302C27]
+                    "
+                  >
+                    {benefit.title}
+                  </p>
+
+                  <p
+                    className="
+                      mt-0.5
+                      truncate
+                      text-[7px]
+                      text-[#81776B]
+                    "
+                  >
+                    {benefit.description}
+                  </p>
+
+                </div>
+
+              </div>
+            );
+
+          })}
+
+        </div>
+
+
+        {/* DESKTOP BENEFITS */}
+
+        <div
+          className="
+            hidden
             w-full
             overflow-hidden
             rounded-[14px]
@@ -310,13 +437,15 @@ const NewArrivals = () => {
             border-[#E0D6C8]
             bg-[#F3EEE6]
             shadow-[0_8px_30px_rgba(56,44,31,0.035)]
+            sm:block
           "
         >
+
           <div
             className="
               grid
               w-full
-              grid-cols-1
+              grid-cols-2
               divide-y
               divide-[#DDD2C4]
               sm:grid-cols-2
@@ -325,7 +454,9 @@ const NewArrivals = () => {
               lg:grid-cols-5
             "
           >
+
             {benefits.map((benefit) => {
+
               const Icon = benefit.icon;
 
               return (
@@ -349,7 +480,6 @@ const NewArrivals = () => {
                     xl:px-6
                   "
                 >
-                  {/* Icon */}
 
                   <div
                     className="
@@ -371,15 +501,16 @@ const NewArrivals = () => {
                       group-hover:text-[#A47D3C]
                     "
                   >
+
                     <Icon
                       size={20}
                       strokeWidth={1.45}
                     />
+
                   </div>
 
-                  {/* Text */}
-
                   <div className="min-w-0">
+
                     <p
                       className="
                         truncate
@@ -404,22 +535,32 @@ const NewArrivals = () => {
                     >
                       {benefit.description}
                     </p>
+
                   </div>
+
                 </div>
               );
+
             })}
+
           </div>
+
         </div>
+
       </div>
+
     </section>
   );
 };
+
+
 
 
 const ProductCard = ({
   product,
   mobile = false,
 }: ProductCardProps) => {
+
   return (
     <article
       className={`
@@ -427,11 +568,11 @@ const ProductCard = ({
         relative
         min-w-0
         overflow-hidden
-        rounded-[13px]
+        rounded-[14px]
         border
         border-[#E4DCCF]
         bg-white
-        shadow-[0_2px_8px_rgba(45,37,29,0.025)]
+        shadow-[0_3px_12px_rgba(45,37,29,0.035)]
         transition-all
         duration-500
         ease-out
@@ -441,25 +582,34 @@ const ProductCard = ({
 
         ${
           mobile
-            ? "w-[78vw] max-w-75 shrink-0"
+            ? `
+              w-[79vw]
+              max-w-78
+              shrink-0
+              snap-start
+            `
             : "w-full"
         }
       `}
     >
-      
+
+     
 
       <div
-        className="
+        className={`
           relative
-          h-52.5
           w-full
           overflow-hidden
-          bg-[#F5F1EB]
-          sm:h-57.5
-          lg:h-52.5
-          xl:h-56.25
-        "
+          bg-[#F4F0E9]
+
+          ${
+            mobile
+              ? "h-59"
+              : "h-52.5 sm:h-57.5 lg:h-52.5 xl:h-56.25"
+          }
+        `}
       >
+
         <img
           src={product.image}
           alt={product.name}
@@ -478,7 +628,7 @@ const ProductCard = ({
           "
         />
 
-        {/* Soft image overlay */}
+        {/* Warm Image Finish */}
 
         <div
           className="
@@ -486,12 +636,13 @@ const ProductCard = ({
             absolute
             inset-0
             bg-linear-to-t
-            from-black/2.5
+            from-[#6F5A43]/2.5
             via-transparent
-            to-white/6
+            to-white/8
           "
         />
 
+        {/* New */}
 
         {product.isNew && (
           <span
@@ -500,21 +651,25 @@ const ProductCard = ({
               left-3
               top-3
               rounded-full
-              bg-[#DCA63F]
+              border
+              border-white/40
+              bg-[#B7894A]
               px-2.5
               py-1.5
-              text-[8px]
+              text-[7px]
               font-semibold
               uppercase
-              tracking-[0.13em]
+              tracking-[0.14em]
               text-white
-              shadow-[0_4px_12px_rgba(115,77,22,0.15)]
+              shadow-[0_5px_14px_rgba(115,77,22,0.16)]
+              sm:text-[8px]
             "
           >
             New
           </span>
         )}
 
+        {/* Wishlist */}
 
         <button
           aria-label={`Add ${product.name} to wishlist`}
@@ -531,7 +686,7 @@ const ProductCard = ({
             border
             border-[#E4DBCF]
             bg-[#FAF8F5]/95
-            text-[#3C3935]
+            text-[#62584D]
             shadow-[0_5px_16px_rgba(0,0,0,0.06)]
             backdrop-blur-md
             transition-all
@@ -542,14 +697,18 @@ const ProductCard = ({
             hover:text-[#A47D3C]
           "
         >
+
           <Heart
             size={16}
             strokeWidth={1.6}
           />
+
         </button>
+
       </div>
 
 
+    
       <div
         className="
           min-w-0
@@ -562,7 +721,6 @@ const ProductCard = ({
           sm:pt-4
         "
       >
-        {/* Product type */}
 
         <p
           className="
@@ -577,8 +735,6 @@ const ProductCard = ({
         >
           {product.type}
         </p>
-
-        {/* Product name */}
 
         <h3
           className="
@@ -595,8 +751,6 @@ const ProductCard = ({
           {product.name}
         </h3>
 
-        {/* Price */}
-
         <p
           className="
             mt-2.5
@@ -609,8 +763,11 @@ const ProductCard = ({
         >
           {product.price}
         </p>
+
       </div>
 
+
+      {/* Gold bottom accent */}
 
       <span
         className="
@@ -618,13 +775,15 @@ const ProductCard = ({
           bottom-0
           left-0
           h-0.5
-          w-0
+          w-full
           bg-[#B99051]
+          opacity-0
           transition-all
           duration-500
-          group-hover:w-full
+          group-hover:opacity-100
         "
       />
+
     </article>
   );
 };
