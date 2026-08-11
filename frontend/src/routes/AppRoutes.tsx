@@ -12,39 +12,26 @@ import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
 import AdminRoute from "./AdminRoute";
 
-import Home from "../pages/home/Home";
+import ScrollToTop from "../components/common/ScrollToTop";
 
+import Home from "../pages/home/Home";
 import Login from "../pages/login/Login";
 import Register from "../pages/auth/Register";
-
 import Profile from "../pages/profile/Profile";
-
 import Dashboard from "../pages/admin/Dashboard";
-
 import Products from "../pages/products/Products";
 import ProductDetails from "../pages/products/ProductDetails";
-
 import Rooms from "../pages/rooms/Rooms";
 import RoomDetails from "../pages/rooms/RoomDetails";
-
 import Collections from "../pages/collections/Collections";
-
 import Ideas from "../pages/ideas/Ideas";
-
 import InteriorServices from "../pages/interiorServices/InteriorServices";
-
 import Projects from "../pages/projects/Projects";
-
 import Offers from "../pages/offers/Offers";
-
 import Consultation from "../pages/consultation/Consultation";
-
 import Cart from "../pages/cart/Cart";
-
 import Wishlist from "../pages/wishlist/Wishlist";
-
 import Checkout from "../pages/checkout/Checkout";
-
 import Orders from "../pages/orders/Orders";
 import OrderDetails from "../pages/orders/OrderDetails";
 
@@ -52,7 +39,7 @@ import OrderDetails from "../pages/orders/OrderDetails";
 const AppRoutes = () => {
   return (
     <BrowserRouter>
-
+      <ScrollToTop />
       <Routes>
 
         <Route element={<MainLayout />}>
@@ -70,7 +57,7 @@ const AppRoutes = () => {
           />
 
           <Route
-            path="/products/:id"
+            path="/products/:slug"
             element={<ProductDetails />}
           />
 

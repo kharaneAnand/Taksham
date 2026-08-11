@@ -1,12 +1,30 @@
+export interface ProductVariant {
+  id: number;
+  color?: string;
+
+  images: string[];
+
+
+  price?: number;
+
+  stock?: number;
+
+  material?: string;
+}
+
 export interface Product {
-  id: string;
+  id: number;
+
   name: string;
+
   slug: string;
+
   price: number;
 
   image: string;
 
   category: string;
+
   subcategory?: string;
 
   room: string;
@@ -18,9 +36,12 @@ export interface Product {
   description?: string;
 
   rating?: number;
+
   reviews?: number;
 
   isNew?: boolean;
 
   stock: number;
+
+  variants?: ProductVariant[];
 }

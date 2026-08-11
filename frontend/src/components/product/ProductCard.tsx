@@ -5,6 +5,8 @@ import {
   Star,
 } from "lucide-react";
 
+import { useNavigate } from "react-router-dom";
+
 import type { Product } from "../../types/product";
 
 interface ProductCardProps {
@@ -16,14 +18,19 @@ const ProductCard = ({
   product,
   onAddToCart,
 }: ProductCardProps) => {
-  const rating = product.rating ?? 0;
+  const navigate = useNavigate();
 
+  const rating = product.rating ?? 0;
   const reviews = product.reviews ?? 0;
 
   const category =
     product.subcategory ||
     product.category ||
     "Furniture";
+
+  const handleProductClick = () => {
+    navigate(`/products/${product.slug}`);
+  };
 
   return (
     <article
@@ -35,14 +42,30 @@ const ProductCard = ({
       "
     >
 
+      {/* =====================================================
+          PRODUCT IMAGE
+      ===================================================== */}
 
       <div
+        onClick={handleProductClick}
+        role="link"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (
+            event.key === "Enter" ||
+            event.key === " "
+          ) {
+            event.preventDefault();
+            handleProductClick();
+          }
+        }}
         className="
           relative
           isolate
           aspect-[4/4.7]
           w-full
           min-w-0
+          cursor-pointer
           overflow-hidden
           rounded-[15px]
           border
@@ -59,6 +82,7 @@ const ProductCard = ({
         "
       >
 
+        {/* Background glow */}
 
         <div
           className="
@@ -77,6 +101,7 @@ const ProductCard = ({
           "
         />
 
+        {/* Image */}
 
         <div
           className="
@@ -89,9 +114,6 @@ const ProductCard = ({
             overflow-hidden
           "
         >
-
-          {/* INNER IMAGE WRAPPER */}
-
           <div
             className="
               flex
@@ -102,7 +124,6 @@ const ProductCard = ({
               overflow-hidden
             "
           >
-
             <img
               src={product.image}
               alt={product.name}
@@ -125,14 +146,10 @@ const ProductCard = ({
                 lg:group-hover:scale-[1.025]
               "
             />
-
           </div>
-
         </div>
 
-        {/* =================================================
-            IMAGE ATMOSPHERE
-        ================================================= */}
+        {/* Image atmosphere */}
 
         <div
           className="
@@ -147,7 +164,7 @@ const ProductCard = ({
           "
         />
 
-
+        {/* New badge */}
 
         {product.isNew && (
           <div
@@ -182,6 +199,7 @@ const ProductCard = ({
           </div>
         )}
 
+        {/* Category badge */}
 
         {!product.isNew && (
           <div
@@ -220,14 +238,19 @@ const ProductCard = ({
           </div>
         )}
 
-
+        {/* Wishlist */}
 
         <button
           type="button"
           aria-label={`Add ${product.name} to wishlist`}
-          onClick={(event) =>
-            event.stopPropagation()
-          }
+          onClick={(event) => {
+            event.stopPropagation();
+
+            console.log(
+              "Add to wishlist:",
+              product,
+            );
+          }}
           className="
             absolute
             right-2.5
@@ -263,10 +286,15 @@ const ProductCard = ({
           />
         </button>
 
+        {/* View product */}
 
         <button
           type="button"
           aria-label={`View ${product.name}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            handleProductClick();
+          }}
           className="
             absolute
             bottom-3
@@ -301,6 +329,7 @@ const ProductCard = ({
           />
         </button>
 
+        {/* Taksham edit */}
 
         <div
           className="
@@ -343,8 +372,13 @@ const ProductCard = ({
             Taksham edit
           </span>
         </div>
+
       </div>
 
+
+      {/* =====================================================
+          PRODUCT INFORMATION
+      ===================================================== */}
 
       <div
         className="
@@ -354,7 +388,6 @@ const ProductCard = ({
           sm:pt-3.5
         "
       >
-
 
         <div
           className="
@@ -366,10 +399,17 @@ const ProductCard = ({
           "
         >
 
-          {/* LEFT */}
+          {/* Product name */}
 
-          <div className="min-w-0 flex-1">
-
+          <button
+            type="button"
+            onClick={handleProductClick}
+            className="
+              min-w-0
+              flex-1
+              text-left
+            "
+          >
             <h3
               className="
                 truncate
@@ -379,6 +419,8 @@ const ProductCard = ({
                 leading-[1.1]
                 tracking-[-0.015em]
                 text-[#292520]
+                transition-colors
+                hover:text-[#8A6436]
                 sm:text-[17px]
               "
             >
@@ -399,10 +441,9 @@ const ProductCard = ({
             >
               {category}
             </p>
+          </button>
 
-          </div>
-
-          {/* PRICE */}
+          {/* Price */}
 
           <span
             className="
@@ -425,6 +466,8 @@ const ProductCard = ({
         </div>
 
 
+        {/* Rating */}
+
         <div
           className="
             mt-2
@@ -436,6 +479,7 @@ const ProductCard = ({
         >
 
           <div className="flex items-center gap-0.5">
+
             {[1, 2, 3, 4, 5].map(
               (star) => (
                 <Star
@@ -450,6 +494,7 @@ const ProductCard = ({
                 />
               ),
             )}
+
           </div>
 
           <span
@@ -478,6 +523,8 @@ const ProductCard = ({
 
         </div>
 
+
+        {/* Add to Cart */}
 
         <button
           type="button"
@@ -530,8 +577,8 @@ const ProductCard = ({
             size={10}
             strokeWidth={1.45}
             className="
-              opacity-0
               -translate-x-1
+              opacity-0
               transition-all
               duration-300
               group-hover/cart:translate-x-0
@@ -541,6 +588,7 @@ const ProductCard = ({
         </button>
 
       </div>
+
     </article>
   );
 };

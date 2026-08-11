@@ -1,24 +1,26 @@
-import { Link, useSearchParams } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Home } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 
-const formatCategory = (value: string) => {
-  return value
-    .split("-")
-    .map(
-      (word) =>
-        word.charAt(0).toUpperCase() + word.slice(1),
-    )
-    .join(" ");
-};
+import { products } from "../../data/products";
 
 const Breadcrumbs = () => {
-  const [searchParams] = useSearchParams();
+  const location = useLocation();
 
-  const category = searchParams.get("category");
+  const pathname = location.pathname;
 
-  const currentLabel = category
-    ? formatCategory(category)
-    : "All Products";
+  const isProductDetails =
+    pathname.startsWith("/products/") &&
+    pathname !== "/products";
+
+  const slug = isProductDetails
+    ? pathname.split("/")[2]
+    : undefined;
+
+  const product = slug
+    ? products.find(
+        (item) => item.slug === slug,
+      )
+    : undefined;
 
   return (
     <nav
@@ -27,71 +29,103 @@ const Breadcrumbs = () => {
         flex
         min-w-0
         items-center
-        gap-1.5
-        overflow-hidden
+        gap-2
+        overflow-x-auto
         whitespace-nowrap
+        text-[9px]
+        sm:text-[10px]
       "
     >
+
+      {/* Home */}
+
       <Link
         to="/"
         className="
+          flex
           shrink-0
-          text-[9px]
-          font-medium
-          uppercase
-          tracking-[0.14em]
-          text-[#9A9186]
+          items-center
+          gap-1.5
+          text-[#8B8176]
           transition-colors
-          hover:text-[#A4773E]
-          sm:text-[10px]
+          hover:text-[#76572F]
         "
       >
-        Home
+        <Home
+          size={12}
+          strokeWidth={1.5}
+        />
+
+        <span>Home</span>
       </Link>
+
 
       <ChevronRight
         size={11}
-        strokeWidth={1.5}
-        className="shrink-0 text-[#B7AEA3]"
+        strokeWidth={1.4}
+        className="shrink-0 text-[#C3B8AA]"
       />
+
+
+      {/* Products */}
 
       <Link
         to="/products"
         className="
           shrink-0
-          text-[9px]
-          font-medium
-          uppercase
-          tracking-[0.14em]
-          text-[#9A9186]
+          text-[#8B8176]
           transition-colors
-          hover:text-[#A4773E]
-          sm:text-[10px]
+          hover:text-[#76572F]
         "
       >
         Collections
       </Link>
 
+
       <ChevronRight
         size={11}
-        strokeWidth={1.5}
-        className="shrink-0 text-[#B7AEA3]"
+        strokeWidth={1.4}
+        className="shrink-0 text-[#C3B8AA]"
       />
 
-      <span
-        className="
-          min-w-0
-          truncate
-          text-[9px]
-          font-semibold
-          uppercase
-          tracking-[0.14em]
-          text-[#403A33]
-          sm:text-[10px]
-        "
-      >
-        {currentLabel}
-      </span>
+
+      {/* Product listing */}
+
+      {!isProductDetails && (
+        <span className="shrink-0 font-medium text-[#403A33]">
+          All Products
+        </span>
+      )}
+
+
+      {/* Product detail */}
+
+      {isProductDetails && (
+        <>
+          <Link
+            to="/products"
+            className="
+              shrink-0
+              text-[#8B8176]
+              transition-colors
+              hover:text-[#76572F]
+            "
+          >
+            All Products
+          </Link>
+
+          <ChevronRight
+            size={11}
+            strokeWidth={1.4}
+            className="shrink-0 text-[#C3B8AA]"
+          />
+
+          <span className="truncate font-medium text-[#403A33]">
+            {product?.name ?? "Product"}
+          </span>
+        </>
+      )}
+
     </nav>
   );
 };
