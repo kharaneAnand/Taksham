@@ -1,0 +1,1410 @@
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import Breadcrumbs from "../../components/product/Breadcrumbs";
+import ProductToolbar from "../../components/product/ProductToolbar";
+import ProductFilters, {
+  type ProductFilterState,
+} from "../../components/product/ProductFilters";
+import ProductGrid from "../../components/product/ProductGrid";
+import MobileFilterSheet from "../../components/product/MobileFilterSheet";
+
+import { products } from "../../data/products";
+import type { Product } from "../../types/product";
+
+import {
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+
+import livingRoomLook from "../../assets/images/looks/Hero_product_page.png";
+
+
+const PRODUCTS_PER_PAGE = 12;
+
+const CATEGORY_PARAM_MAP: Record<
+  string,
+  string
+> = {
+  sofas: "Sofas",
+  chairs: "Chairs",
+  tables: "Tables",
+  beds: "Beds",
+  storage: "Storage",
+  lighting: "Lighting",
+  decor: "Decor",
+  rugs: "Rugs",
+};
+
+const initialFilters: ProductFilterState = {
+  category: "All Categories",
+  materials: [],
+  colors: [],
+  minPrice: 0,
+  maxPrice: 100000,
+  minRating: 0,
+};
+
+
+
+const getPaginationItems = (
+  currentPage: number,
+  totalPages: number,
+): (number | "...")[] => {
+  if (totalPages <= 7) {
+    return Array.from(
+      {
+        length: totalPages,
+      },
+      (_, index) => index + 1,
+    );
+  }
+
+  if (currentPage <= 4) {
+    return [
+      1,
+      2,
+      3,
+      4,
+      5,
+      "...",
+      totalPages,
+    ];
+  }
+
+  if (
+    currentPage >=
+    totalPages - 3
+  ) {
+    return [
+      1,
+      "...",
+      totalPages - 4,
+      totalPages - 3,
+      totalPages - 2,
+      totalPages - 1,
+      totalPages,
+    ];
+  }
+
+  return [
+    1,
+    "...",
+    currentPage - 1,
+    currentPage,
+    currentPage + 1,
+    "...",
+    totalPages,
+  ];
+};
+
+
+
+const Products = () => {
+  const [filters, setFilters] =
+    useState<ProductFilterState>(
+      initialFilters,
+    );
+
+  const [sortBy, setSortBy] =
+    useState("Featured");
+
+  const [viewMode, setViewMode] =
+    useState<"grid" | "list">(
+      "grid",
+    );
+
+  const [
+    mobileFiltersOpen,
+    setMobileFiltersOpen,
+  ] = useState(false);
+
+  const [currentPage, setCurrentPage] =
+    useState(1);
+
+
+
+  useEffect(() => {
+    const params =
+      new URLSearchParams(
+        window.location.search,
+      );
+
+    const categoryParam =
+      params.get("category");
+
+    const category =
+      categoryParam
+        ? CATEGORY_PARAM_MAP[
+            categoryParam.toLowerCase()
+          ]
+        : undefined;
+
+    if (category) {
+      setFilters((current) => ({
+        ...current,
+        category,
+      }));
+    }
+  }, []);
+
+
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters, sortBy]);
+
+
+
+  const filteredProducts =
+    useMemo(() => {
+      let result =
+        products.filter(
+          (product) => {
+            /* CATEGORY */
+
+            if (
+              filters.category !==
+                "All Categories" &&
+              product.subcategory !==
+                filters.category
+            ) {
+              return false;
+            }
+
+            /* MATERIAL */
+
+            if (
+              filters.materials
+                .length > 0
+            ) {
+              const productMaterial =
+                product.material?.toLowerCase() ??
+                "";
+
+              const matchesMaterial =
+                filters.materials.some(
+                  (material) =>
+                    productMaterial.includes(
+                      material.toLowerCase(),
+                    ),
+                );
+
+              if (!matchesMaterial) {
+                return false;
+              }
+            }
+
+            /* COLOR */
+
+            if (
+              filters.colors
+                .length > 0
+            ) {
+              const productColors =
+                product.colors ?? [];
+
+              const matchesColor =
+                filters.colors.some(
+                  (color) =>
+                    productColors.includes(
+                      color,
+                    ),
+                );
+
+              if (!matchesColor) {
+                return false;
+              }
+            }
+
+            /* PRICE */
+
+            if (
+              product.price <
+                filters.minPrice ||
+              product.price >
+                filters.maxPrice
+            ) {
+              return false;
+            }
+
+            /* RATING */
+
+            if (
+              filters.minRating >
+                0 &&
+              (product.rating ?? 0) <
+                filters.minRating
+            ) {
+              return false;
+            }
+
+            return true;
+          },
+        );
+
+      /* SORT */
+
+      switch (sortBy) {
+        case "Price: Low to High":
+          result.sort(
+            (a, b) =>
+              a.price - b.price,
+          );
+          break;
+
+        case "Price: High to Low":
+          result.sort(
+            (a, b) =>
+              b.price - a.price,
+          );
+          break;
+
+        case "Name":
+          result.sort(
+            (a, b) =>
+              a.name.localeCompare(
+                b.name,
+              ),
+          );
+          break;
+
+        case "Featured":
+        default:
+          result.sort((a, b) => {
+            if (
+              Boolean(b.isNew) !==
+              Boolean(a.isNew)
+            ) {
+              return (
+                Number(b.isNew) -
+                Number(a.isNew)
+              );
+            }
+
+            return (
+              (b.rating ?? 0) -
+              (a.rating ?? 0)
+            );
+          });
+
+          break;
+      }
+
+      return result;
+    }, [filters, sortBy]);
+
+
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        filteredProducts.length /
+          PRODUCTS_PER_PAGE,
+      ),
+    );
+
+  useEffect(() => {
+    if (
+      currentPage >
+      totalPages
+    ) {
+      setCurrentPage(totalPages);
+    }
+  }, [
+    currentPage,
+    totalPages,
+  ]);
+
+  const paginatedProducts =
+    useMemo(() => {
+      const start =
+        (currentPage - 1) *
+        PRODUCTS_PER_PAGE;
+
+      const end =
+        start +
+        PRODUCTS_PER_PAGE;
+
+      return filteredProducts.slice(
+        start,
+        end,
+      );
+    }, [
+      filteredProducts,
+      currentPage,
+    ]);
+
+  const paginationItems =
+    getPaginationItems(
+      currentPage,
+      totalPages,
+    );
+
+
+  const firstResult =
+    filteredProducts.length === 0
+      ? 0
+      : (currentPage - 1) *
+          PRODUCTS_PER_PAGE +
+        1;
+
+  const lastResult =
+    Math.min(
+      currentPage *
+        PRODUCTS_PER_PAGE,
+      filteredProducts.length,
+    );
+
+  /* =======================================================
+     TOOLBAR VALUES
+  ======================================================= */
+
+  const toolbarMaterial =
+    filters.materials.length === 1
+      ? filters.materials[0]
+      : "All Materials";
+
+  const toolbarColor =
+    filters.colors.length === 1
+      ? filters.colors[0]
+      : "All Colors";
+
+  const toolbarPrice =
+    filters.minPrice === 0 &&
+    filters.maxPrice === 100000
+      ? "All Prices"
+      : filters.maxPrice <=
+          10000
+        ? "Under ₹10,000"
+        : filters.minPrice >=
+            30000
+          ? "Above ₹30,000"
+          : filters.minPrice >=
+                10000 &&
+              filters.maxPrice <=
+                20000
+            ? "₹10,000 – ₹20,000"
+            : "₹20,000 – ₹30,000";
+
+  /* =======================================================
+     FILTER HANDLERS
+  ======================================================= */
+
+  const handleCategoryChange = (
+    category: string,
+  ) => {
+    setFilters((current) => ({
+      ...current,
+      category,
+    }));
+
+    setCurrentPage(1);
+  };
+
+  const handleMaterialToggle = (
+    material: string,
+  ) => {
+    setFilters((current) => ({
+      ...current,
+      materials:
+        current.materials.includes(
+          material,
+        )
+          ? current.materials.filter(
+              (item) =>
+                item !== material,
+            )
+          : [
+              ...current.materials,
+              material,
+            ],
+    }));
+
+    setCurrentPage(1);
+  };
+
+  const handleColorToggle = (
+    color: string,
+  ) => {
+    setFilters((current) => ({
+      ...current,
+      colors:
+        current.colors.includes(color)
+          ? current.colors.filter(
+              (item) =>
+                item !== color,
+            )
+          : [
+              ...current.colors,
+              color,
+            ],
+    }));
+
+    setCurrentPage(1);
+  };
+
+  const handlePriceChange = (
+    minPrice: number,
+    maxPrice: number,
+  ) => {
+    setFilters((current) => ({
+      ...current,
+      minPrice,
+      maxPrice,
+    }));
+
+    setCurrentPage(1);
+  };
+
+  const handleRatingChange = (
+    minRating: number,
+  ) => {
+    setFilters((current) => ({
+      ...current,
+      minRating,
+    }));
+
+    setCurrentPage(1);
+  };
+
+  const clearFilters = () => {
+    setFilters(
+      initialFilters,
+    );
+
+    setCurrentPage(1);
+  };
+
+
+
+  const handleAddToCart = (
+    product: Product,
+  ) => {
+    console.log(
+      "Add to cart:",
+      product,
+    );
+  };
+
+ 
+
+  const handleToolbarPriceChange = (
+    value: string,
+  ) => {
+    switch (value) {
+      case "Under ₹10,000":
+        handlePriceChange(
+          0,
+          10000,
+        );
+        break;
+
+      case "₹10,000 – ₹20,000":
+        handlePriceChange(
+          10000,
+          20000,
+        );
+        break;
+
+      case "₹20,000 – ₹30,000":
+        handlePriceChange(
+          20000,
+          30000,
+        );
+        break;
+
+      case "Above ₹30,000":
+        handlePriceChange(
+          30000,
+          100000,
+        );
+        break;
+
+      default:
+        handlePriceChange(
+          0,
+          100000,
+        );
+    }
+  };
+
+
+
+  return (
+    <main
+      className="
+        min-h-screen
+        bg-[#FAF8F5]
+        text-[#302B25]
+      "
+    >
+    
+
+      <section className="relative overflow-hidden bg-[#FAF8F5]">
+        <div
+          className="
+            mx-auto
+            max-w-[1540px]
+            px-4
+            pb-7
+            pt-5
+            sm:px-7
+            sm:pb-9
+            sm:pt-7
+            lg:px-10
+            lg:pb-10
+            lg:pt-8
+            xl:px-14
+          "
+        >
+          <div className="relative z-20">
+            <Breadcrumbs />
+          </div>
+
+          {/* HERO CARD */}
+
+          <div
+            className="
+              relative
+              mt-5
+              overflow-hidden
+              rounded-[20px]
+              border
+              border-[#E2D8CC]
+              bg-[#F4EEE5]
+              shadow-[0_20px_65px_rgba(71,54,36,0.06)]
+              sm:mt-6
+              sm:rounded-3xl
+              lg:mt-7
+              lg:min-h-66
+              xl:min-h-72
+            "
+          >
+            {/* Desktop image */}
+
+            <div
+              className="
+                absolute
+                inset-y-0
+                right-0
+                hidden
+                w-[59%]
+                overflow-hidden
+                lg:block
+              "
+            >
+              <img
+                src={livingRoomLook}
+                alt="Taksham interior collection"
+                className="
+                  h-full
+                  w-full
+                  object-cover
+                  object-center
+                  transition-transform
+                  duration-1400
+                  ease-out
+                  hover:scale-[1.025]
+                "
+              />
+
+              <div
+                className="
+                  pointer-events-none
+                  absolute
+                  inset-0
+                  bg-linear-to-r
+                  from-[#F4EEE5]
+                  via-[#F4EEE5]/35
+                  to-transparent
+                "
+              />
+
+              <div
+                className="
+                  pointer-events-none
+                  absolute
+                  inset-0
+                  bg-linear-to-t
+                  from-black/10
+                  via-transparent
+                  to-white/5
+                "
+              />
+            </div>
+
+            {/* Mobile image */}
+
+            <div
+              className="
+                relative
+                h-48
+                overflow-hidden
+                lg:hidden
+              "
+            >
+              <img
+                src={livingRoomLook}
+                alt="Taksham interior collection"
+                className="
+                  h-full
+                  w-full
+                  object-cover
+                  object-center
+                "
+              />
+
+              <div
+                className="
+                  pointer-events-none
+                  absolute
+                  inset-0
+                  bg-linear-to-t
+                  from-[#F4EEE5]
+                  via-transparent
+                  to-black/5
+                "
+              />
+            </div>
+
+            {/* Hero content */}
+
+            <div
+              className="
+                relative
+                z-10
+                flex
+                min-h-67
+                items-center
+                px-6
+                py-8
+                sm:px-9
+                sm:py-9
+                lg:min-h-67
+                lg:w-[57%]
+                lg:px-10
+                xl:min-h-72
+                xl:px-14
+              "
+            >
+              <div className="max-w-143">
+                {/* Eyebrow */}
+
+                <div
+                  className="
+                    mb-3
+                    flex
+                    items-center
+                    gap-2.5
+                  "
+                >
+                  <span className="h-px w-8 bg-[#B7894A]" />
+
+                  <span
+                    className="
+                      text-[10px]
+                      font-semibold
+                      uppercase
+                      tracking-[0.12em]
+                      text-[#A4773E]
+                      sm:text-[11px]
+                    "
+                  >
+                    The Taksham Collection
+                  </span>
+                </div>
+
+                {/* Heading */}
+
+                <h1
+                  className="
+                    max-w-135
+                    font-serif
+                    text-[43px]
+                    font-medium
+                    leading-[0.92]
+                    tracking-[-0.035em]
+                    text-[#25221E]
+                    sm:text-[52px]
+                    lg:text-[58px]
+                    xl:text-[64px]
+                  "
+                >
+                  {filters.category ===
+                  "All Categories" ? (
+                    <>
+                      All{" "}
+                      <span className="text-[#9A7138]">
+                        Products
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      {filters.category}
+                      <span className="text-[#9A7138]">
+                        .
+                      </span>
+                    </>
+                  )}
+                </h1>
+
+                {/* Description */}
+
+                <p
+                  className="
+                    mt-4
+                    max-w-114
+                    text-[12px]
+                    leading-[1.7]
+                    text-[#746B61]
+                    sm:text-[13px]
+                  "
+                >
+                  Discover premium furniture and
+                  thoughtful home accents, carefully
+                  selected to bring warmth, character
+                  and timeless beauty into everyday
+                  living.
+                </p>
+
+                {/* Details */}
+
+                <div
+                  className="
+                    mt-5
+                    flex
+                    flex-wrap
+                    items-center
+                    gap-x-5
+                    gap-y-2
+                  "
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="
+                        flex
+                        h-7
+                        w-7
+                        items-center
+                        justify-center
+                        rounded-full
+                        border
+                        border-[#CDBB9F]
+                        bg-white/60
+                      "
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#B7894A]" />
+                    </span>
+
+                    <span
+                      className="
+                        text-[10px]
+                        font-medium
+                        text-[#796D60]
+                      "
+                    >
+                      Thoughtfully selected
+                    </span>
+                  </div>
+
+                  <span className="hidden h-4 w-px bg-[#D7CABB] sm:block" />
+
+                  <span
+                    className="
+                      text-[10px]
+                      font-medium
+                      text-[#968B80]
+                    "
+                  >
+                    Designed for modern living
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Image label */}
+
+            <div
+              className="
+                absolute
+                bottom-5
+                right-5
+                z-20
+                hidden
+                items-center
+                gap-2
+                rounded-full
+                border
+                border-white/50
+                bg-white/65
+                px-3.5
+                py-2
+                shadow-[0_8px_25px_rgba(50,40,30,0.10)]
+                backdrop-blur-md
+                lg:flex
+              "
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-[#B7894A]" />
+
+              <span
+                className="
+                  text-[9px]
+                  font-semibold
+                  uppercase
+                  tracking-widest
+                  text-[#5F554A]
+                "
+              >
+                Curated for beautiful living
+              </span>
+            </div>
+
+            <div
+              className="
+                absolute
+                bottom-5
+                left-6
+                z-20
+                hidden
+                font-serif
+                text-[15px]
+                text-[#A4773E]/60
+                lg:block
+                xl:left-8
+              "
+            >
+              01
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* =====================================================
+          TOOLBAR
+      ===================================================== */}
+
+      <section>
+        <div
+          className="
+            mx-auto
+            max-w-[1540px]
+            px-4
+            sm:px-7
+            lg:px-10
+            xl:px-14
+          "
+        >
+          <ProductToolbar
+            productCount={
+              filteredProducts.length
+            }
+            sortBy={sortBy}
+            onSortChange={(value) => {
+              setSortBy(value);
+              setCurrentPage(1);
+            }}
+            onFilterClick={() =>
+              setMobileFiltersOpen(true)
+            }
+            viewMode={viewMode}
+            onViewModeChange={
+              setViewMode
+            }
+            category={
+              filters.category
+            }
+            onCategoryChange={
+              handleCategoryChange
+            }
+            material={
+              toolbarMaterial
+            }
+            onMaterialChange={(
+              value,
+            ) => {
+              setFilters(
+                (current) => ({
+                  ...current,
+                  materials:
+                    value ===
+                    "All Materials"
+                      ? []
+                      : [value],
+                }),
+              );
+
+              setCurrentPage(1);
+            }}
+            color={toolbarColor}
+            onColorChange={(value) => {
+              setFilters(
+                (current) => ({
+                  ...current,
+                  colors:
+                    value ===
+                    "All Colors"
+                      ? []
+                      : [value],
+                }),
+              );
+
+              setCurrentPage(1);
+            }}
+            price={toolbarPrice}
+            onPriceChange={
+              handleToolbarPriceChange
+            }
+          />
+        </div>
+      </section>
+
+
+      <section
+        className="
+          pb-20
+          pt-9
+          sm:pb-24
+          sm:pt-11
+          lg:pb-28
+          lg:pt-12
+        "
+      >
+        <div
+          className="
+            mx-auto
+            flex
+            max-w-[1540px]
+            gap-9
+            px-4
+            sm:px-7
+            lg:gap-11
+            lg:px-10
+            xl:gap-14
+            xl:px-14
+          "
+        >
+          {/* Desktop filters */}
+
+          <ProductFilters
+            products={products}
+            filters={filters}
+            onCategoryChange={
+              handleCategoryChange
+            }
+            onMaterialToggle={
+              handleMaterialToggle
+            }
+            onColorToggle={
+              handleColorToggle
+            }
+            onPriceChange={
+              handlePriceChange
+            }
+            onRatingChange={
+              handleRatingChange
+            }
+            onClear={clearFilters}
+          />
+
+          {/* Product area */}
+
+          <div className="min-w-0 flex-1">
+            {/* Catalogue heading */}
+
+            <div
+              className="
+                mb-7
+                flex
+                items-end
+                justify-between
+                border-b
+                border-[#E5DDD2]
+                pb-5
+                sm:mb-8
+                sm:pb-6
+              "
+            >
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <span className="h-px w-8 bg-[#B7894A]" />
+
+                  <span
+                    className="
+                      text-[11px]
+                      font-semibold
+                      uppercase
+                      tracking-[0.12em]
+                      text-[#A4773E]
+                      sm:text-[12px]
+                    "
+                  >
+                    The Collection
+                  </span>
+                </div>
+
+                <h2
+                  className="
+                    mt-2.5
+                    font-serif
+                    text-[34px]
+                    font-medium
+                    leading-none
+                    tracking-[-0.035em]
+                    text-[#25221E]
+                    sm:text-[38px]
+                    lg:text-[40px]
+                  "
+                >
+                  {filters.category ===
+                  "All Categories"
+                    ? "All Products"
+                    : filters.category}
+                </h2>
+
+                <p
+                  className="
+                    mt-2.5
+                    text-[12px]
+                    leading-5
+                    text-[#81776B]
+                    sm:text-[13px]
+                  "
+                >
+                  Showing{" "}
+                  <span className="font-semibold text-[#4B433A]">
+                    {firstResult}–
+                    {lastResult}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-semibold text-[#4B433A]">
+                    {
+                      filteredProducts.length
+                    }
+                  </span>{" "}
+                  pieces
+                </p>
+              </div>
+
+              {filters.category !==
+                "All Categories" && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleCategoryChange(
+                      "All Categories",
+                    )
+                  }
+                  className="
+                    hidden
+                    items-center
+                    gap-2
+                    text-[11px]
+                    font-medium
+                    text-[#80633F]
+                    transition-colors
+                    hover:text-[#A4773E]
+                    sm:flex
+                  "
+                >
+                  Clear category
+
+                  <ArrowRight
+                    size={13}
+                    strokeWidth={1.5}
+                  />
+                </button>
+              )}
+            </div>
+
+            {/* Products */}
+
+            {paginatedProducts.length >
+            0 ? (
+              <ProductGrid
+                products={
+                  paginatedProducts
+                }
+                viewMode={viewMode}
+                onAddToCart={
+                  handleAddToCart
+                }
+              />
+            ) : (
+              <div
+                className="
+                  flex
+                  min-h-90
+                  flex-col
+                  items-center
+                  justify-center
+                  rounded-[20px]
+                  border
+                  border-dashed
+                  border-[#DCCFC0]
+                  bg-[#F7F2EA]
+                  px-6
+                  text-center
+                "
+              >
+                <span
+                  className="
+                    font-serif
+                    text-[42px]
+                    text-[#B7894A]/30
+                  "
+                >
+                  00
+                </span>
+
+                <h3
+                  className="
+                    mt-2
+                    font-serif
+                    text-[28px]
+                    text-[#332D26]
+                  "
+                >
+                  Nothing found
+                </h3>
+
+                <p
+                  className="
+                    mt-2
+                    max-w-[320px]
+                    text-[13px]
+                    leading-5
+                    text-[#83786B]
+                  "
+                >
+                  Try adjusting your filters
+                  to discover more pieces from
+                  the Taksham collection.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="
+                    mt-5
+                    rounded-[9px]
+                    bg-[#8F6B3F]
+                    px-5
+                    py-3
+                    text-[11px]
+                    font-semibold
+                    uppercase
+                    tracking-[0.08em]
+                    text-white
+                    shadow-[0_8px_22px_rgba(143,107,63,0.18)]
+                    transition-all
+                    duration-300
+                    hover:bg-[#795832]
+                  "
+                >
+                  Clear filters
+                </button>
+              </div>
+            )}
+
+
+            {filteredProducts.length >
+              PRODUCTS_PER_PAGE && (
+              <div
+                className="
+                  mt-12
+                  flex
+                  justify-center
+                  border-t
+                  border-[#E7DED3]
+                  pt-8
+                  sm:mt-14
+                  sm:pt-9
+                "
+              >
+                <nav
+                  aria-label="Product pagination"
+                  className="
+                    flex
+                    items-center
+                    justify-center
+                    gap-1
+                    sm:gap-1.5
+                  "
+                >
+                  {/* Previous */}
+
+                  <button
+                    type="button"
+                    disabled={
+                      currentPage === 1
+                    }
+                    onClick={() =>
+                      setCurrentPage(
+                        (page) =>
+                          Math.max(
+                            1,
+                            page - 1,
+                          ),
+                      )
+                    }
+                    aria-label="Previous page"
+                    className="
+                      mr-1
+                      flex
+                      h-10
+                      w-10
+                      items-center
+                      justify-center
+                      rounded-full
+                      text-[#766D63]
+                      transition-all
+                      hover:bg-[#F0E8DD]
+                      hover:text-[#765A38]
+                      disabled:pointer-events-none
+                      disabled:opacity-20
+                    "
+                  >
+                    <ChevronLeft
+                      size={16}
+                      strokeWidth={1.5}
+                    />
+                  </button>
+
+                  {/* Pages */}
+
+                  {paginationItems.map(
+                    (item, index) => {
+                      if (
+                        item === "..."
+                      ) {
+                        return (
+                          <span
+                            key={`dots-${index}`}
+                            className="
+                              flex
+                              h-10
+                              w-8
+                              items-center
+                              justify-center
+                              text-[15px]
+                              text-[#958B80]
+                            "
+                          >
+                            …
+                          </span>
+                        );
+                      }
+
+                      const isActive =
+                        item ===
+                        currentPage;
+
+                      return (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() =>
+                            setCurrentPage(
+                              item,
+                            )
+                          }
+                          aria-current={
+                            isActive
+                              ? "page"
+                              : undefined
+                          }
+                          className={`
+                            flex
+                            h-10
+                            min-w-10
+                            items-center
+                            justify-center
+                            rounded-lg
+                            px-2
+                            text-[12px]
+                            font-medium
+                            transition-all
+                            duration-200
+                            ${
+                              isActive
+                                ? "bg-[#D7AD6B] text-[#2D251D] shadow-[0_5px_14px_rgba(183,137,74,0.16)]"
+                                : "text-[#4F4840] hover:bg-[#F1E9DE] hover:text-[#8A6537]"
+                            }
+                          `}
+                        >
+                          {item}
+                        </button>
+                      );
+                    },
+                  )}
+
+                  {/* Next */}
+
+                  <button
+                    type="button"
+                    disabled={
+                      currentPage ===
+                      totalPages
+                    }
+                    onClick={() =>
+                      setCurrentPage(
+                        (page) =>
+                          Math.min(
+                            totalPages,
+                            page + 1,
+                          ),
+                      )
+                    }
+                    className="
+                      ml-1
+                      flex
+                      h-10
+                      items-center
+                      gap-2
+                      rounded-lg
+                      px-3
+                      text-[11px]
+                      font-medium
+                      text-[#4F4840]
+                      transition-all
+                      hover:bg-[#F1E9DE]
+                      hover:text-[#765A38]
+                      disabled:pointer-events-none
+                      disabled:opacity-20
+                    "
+                  >
+                    Next
+
+                    <ChevronRight
+                      size={14}
+                      strokeWidth={1.5}
+                    />
+                  </button>
+                </nav>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+
+
+      <MobileFilterSheet
+        open={mobileFiltersOpen}
+        filters={filters}
+        onApply={setFilters}
+        onClose={() =>
+          setMobileFiltersOpen(false)
+        }
+      />
+    </main>
+  );
+};
+
+export default Products;
