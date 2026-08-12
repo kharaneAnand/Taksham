@@ -5,19 +5,18 @@ import ProductController from "../controllers/product.controller.js";
 import validate from "../middleware/validate.middleware.js";
 
 import {
-  createProductSchema,updateProductSchema
+  createProductSchema,
+  updateProductSchema,
 } from "../validators/product.validator.js";
+
+import authenticate from "../middleware/auth.middleware.js";
+import authorize from "../middleware/authorize.middleware.js";
 
 const router = Router();
 
-
-router.post(
-  "/",
-  validate(createProductSchema),
-  ProductController.createProduct,
-);
-
-
+/*
+ * Public
+ */
 router.get(
   "/",
   ProductController.getProducts,
@@ -28,14 +27,29 @@ router.get(
   ProductController.getProductBySlug,
 );
 
+/*
+ * Admin only
+ */
+router.post(
+  "/",
+  authenticate,
+  authorize("admin"),
+  validate(createProductSchema),
+  ProductController.createProduct,
+);
+
 router.patch(
   "/:id",
+  authenticate,
+  authorize("admin"),
   validate(updateProductSchema),
   ProductController.updateProduct,
 );
 
 router.delete(
   "/:id",
+  authenticate,
+  authorize("admin"),
   ProductController.deleteProduct,
 );
 
