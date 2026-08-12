@@ -113,7 +113,7 @@ export const createProductSchema = z.object({
     .min(0)
     .optional(),
 
-  isNew: z
+  isNewProduct: z
     .boolean()
     .optional(),
 

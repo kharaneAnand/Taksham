@@ -39,7 +39,7 @@ export interface IProduct {
 
   reviews?: number;
 
-  isNew?: boolean;
+  isNewProduct?: boolean;
 
   stock: number;
 

@@ -114,7 +114,7 @@ const productSchema =
         default: 0,
       },
 
-      isNew: {
+      isNewProduct: {
         type: Boolean,
         default: false,
       },

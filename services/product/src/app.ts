@@ -5,6 +5,8 @@ import cookieParser from "cookie-parser";
 import compression from "compression";
 import morgan from "morgan";
 
+import productRoutes from "./routes/product.routes.js";
+
 const app = express();
 
 app.use(
@@ -19,9 +21,7 @@ app.use(helmet());
 app.use(compression());
 
 app.use(
-  morgan(
-    ":method :url :status :response-time ms",
-  ),
+  morgan(":method :url :status :response-time ms"),
 );
 
 app.use(express.json());
@@ -34,11 +34,16 @@ app.use(
 
 app.use(cookieParser());
 
+
+app.use(
+  "/api/v1/products",
+  productRoutes,
+);
+
 app.get("/", (_req, res) => {
   res.status(200).json({
     success: true,
-    message:
-      "Product Service is running 🚀",
+    message: "Product Service is running 🚀",
   });
 });
 
