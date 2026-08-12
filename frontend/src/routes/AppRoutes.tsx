@@ -34,6 +34,7 @@ import Wishlist from "../pages/wishlist/Wishlist";
 import Checkout from "../pages/checkout/Checkout";
 import Orders from "../pages/orders/Orders";
 import OrderDetails from "../pages/orders/OrderDetails";
+import Account from "../pages/account/Account";
 
 
 const AppRoutes = () => {
@@ -152,6 +153,11 @@ const AppRoutes = () => {
             <Route
               path="/profile"
               element={<Profile />}
+            />
+
+            <Route
+              path="/account"
+              element={<Account />}
             />
 
             <Route

@@ -29,8 +29,15 @@ const authenticate = async (req: Request,res: Response, next: NextFunction) => {
 
      req.user = {
         id: user.id.toString(),
+        firstName: user.firstName,
+        lastName: user.lastName,
         email: user.email,
+        phone: user.phone,
         role: user.role,
+        isVerified: user.isVerified,
+        avatar: user.avatar,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
     };
 
     next();
