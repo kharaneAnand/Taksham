@@ -6,7 +6,7 @@ const connectDB = async (): Promise<void> => {
   try {
     if (!env.MONGODB_URI) {
       throw new Error(
-        "MONGO_URI is not defined",
+        "MONGODB_URI is not defined",
       );
     }
 
