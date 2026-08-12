@@ -6,6 +6,7 @@ import compression from "compression";
 import morgan from "morgan";
 
 import productRoutes from "./routes/product.routes.js";
+import errorHandler from "./middleware/error.middleware.js";
 
 const app = express();
 
@@ -46,5 +47,7 @@ app.get("/", (_req, res) => {
     message: "Product Service is running 🚀",
   });
 });
+
+app.use(errorHandler) ;
 
 export default app;
