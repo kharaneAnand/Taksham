@@ -25,9 +25,7 @@ import type {
 
 import axios from "axios";
 
-/* =========================================================
-   TYPES
-========================================================= */
+
 
 type ToastType = "success" | "error";
 
@@ -36,9 +34,6 @@ interface ToastState {
   message: string;
 }
 
-/* =========================================================
-   COMPONENT
-========================================================= */
 
 const Account = () => {
   const { user, loading, setUser } = useAuth();
@@ -83,9 +78,6 @@ const Account = () => {
       newPassword: "",
     });
 
-  /* =========================================================
-     TOAST
-  ========================================================= */
 
   const showToast = (
     type: ToastType,
@@ -113,9 +105,7 @@ const Account = () => {
     };
   }, [toast]);
 
-  /* =========================================================
-     ERROR MESSAGE HELPER
-  ========================================================= */
+
 
   const getErrorMessage = (
     error: unknown,
@@ -157,9 +147,7 @@ const Account = () => {
     return fallback;
   };
 
-  /* =========================================================
-     EDIT PROFILE
-  ========================================================= */
+
 
   const startEditing = () => {
     if (!user) return;
@@ -177,9 +165,7 @@ const Account = () => {
     setEditing(false);
   };
 
-  /* =========================================================
-     PROFILE UPDATE
-  ========================================================= */
+
 
   const handleProfileUpdate = async () => {
     try {
@@ -213,9 +199,7 @@ const Account = () => {
     }
   };
 
-  /* =========================================================
-     AVATAR
-  ========================================================= */
+
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -259,9 +243,7 @@ const Account = () => {
     }
   };
 
-  /* =========================================================
-     DELETE AVATAR
-  ========================================================= */
+
 
   const handleDeleteAvatar = async () => {
     try {
@@ -429,9 +411,9 @@ const Account = () => {
             fixed
             right-5
             top-5
-            z-[100]
+            z-100
             w-[calc(100%-40px)]
-            max-w-[390px]
+            max-w-98
             animate-[slideIn_0.3s_ease-out]
           "
         >
@@ -538,7 +520,7 @@ const Account = () => {
                 absolute
                 bottom-0
                 left-0
-                h-[2px]
+                h-0.5
                 animate-[toastProgress_4.5s_linear_forwards]
                 ${
                   toast.type === "success"
@@ -555,13 +537,11 @@ const Account = () => {
         </div>
       )}
 
-      {/* =====================================================
-          DECORATIVE BACKGROUND
-      ===================================================== */}
 
-      <div className="pointer-events-none fixed inset-0 -z-0 overflow-hidden">
-        <div className="absolute -left-40 top-20 h-80 w-80 rounded-full bg-[#D9B36A]/[0.055] blur-3xl" />
-        <div className="absolute -right-40 top-[45%] h-96 w-96 rounded-full bg-[#8A765C]/[0.045] blur-3xl" />
+
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div className="absolute -left-40 top-20 h-80 w-80 rounded-full bg-[#D9B36A]/5.5 blur-3xl" />
+        <div className="absolute -right-40 top-[45%] h-96 w-96 rounded-full bg-[#8A765C]/4.5 blur-3xl" />
       </div>
 
       {/* =====================================================
@@ -571,11 +551,11 @@ const Account = () => {
       <section className="relative overflow-hidden border-b border-[#E6DDD2] bg-[#F5EFE7]">
 
         <div className="absolute right-0 top-0 h-full w-[35%] opacity-30">
-          <div className="absolute right-[-100px] top-[-140px] h-[340px] w-[340px] rounded-full border border-[#C7A77A]/30" />
-          <div className="absolute right-[-50px] top-[-90px] h-[240px] w-[240px] rounded-full border border-[#C7A77A]/20" />
+          <div className="absolute -right-25 -top-35 h-85 w-85 rounded-full border border-[#C7A77A]/30" />
+          <div className="absolute -right-12.5 -top-22.5 h--60 w-60 rounded-full border border-[#C7A77A]/20" />
         </div>
 
-        <div className="relative mx-auto max-w-[1240px] px-5 pb-9 pt-8 sm:px-8 sm:pb-11 sm:pt-10 lg:px-10 lg:pb-14 lg:pt-12">
+        <div className="relative mx-auto max-w-310 px-5 pb-9 pt-8 sm:px-8 sm:pb-11 sm:pt-10 lg:px-10 lg:pb-14 lg:pt-12">
 
           <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
 
@@ -605,7 +585,7 @@ const Account = () => {
                 My Account
               </h1>
 
-              <p className="mt-4 max-w-[510px] text-[12px] leading-6 text-[#81776C] sm:text-[13px]">
+              <p className="mt-4 max-w-127.5 text-[12px] leading-6 text-[#81776C] sm:text-[13px]">
                 Everything about your Taksham experience,
                 thoughtfully kept in one place.
               </p>
@@ -654,23 +634,18 @@ const Account = () => {
         </div>
       </section>
 
-      {/* =====================================================
-          CONTENT
-      ===================================================== */}
+    
 
-      <section className="relative mx-auto max-w-[1240px] px-5 py-7 sm:px-8 sm:py-9 lg:px-10 lg:py-12">
+      <section className="relative mx-auto max-w-310 px-5 py-7 sm:px-8 sm:py-9 lg:px-10 lg:py-12">
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_350px]">
 
-          {/* =================================================
-              PROFILE CARD
-          ================================================= */}
 
           <div className="overflow-hidden rounded-[25px] border border-[#E2D8CC] bg-white shadow-[0_18px_60px_rgba(55,43,31,0.055)]">
 
             <div className="relative overflow-hidden border-b border-[#ECE5DC] px-5 py-5 sm:px-7 sm:py-6">
 
-              <div className="absolute right-[-40px] top-[-60px] h-32 w-32 rounded-full border border-[#D7C4AA]/30" />
+              <div className="absolute -right-10 -top-15 h-32 w-32 rounded-full border border-[#D7C4AA]/30" />
 
               <div className="relative flex items-center justify-between gap-4">
 
@@ -680,7 +655,7 @@ const Account = () => {
                     Personal information
                   </p>
 
-                  <h2 className="mt-1.5 font-serif text-[27px] tracking-[-0.025em] text-[#302B25]">
+                  <h2 className="mt-1.5 font-serif text-[27px] tracking-tight text-[#302B25]">
                     Profile
                   </h2>
 
@@ -704,7 +679,7 @@ const Account = () => {
                       text-[9px]
                       font-semibold
                       uppercase
-                      tracking-[0.1em]
+                      tracking-widest
                       text-[#6E573C]
                       transition-all
                       duration-300
@@ -744,7 +719,7 @@ const Account = () => {
 
                     <div className="absolute -inset-2 rounded-full border border-[#C9A878]/20" />
 
-                    <div className="relative flex h-[94px] w-[94px] items-center justify-center overflow-hidden rounded-full border-[5px] border-white bg-[#D8C1A0] font-serif text-[25px] text-[#5A452E] shadow-[0_10px_30px_rgba(70,50,30,0.12)] sm:h-[106px] sm:w-[106px]">
+                    <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-[5px] border-white bg-[#D8C1A0] font-serif text-[25px] text-[#5A452E] shadow-[0_10px_30px_rgba(70,50,30,0.12)] sm:h-26.5 sm:w-26.5">
 
                       {user.avatar?.url ? (
                         <img
@@ -1097,9 +1072,7 @@ const Account = () => {
             </div>
           </div>
 
-          {/* =================================================
-              RIGHT COLUMN
-          ================================================= */}
+        
 
           <div className="space-y-6">
 
@@ -1367,7 +1340,7 @@ const Account = () => {
                           text-[9px]
                           font-semibold
                           uppercase
-                          tracking-[0.1em]
+                          tracking-widest
                           text-white
                           shadow-[0_7px_18px_rgba(143,107,63,0.18)]
                           transition
@@ -1388,9 +1361,7 @@ const Account = () => {
               </div>
             </div>
 
-            {/* =================================================
-                VERIFICATION
-            ================================================= */}
+            
 
             <div className="relative overflow-hidden rounded-[25px] border border-[#E2D8CC] bg-white p-5 shadow-[0_18px_60px_rgba(55,43,31,0.05)] sm:p-6">
 
