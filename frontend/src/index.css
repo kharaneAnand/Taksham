@@ -27,3 +27,42 @@ button,
 textarea {
   outline: none;
 }
+
+/* Product price range slider */
+
+.price-range {
+  pointer-events: none;
+}
+
+.price-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  border: 2px solid #A4773E;
+  background: #FAF8F5;
+  box-shadow: 0 2px 7px rgba(70, 50, 30, 0.16);
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.price-range::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.08);
+}
+
+.price-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  border: 2px solid #A4773E;
+  background: #FAF8F5;
+  box-shadow: 0 2px 7px rgba(70, 50, 30, 0.16);
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.price-range::-moz-range-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.08);
+}

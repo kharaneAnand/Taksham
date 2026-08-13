@@ -214,7 +214,7 @@ const ProductDetails = () => {
   const relatedProducts = products
     .filter(
       (item) =>
-        item.id !== product.id &&
+        item._id !== product._id &&
         item.category === product.category,
     )
     .slice(0, 4);
@@ -423,7 +423,7 @@ const ProductDetails = () => {
 
               {/* New Arrival */}
 
-              {product.isNew && (
+              {product.isNewProduct && (
                 <div
                   className="
                     absolute

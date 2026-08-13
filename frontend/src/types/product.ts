@@ -1,9 +1,9 @@
 export interface ProductVariant {
-  id: number;
+  _id: string;
+
   color?: string;
 
   images: string[];
-
 
   price?: number;
 
@@ -13,7 +13,7 @@ export interface ProductVariant {
 }
 
 export interface Product {
-  id: number;
+  _id: string;
 
   name: string;
 
@@ -39,9 +39,29 @@ export interface Product {
 
   reviews?: number;
 
-  isNew?: boolean;
+  isNewProduct?: boolean;
 
   stock: number;
 
   variants?: ProductVariant[];
+}
+
+export interface ProductPagination {
+  page: number;
+
+  limit: number;
+
+  totalProducts: number;
+
+  totalPages: number;
+
+  hasNextPage: boolean;
+
+  hasPreviousPage: boolean;
+}
+
+export interface ProductListResponse {
+  products: Product[];
+
+  pagination: ProductPagination;
 }

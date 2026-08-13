@@ -76,7 +76,7 @@ const ProductGrid = ({
       <div className="space-y-4 sm:space-y-5">
         {products.map((product) => (
           <div
-            key={product.id}
+            key={product._id}
             className="
               grid
               grid-cols-[105px_1fr]
@@ -248,7 +248,7 @@ const ProductGrid = ({
     >
       {products.map((product) => (
         <ProductCard
-          key={product.id}
+          key={product._id}
           product={product}
           onAddToCart={onAddToCart}
         />

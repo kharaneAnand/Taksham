@@ -1,6 +1,5 @@
 import {
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
@@ -12,8 +11,12 @@ import ProductFilters, {
 import ProductGrid from "../../components/product/ProductGrid";
 import MobileFilterSheet from "../../components/product/MobileFilterSheet";
 
-import { products } from "../../data/products";
 import type { Product } from "../../types/product";
+
+import {
+  getProducts,
+  type ProductSort,
+} from "../../api/product.api";
 
 import {
   ArrowRight,
@@ -23,13 +26,9 @@ import {
 
 import livingRoomLook from "../../assets/images/looks/Hero_product_page.png";
 
-
 const PRODUCTS_PER_PAGE = 12;
 
-const CATEGORY_PARAM_MAP: Record<
-  string,
-  string
-> = {
+const CATEGORY_PARAM_MAP: Record<string, string> = {
   sofas: "Sofas",
   chairs: "Chairs",
   tables: "Tables",
@@ -48,8 +47,6 @@ const initialFilters: ProductFilterState = {
   maxPrice: 100000,
   minRating: 0,
 };
-
-
 
 const getPaginationItems = (
   currentPage: number,
@@ -76,10 +73,7 @@ const getPaginationItems = (
     ];
   }
 
-  if (
-    currentPage >=
-    totalPages - 3
-  ) {
+  if (currentPage >= totalPages - 3) {
     return [
       1,
       "...",
@@ -102,8 +96,6 @@ const getPaginationItems = (
   ];
 };
 
-
-
 const Products = () => {
   const [filters, setFilters] =
     useState<ProductFilterState>(
@@ -114,9 +106,7 @@ const Products = () => {
     useState("Featured");
 
   const [viewMode, setViewMode] =
-    useState<"grid" | "list">(
-      "grid",
-    );
+    useState<"grid" | "list">("grid");
 
   const [
     mobileFiltersOpen,
@@ -126,13 +116,39 @@ const Products = () => {
   const [currentPage, setCurrentPage] =
     useState(1);
 
+  const [products, setProducts] =
+    useState<Product[]>([]);
 
+  const [totalProducts, setTotalProducts] =
+    useState(0);
+
+  const [totalPages, setTotalPages] =
+    useState(1);
+
+  const [hasNextPage, setHasNextPage] =
+    useState(false);
+
+  const [
+    hasPreviousPage,
+    setHasPreviousPage,
+  ] = useState(false);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  /*
+   * -------------------------------------------------------
+   * Read category from URL
+   * -------------------------------------------------------
+   */
 
   useEffect(() => {
-    const params =
-      new URLSearchParams(
-        window.location.search,
-      );
+    const params = new URLSearchParams(
+      window.location.search,
+    );
 
     const categoryParam =
       params.get("category");
@@ -152,218 +168,161 @@ const Products = () => {
     }
   }, []);
 
-
+  /*
+   * -------------------------------------------------------
+   * Reset page when filters/sort change
+   * -------------------------------------------------------
+   */
 
   useEffect(() => {
     setCurrentPage(1);
   }, [filters, sortBy]);
 
+  /*
+   * -------------------------------------------------------
+   * Convert frontend sort labels
+   * to backend sort values
+   * -------------------------------------------------------
+   */
 
+  const getBackendSort = (): ProductSort => {
+    switch (sortBy) {
+      case "Price: Low to High":
+        return "price_asc";
 
-  const filteredProducts =
-    useMemo(() => {
-      let result =
-        products.filter(
-          (product) => {
-            /* CATEGORY */
+      case "Price: High to Low":
+        return "price_desc";
 
-            if (
-              filters.category !==
-                "All Categories" &&
-              product.subcategory !==
-                filters.category
-            ) {
-              return false;
-            }
+      case "Name":
+        // Until name_asc is added to backend,
+        // use popular as the closest supported option.
+        return "popular";
 
-            /* MATERIAL */
+      case "Featured":
+      default:
+        return "newest";
+    }
+  };
 
-            if (
-              filters.materials
-                .length > 0
-            ) {
-              const productMaterial =
-                product.material?.toLowerCase() ??
-                "";
-
-              const matchesMaterial =
-                filters.materials.some(
-                  (material) =>
-                    productMaterial.includes(
-                      material.toLowerCase(),
-                    ),
-                );
-
-              if (!matchesMaterial) {
-                return false;
-              }
-            }
-
-            /* COLOR */
-
-            if (
-              filters.colors
-                .length > 0
-            ) {
-              const productColors =
-                product.colors ?? [];
-
-              const matchesColor =
-                filters.colors.some(
-                  (color) =>
-                    productColors.includes(
-                      color,
-                    ),
-                );
-
-              if (!matchesColor) {
-                return false;
-              }
-            }
-
-            /* PRICE */
-
-            if (
-              product.price <
-                filters.minPrice ||
-              product.price >
-                filters.maxPrice
-            ) {
-              return false;
-            }
-
-            /* RATING */
-
-            if (
-              filters.minRating >
-                0 &&
-              (product.rating ?? 0) <
-                filters.minRating
-            ) {
-              return false;
-            }
-
-            return true;
-          },
-        );
-
-      /* SORT */
-
-      switch (sortBy) {
-        case "Price: Low to High":
-          result.sort(
-            (a, b) =>
-              a.price - b.price,
-          );
-          break;
-
-        case "Price: High to Low":
-          result.sort(
-            (a, b) =>
-              b.price - a.price,
-          );
-          break;
-
-        case "Name":
-          result.sort(
-            (a, b) =>
-              a.name.localeCompare(
-                b.name,
-              ),
-          );
-          break;
-
-        case "Featured":
-        default:
-          result.sort((a, b) => {
-            if (
-              Boolean(b.isNew) !==
-              Boolean(a.isNew)
-            ) {
-              return (
-                Number(b.isNew) -
-                Number(a.isNew)
-              );
-            }
-
-            return (
-              (b.rating ?? 0) -
-              (a.rating ?? 0)
-            );
-          });
-
-          break;
-      }
-
-      return result;
-    }, [filters, sortBy]);
-
-
-
-  const totalPages =
-    Math.max(
-      1,
-      Math.ceil(
-        filteredProducts.length /
-          PRODUCTS_PER_PAGE,
-      ),
-    );
+  /*
+   * -------------------------------------------------------
+   * Fetch products from backend
+   * -------------------------------------------------------
+   */
 
   useEffect(() => {
-    if (
-      currentPage >
-      totalPages
-    ) {
-      setCurrentPage(totalPages);
-    }
+    let cancelled = false;
+
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const material =
+          filters.materials.length === 1
+            ? filters.materials[0]
+            : undefined;
+
+        const color =
+          filters.colors.length === 1
+            ? filters.colors[0]
+            : undefined;
+
+        const result =
+          await getProducts({
+            page: currentPage,
+            limit: PRODUCTS_PER_PAGE,
+
+            subcategory:
+              filters.category !==
+              "All Categories"
+                ? filters.category
+                : undefined,
+
+            material,
+            color,
+
+            minPrice:
+              filters.minPrice > 0
+                ? filters.minPrice
+                : undefined,
+
+            maxPrice:
+              filters.maxPrice < 100000
+                ? filters.maxPrice
+                : undefined,
+
+            sort: getBackendSort(),
+          });
+
+        if (cancelled) {
+          return;
+        }
+
+        setProducts(result.products);
+
+        setTotalProducts(
+          result.pagination.totalProducts,
+        );
+
+        setTotalPages(
+          Math.max(
+            1,
+            result.pagination.totalPages,
+          ),
+        );
+
+        setHasNextPage(
+          result.pagination.hasNextPage,
+        );
+
+        setHasPreviousPage(
+          result.pagination.hasPreviousPage,
+        );
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error(
+          "Failed to fetch products:",
+          err,
+        );
+
+        setProducts([]);
+        setTotalProducts(0);
+        setTotalPages(1);
+        setHasNextPage(false);
+        setHasPreviousPage(false);
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load products",
+        );
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchProducts();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     currentPage,
-    totalPages,
+    filters,
+    sortBy,
   ]);
 
-  const paginatedProducts =
-    useMemo(() => {
-      const start =
-        (currentPage - 1) *
-        PRODUCTS_PER_PAGE;
-
-      const end =
-        start +
-        PRODUCTS_PER_PAGE;
-
-      return filteredProducts.slice(
-        start,
-        end,
-      );
-    }, [
-      filteredProducts,
-      currentPage,
-    ]);
-
-  const paginationItems =
-    getPaginationItems(
-      currentPage,
-      totalPages,
-    );
-
-
-  const firstResult =
-    filteredProducts.length === 0
-      ? 0
-      : (currentPage - 1) *
-          PRODUCTS_PER_PAGE +
-        1;
-
-  const lastResult =
-    Math.min(
-      currentPage *
-        PRODUCTS_PER_PAGE,
-      filteredProducts.length,
-    );
-
-  /* =======================================================
-     TOOLBAR VALUES
-  ======================================================= */
+  /*
+   * -------------------------------------------------------
+   * Toolbar values
+   * -------------------------------------------------------
+   */
 
   const toolbarMaterial =
     filters.materials.length === 1
@@ -379,22 +338,20 @@ const Products = () => {
     filters.minPrice === 0 &&
     filters.maxPrice === 100000
       ? "All Prices"
-      : filters.maxPrice <=
-          10000
+      : filters.maxPrice <= 10000
         ? "Under ₹10,000"
-        : filters.minPrice >=
-            30000
+        : filters.minPrice >= 30000
           ? "Above ₹30,000"
-          : filters.minPrice >=
-                10000 &&
-              filters.maxPrice <=
-                20000
+          : filters.minPrice >= 10000 &&
+              filters.maxPrice <= 20000
             ? "₹10,000 – ₹20,000"
             : "₹20,000 – ₹30,000";
 
-  /* =======================================================
-     FILTER HANDLERS
-  ======================================================= */
+  /*
+   * -------------------------------------------------------
+   * Filter handlers
+   * -------------------------------------------------------
+   */
 
   const handleCategoryChange = (
     category: string,
@@ -474,14 +431,9 @@ const Products = () => {
   };
 
   const clearFilters = () => {
-    setFilters(
-      initialFilters,
-    );
-
+    setFilters(initialFilters);
     setCurrentPage(1);
   };
-
-
 
   const handleAddToCart = (
     product: Product,
@@ -492,17 +444,12 @@ const Products = () => {
     );
   };
 
- 
-
   const handleToolbarPriceChange = (
     value: string,
   ) => {
     switch (value) {
       case "Under ₹10,000":
-        handlePriceChange(
-          0,
-          10000,
-        );
+        handlePriceChange(0, 10000);
         break;
 
       case "₹10,000 – ₹20,000":
@@ -534,7 +481,37 @@ const Products = () => {
     }
   };
 
+  /*
+   * -------------------------------------------------------
+   * Result numbers
+   * -------------------------------------------------------
+   */
 
+  const firstResult =
+    totalProducts === 0
+      ? 0
+      : (currentPage - 1) *
+          PRODUCTS_PER_PAGE +
+        1;
+
+  const lastResult =
+    Math.min(
+      currentPage *
+        PRODUCTS_PER_PAGE,
+      totalProducts,
+    );
+
+  const paginationItems =
+    getPaginationItems(
+      currentPage,
+      totalPages,
+    );
+
+  /*
+   * -------------------------------------------------------
+   * Render
+   * -------------------------------------------------------
+   */
 
   return (
     <main
@@ -544,8 +521,6 @@ const Products = () => {
         text-[#302B25]
       "
     >
-    
-
       <section className="relative overflow-hidden bg-[#FAF8F5]">
         <div
           className="
@@ -586,8 +561,6 @@ const Products = () => {
               xl:min-h-72
             "
           >
-            {/* Desktop image */}
-
             <div
               className="
                 absolute
@@ -639,8 +612,6 @@ const Products = () => {
               />
             </div>
 
-            {/* Mobile image */}
-
             <div
               className="
                 relative
@@ -673,8 +644,6 @@ const Products = () => {
               />
             </div>
 
-            {/* Hero content */}
-
             <div
               className="
                 relative
@@ -694,8 +663,6 @@ const Products = () => {
               "
             >
               <div className="max-w-143">
-                {/* Eyebrow */}
-
                 <div
                   className="
                     mb-3
@@ -719,8 +686,6 @@ const Products = () => {
                     The Taksham Collection
                   </span>
                 </div>
-
-                {/* Heading */}
 
                 <h1
                   className="
@@ -754,8 +719,6 @@ const Products = () => {
                   )}
                 </h1>
 
-                {/* Description */}
-
                 <p
                   className="
                     mt-4
@@ -772,8 +735,6 @@ const Products = () => {
                   and timeless beauty into everyday
                   living.
                 </p>
-
-                {/* Details */}
 
                 <div
                   className="
@@ -827,8 +788,6 @@ const Products = () => {
                 </div>
               </div>
             </div>
-
-            {/* Image label */}
 
             <div
               className="
@@ -885,9 +844,7 @@ const Products = () => {
         </div>
       </section>
 
-      {/* =====================================================
-          TOOLBAR
-      ===================================================== */}
+      {/* TOOLBAR */}
 
       <section>
         <div
@@ -901,9 +858,7 @@ const Products = () => {
           "
         >
           <ProductToolbar
-            productCount={
-              filteredProducts.length
-            }
+            productCount={totalProducts}
             sortBy={sortBy}
             onSortChange={(value) => {
               setSortBy(value);
@@ -964,7 +919,6 @@ const Products = () => {
         </div>
       </section>
 
-
       <section
         className="
           pb-20
@@ -1015,8 +969,6 @@ const Products = () => {
           {/* Product area */}
 
           <div className="min-w-0 flex-1">
-            {/* Catalogue heading */}
-
             <div
               className="
                 mb-7
@@ -1083,9 +1035,7 @@ const Products = () => {
                   </span>{" "}
                   of{" "}
                   <span className="font-semibold text-[#4B433A]">
-                    {
-                      filteredProducts.length
-                    }
+                    {totalProducts}
                   </span>{" "}
                   pieces
                 </p>
@@ -1122,20 +1072,49 @@ const Products = () => {
               )}
             </div>
 
-            {/* Products */}
+            {/* Loading */}
 
-            {paginatedProducts.length >
-            0 ? (
-              <ProductGrid
-                products={
-                  paginatedProducts
-                }
-                viewMode={viewMode}
-                onAddToCart={
-                  handleAddToCart
-                }
-              />
-            ) : (
+            {loading && (
+              <div
+                className="
+                  flex
+                  min-h-90
+                  flex-col
+                  items-center
+                  justify-center
+                  rounded-[20px]
+                  border
+                  border-[#E5DDD2]
+                  bg-white/60
+                "
+              >
+                <div
+                  className="
+                    h-8
+                    w-8
+                    animate-spin
+                    rounded-full
+                    border-2
+                    border-[#DCCFC0]
+                    border-t-[#A4773E]
+                  "
+                />
+
+                <p
+                  className="
+                    mt-4
+                    text-[12px]
+                    text-[#81776C]
+                  "
+                >
+                  Loading collection...
+                </p>
+              </div>
+            )}
+
+            {/* Error */}
+
+            {!loading && error && (
               <div
                 className="
                   flex
@@ -1159,7 +1138,7 @@ const Products = () => {
                     text-[#B7894A]/30
                   "
                 >
-                  00
+                  !
                 </span>
 
                 <h3
@@ -1170,26 +1149,26 @@ const Products = () => {
                     text-[#332D26]
                   "
                 >
-                  Nothing found
+                  Unable to load products
                 </h3>
 
                 <p
                   className="
                     mt-2
-                    max-w-[320px]
+                    max-w-90
                     text-[13px]
                     leading-5
                     text-[#83786B]
                   "
                 >
-                  Try adjusting your filters
-                  to discover more pieces from
-                  the Taksham collection.
+                  {error}
                 </p>
 
                 <button
                   type="button"
-                  onClick={clearFilters}
+                  onClick={() =>
+                    window.location.reload()
+                  }
                   className="
                     mt-5
                     rounded-[9px]
@@ -1207,193 +1186,281 @@ const Products = () => {
                     hover:bg-[#795832]
                   "
                 >
-                  Clear filters
+                  Try Again
                 </button>
               </div>
             )}
 
+            {/* Products */}
 
-            {filteredProducts.length >
-              PRODUCTS_PER_PAGE && (
-              <div
-                className="
-                  mt-12
-                  flex
-                  justify-center
-                  border-t
-                  border-[#E7DED3]
-                  pt-8
-                  sm:mt-14
-                  sm:pt-9
-                "
-              >
-                <nav
-                  aria-label="Product pagination"
+            {!loading &&
+              !error &&
+              products.length > 0 && (
+                <ProductGrid
+                  products={products}
+                  viewMode={viewMode}
+                  onAddToCart={
+                    handleAddToCart
+                  }
+                />
+              )}
+
+            {/* Empty */}
+
+            {!loading &&
+              !error &&
+              products.length === 0 && (
+                <div
                   className="
                     flex
+                    min-h-90
+                    flex-col
                     items-center
                     justify-center
-                    gap-1
-                    sm:gap-1.5
+                    rounded-[20px]
+                    border
+                    border-dashed
+                    border-[#DCCFC0]
+                    bg-[#F7F2EA]
+                    px-6
+                    text-center
                   "
                 >
-                  {/* Previous */}
+                  <span
+                    className="
+                      font-serif
+                      text-[42px]
+                      text-[#B7894A]/30
+                    "
+                  >
+                    00
+                  </span>
+
+                  <h3
+                    className="
+                      mt-2
+                      font-serif
+                      text-[28px]
+                      text-[#332D26]
+                    "
+                  >
+                    Nothing found
+                  </h3>
+
+                  <p
+                    className="
+                      mt-2
+                      max-w-[320px]
+                      text-[13px]
+                      leading-5
+                      text-[#83786B]
+                    "
+                  >
+                    Try adjusting your filters
+                    to discover more pieces from
+                    the Taksham collection.
+                  </p>
 
                   <button
                     type="button"
-                    disabled={
-                      currentPage === 1
-                    }
-                    onClick={() =>
-                      setCurrentPage(
-                        (page) =>
-                          Math.max(
-                            1,
-                            page - 1,
-                          ),
-                      )
-                    }
-                    aria-label="Previous page"
+                    onClick={clearFilters}
                     className="
-                      mr-1
+                      mt-5
+                      rounded-[9px]
+                      bg-[#8F6B3F]
+                      px-5
+                      py-3
+                      text-[11px]
+                      font-semibold
+                      uppercase
+                      tracking-[0.08em]
+                      text-white
+                      shadow-[0_8px_22px_rgba(143,107,63,0.18)]
+                      transition-all
+                      duration-300
+                      hover:bg-[#795832]
+                    "
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              )}
+
+            {/* Pagination */}
+
+            {!loading &&
+              !error &&
+              totalPages > 1 && (
+                <div
+                  className="
+                    mt-12
+                    flex
+                    justify-center
+                    border-t
+                    border-[#E7DED3]
+                    pt-8
+                    sm:mt-14
+                    sm:pt-9
+                  "
+                >
+                  <nav
+                    aria-label="Product pagination"
+                    className="
                       flex
-                      h-10
-                      w-10
                       items-center
                       justify-center
-                      rounded-full
-                      text-[#766D63]
-                      transition-all
-                      hover:bg-[#F0E8DD]
-                      hover:text-[#765A38]
-                      disabled:pointer-events-none
-                      disabled:opacity-20
+                      gap-1
+                      sm:gap-1.5
                     "
                   >
-                    <ChevronLeft
-                      size={16}
-                      strokeWidth={1.5}
-                    />
-                  </button>
+                    <button
+                      type="button"
+                      disabled={
+                        !hasPreviousPage
+                      }
+                      onClick={() =>
+                        setCurrentPage(
+                          (page) =>
+                            Math.max(
+                              1,
+                              page - 1,
+                            ),
+                        )
+                      }
+                      aria-label="Previous page"
+                      className="
+                        mr-1
+                        flex
+                        h-10
+                        w-10
+                        items-center
+                        justify-center
+                        rounded-full
+                        text-[#766D63]
+                        transition-all
+                        hover:bg-[#F0E8DD]
+                        hover:text-[#765A38]
+                        disabled:pointer-events-none
+                        disabled:opacity-20
+                      "
+                    >
+                      <ChevronLeft
+                        size={16}
+                        strokeWidth={1.5}
+                      />
+                    </button>
 
-                  {/* Pages */}
+                    {paginationItems.map(
+                      (item, index) => {
+                        if (
+                          item === "..."
+                        ) {
+                          return (
+                            <span
+                              key={`dots-${index}`}
+                              className="
+                                flex
+                                h-10
+                                w-8
+                                items-center
+                                justify-center
+                                text-[15px]
+                                text-[#958B80]
+                              "
+                            >
+                              …
+                            </span>
+                          );
+                        }
 
-                  {paginationItems.map(
-                    (item, index) => {
-                      if (
-                        item === "..."
-                      ) {
+                        const isActive =
+                          item ===
+                          currentPage;
+
                         return (
-                          <span
-                            key={`dots-${index}`}
-                            className="
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() =>
+                              setCurrentPage(
+                                item,
+                              )
+                            }
+                            aria-current={
+                              isActive
+                                ? "page"
+                                : undefined
+                            }
+                            className={`
                               flex
                               h-10
-                              w-8
+                              min-w-10
                               items-center
                               justify-center
-                              text-[15px]
-                              text-[#958B80]
-                            "
+                              rounded-lg
+                              px-2
+                              text-[12px]
+                              font-medium
+                              transition-all
+                              duration-200
+                              ${
+                                isActive
+                                  ? "bg-[#D7AD6B] text-[#2D251D] shadow-[0_5px_14px_rgba(183,137,74,0.16)]"
+                                  : "text-[#4F4840] hover:bg-[#F1E9DE] hover:text-[#8A6537]"
+                              }
+                            `}
                           >
-                            …
-                          </span>
+                            {item}
+                          </button>
                         );
+                      },
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={
+                        !hasNextPage
                       }
+                      onClick={() =>
+                        setCurrentPage(
+                          (page) =>
+                            Math.min(
+                              totalPages,
+                              page + 1,
+                            ),
+                        )
+                      }
+                      className="
+                        ml-1
+                        flex
+                        h-10
+                        items-center
+                        gap-2
+                        rounded-lg
+                        px-3
+                        text-[11px]
+                        font-medium
+                        text-[#4F4840]
+                        transition-all
+                        hover:bg-[#F1E9DE]
+                        hover:text-[#765A38]
+                        disabled:pointer-events-none
+                        disabled:opacity-20
+                      "
+                    >
+                      Next
 
-                      const isActive =
-                        item ===
-                        currentPage;
-
-                      return (
-                        <button
-                          key={item}
-                          type="button"
-                          onClick={() =>
-                            setCurrentPage(
-                              item,
-                            )
-                          }
-                          aria-current={
-                            isActive
-                              ? "page"
-                              : undefined
-                          }
-                          className={`
-                            flex
-                            h-10
-                            min-w-10
-                            items-center
-                            justify-center
-                            rounded-lg
-                            px-2
-                            text-[12px]
-                            font-medium
-                            transition-all
-                            duration-200
-                            ${
-                              isActive
-                                ? "bg-[#D7AD6B] text-[#2D251D] shadow-[0_5px_14px_rgba(183,137,74,0.16)]"
-                                : "text-[#4F4840] hover:bg-[#F1E9DE] hover:text-[#8A6537]"
-                            }
-                          `}
-                        >
-                          {item}
-                        </button>
-                      );
-                    },
-                  )}
-
-                  {/* Next */}
-
-                  <button
-                    type="button"
-                    disabled={
-                      currentPage ===
-                      totalPages
-                    }
-                    onClick={() =>
-                      setCurrentPage(
-                        (page) =>
-                          Math.min(
-                            totalPages,
-                            page + 1,
-                          ),
-                      )
-                    }
-                    className="
-                      ml-1
-                      flex
-                      h-10
-                      items-center
-                      gap-2
-                      rounded-lg
-                      px-3
-                      text-[11px]
-                      font-medium
-                      text-[#4F4840]
-                      transition-all
-                      hover:bg-[#F1E9DE]
-                      hover:text-[#765A38]
-                      disabled:pointer-events-none
-                      disabled:opacity-20
-                    "
-                  >
-                    Next
-
-                    <ChevronRight
-                      size={14}
-                      strokeWidth={1.5}
-                    />
-                  </button>
-                </nav>
-              </div>
-            )}
+                      <ChevronRight
+                        size={14}
+                        strokeWidth={1.5}
+                      />
+                    </button>
+                  </nav>
+                </div>
+              )}
           </div>
         </div>
       </section>
-
-
 
       <MobileFilterSheet
         open={mobileFiltersOpen}

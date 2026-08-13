@@ -41,7 +41,6 @@ const ProductCard = ({
         overflow-hidden
       "
     >
-
       {/* =====================================================
           PRODUCT IMAGE
       ===================================================== */}
@@ -81,7 +80,6 @@ const ProductCard = ({
           lg:group-hover:shadow-[0_18px_45px_rgba(55,43,31,0.09)]
         "
       >
-
         {/* Background glow */}
 
         <div
@@ -101,7 +99,7 @@ const ProductCard = ({
           "
         />
 
-        {/* Image */}
+        {/* Product Image */}
 
         <div
           className="
@@ -126,7 +124,7 @@ const ProductCard = ({
           >
             <img
               src={product.image}
-              alt={product.name}
+              alt=""
               loading="lazy"
               draggable={false}
               className="
@@ -164,9 +162,11 @@ const ProductCard = ({
           "
         />
 
-        {/* New badge */}
+        {/* =====================================================
+            NEW BADGE
+        ===================================================== */}
 
-        {product.isNew && (
+        {product.isNewProduct && (
           <div
             className="
               absolute
@@ -199,46 +199,9 @@ const ProductCard = ({
           </div>
         )}
 
-        {/* Category badge */}
-
-        {!product.isNew && (
-          <div
-            className="
-              absolute
-              left-2.5
-              top-2.5
-              z-30
-              max-w-[55%]
-              rounded-full
-              border
-              border-white/60
-              bg-white/78
-              px-2.5
-              py-1.5
-              shadow-[0_5px_16px_rgba(50,40,30,0.07)]
-              backdrop-blur-md
-              sm:left-3
-              sm:top-3
-            "
-          >
-            <span
-              className="
-                block
-                truncate
-                text-[6px]
-                font-semibold
-                uppercase
-                tracking-[0.13em]
-                text-[#665A4D]
-                sm:text-[7px]
-              "
-            >
-              {category}
-            </span>
-          </div>
-        )}
-
-        {/* Wishlist */}
+        {/* =====================================================
+            WISHLIST
+        ===================================================== */}
 
         <button
           type="button"
@@ -286,7 +249,9 @@ const ProductCard = ({
           />
         </button>
 
-        {/* View product */}
+        {/* =====================================================
+            VIEW PRODUCT
+        ===================================================== */}
 
         <button
           type="button"
@@ -328,53 +293,7 @@ const ProductCard = ({
             strokeWidth={1.45}
           />
         </button>
-
-        {/* Taksham edit */}
-
-        <div
-          className="
-            pointer-events-none
-            absolute
-            bottom-3
-            left-3
-            z-30
-            hidden
-            items-center
-            gap-1.5
-            rounded-full
-            border
-            border-white/35
-            bg-black/10
-            px-2.5
-            py-1.5
-            backdrop-blur-sm
-            sm:flex
-          "
-        >
-          <span
-            className="
-              h-1
-              w-1
-              rounded-full
-              bg-[#E6C995]
-            "
-          />
-
-          <span
-            className="
-              text-[6px]
-              font-medium
-              uppercase
-              tracking-[0.17em]
-              text-white/85
-            "
-          >
-            Taksham edit
-          </span>
-        </div>
-
       </div>
-
 
       {/* =====================================================
           PRODUCT INFORMATION
@@ -388,18 +307,16 @@ const ProductCard = ({
           sm:pt-3.5
         "
       >
-
         <div
           className="
             flex
             min-w-0
             items-start
             justify-between
-            gap-2
+            gap-3
           "
         >
-
-          {/* Product name */}
+          {/* Product name + category */}
 
           <button
             type="button"
@@ -412,7 +329,8 @@ const ProductCard = ({
           >
             <h3
               className="
-                truncate
+                line-clamp-2
+                min-h-9
                 font-serif
                 text-[15px]
                 font-medium
@@ -421,6 +339,7 @@ const ProductCard = ({
                 text-[#292520]
                 transition-colors
                 hover:text-[#8A6436]
+                sm:min-h-10
                 sm:text-[17px]
               "
             >
@@ -462,11 +381,11 @@ const ProductCard = ({
               "en-IN",
             )}
           </span>
-
         </div>
 
-
-        {/* Rating */}
+        {/* =====================================================
+            RATING
+        ===================================================== */}
 
         <div
           className="
@@ -477,9 +396,7 @@ const ProductCard = ({
             gap-1.5
           "
         >
-
           <div className="flex items-center gap-0.5">
-
             {[1, 2, 3, 4, 5].map(
               (star) => (
                 <Star
@@ -494,7 +411,6 @@ const ProductCard = ({
                 />
               ),
             )}
-
           </div>
 
           <span
@@ -520,11 +436,11 @@ const ProductCard = ({
               ({reviews})
             </span>
           )}
-
         </div>
 
-
-        {/* Add to Cart */}
+        {/* =====================================================
+            ADD TO CART
+        ===================================================== */}
 
         <button
           type="button"
@@ -586,9 +502,7 @@ const ProductCard = ({
             "
           />
         </button>
-
       </div>
-
     </article>
   );
 };

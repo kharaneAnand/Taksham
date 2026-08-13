@@ -227,6 +227,7 @@ const ProductFilters = ({
 
 
 
+
       <div>
         <div className="flex items-center justify-between">
           <h3
@@ -247,72 +248,148 @@ const ProductFilters = ({
         </div>
 
         <div className="mt-6">
-          <div className="relative h-0.75rounded-full bg-[#DCD3C8]">
+
+          <div className="relative h-6">
+            {/* Track */}
+
             <div
               className="
                 absolute
-                inset-y-0
                 left-0
+                right-0
+                top-1/2
+                h-0.75
+                -translate-y-1/2
+                rounded-full
+                bg-[#DCD3C8]
+              "
+            />
+
+            {/* Active range */}
+
+            <div
+              className="
+                pointer-events-none
+                absolute
+                top-1/2
+                h-0.75
+                -translate-y-1/2
                 rounded-full
                 bg-[#A4773E]
               "
               style={{
-                width: `${Math.min(
-                  100,
-                  Math.max(
-                    0,
-                    (filters.maxPrice /
-                      100000) *
-                      100,
-                  ),
-                )}%`,
+                left: `${
+                  (filters.minPrice / 100000) * 100
+                }%`,
+                right: `${
+                  100 -
+                  (filters.maxPrice / 100000) * 100
+                }%`,
               }}
             />
 
-            <span
+            {/* =================================================
+                MIN PRICE RANGE
+            ================================================= */}
+
+            <input
+              type="range"
+              min={0}
+              max={100000}
+              step={1000}
+              value={filters.minPrice}
+              onChange={(event) => {
+                const value = Number(
+                  event.target.value,
+                );
+
+                onPriceChange(
+                  Math.min(
+                    value,
+                    filters.maxPrice - 1000,
+                  ),
+                  filters.maxPrice,
+                );
+              }}
               className="
+                price-range
                 absolute
-                left-0
-                top-1/2
-                h-4
-                w-4
-                -translate-x-1/2
-                -translate-y-1/2
-                rounded-full
-                border-2
-                border-[#A4773E]
-                bg-[#FAF8F5]
-                shadow-[0_2px_7px_rgba(70,50,30,0.12)]
+                inset-0
+                z-20
+                h-6
+                w-full
+                cursor-pointer
+                appearance-none
+                bg-transparent
               "
+              aria-label="Minimum price"
             />
 
-            <span
+            {/* =================================================
+                MAX PRICE RANGE
+            ================================================= */}
+
+            <input
+              type="range"
+              min={0}
+              max={100000}
+              step={1000}
+              value={filters.maxPrice}
+              onChange={(event) => {
+                const value = Number(
+                  event.target.value,
+                );
+
+                onPriceChange(
+                  filters.minPrice,
+                  Math.max(
+                    value,
+                    filters.minPrice + 1000,
+                  ),
+                );
+              }}
               className="
+                price-range
                 absolute
-                right-0
-                top-1/2
-                h-4
-                w-4
-                translate-x-1/2
-                -translate-y-1/2
-                rounded-full
-                border-2
-                border-[#A4773E]
-                bg-[#FAF8F5]
-                shadow-[0_2px_7px_rgba(70,50,30,0.12)]
+                inset-0
+                z-30
+                h-6
+                w-full
+                cursor-pointer
+                appearance-none
+                bg-transparent
               "
+              aria-label="Maximum price"
             />
           </div>
 
-          <div className="mt-5 flex items-center justify-between">
-            <span className="text-[11px] text-[#766D63]">
+          {/* =================================================
+              PRICE VALUES
+          ================================================= */}
+
+          <div className="mt-4 flex items-center justify-between">
+            <span
+              className="
+                text-[11px]
+                font-medium
+                tabular-nums
+                text-[#766D63]
+              "
+            >
               ₹
               {filters.minPrice.toLocaleString(
                 "en-IN",
               )}
             </span>
 
-            <span className="text-[11px] text-[#766D63]">
+            <span
+              className="
+                text-[11px]
+                font-medium
+                tabular-nums
+                text-[#766D63]
+              "
+            >
               ₹
               {filters.maxPrice.toLocaleString(
                 "en-IN",
@@ -320,7 +397,9 @@ const ProductFilters = ({
             </span>
           </div>
 
-          {/* Price controls */}
+          {/* =================================================
+              QUICK PRICE CONTROLS
+          ================================================= */}
 
           <div className="mt-4 grid grid-cols-2 gap-2">
             <button
