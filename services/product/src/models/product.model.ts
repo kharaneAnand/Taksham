@@ -69,6 +69,11 @@ const productSchema =
         trim: true,
       },
 
+      images: {
+        type: [String],
+        default: [],
+      },
+
       category: {
         type: String,
         required: true,

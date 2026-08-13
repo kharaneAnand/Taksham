@@ -23,6 +23,8 @@ export interface IProduct {
 
   image: string;
 
+  images:string[] ;
+
   category: string;
 
   subcategory?: string;

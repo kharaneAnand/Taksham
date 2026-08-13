@@ -21,7 +21,11 @@ export interface Product {
 
   price: number;
 
+  // Primary / thumbnail image
   image: string;
+
+  // Full product gallery
+  images?: string[];
 
   category: string;
 

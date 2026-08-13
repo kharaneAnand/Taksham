@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import {
   ArrowLeft,
@@ -14,10 +17,17 @@ import {
   Truck,
 } from "lucide-react";
 
+import { useNavigate, useParams } from "react-router-dom";
+
 import Breadcrumbs from "../../components/product/Breadcrumbs";
 import ProductGrid from "../../components/product/ProductGrid";
 
-import { products } from "../../data/products";
+import {
+  getProductBySlug,
+  getProducts,
+} from "../../api/product.api";
+
+import type { Product } from "../../types/product";
 
 const ProductDetails = () => {
   const { slug } = useParams();
@@ -27,10 +37,17 @@ const ProductDetails = () => {
      PRODUCT
   ===================================================== */
 
-  const product = useMemo(
-    () => products.find((item) => item.slug === slug),
-    [slug],
-  );
+  const [product, setProduct] =
+    useState<Product | null>(null);
+
+  const [relatedProducts, setRelatedProducts] =
+    useState<Product[]>([]);
+
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState<string | null>(null);
 
   /* =====================================================
      STATE
@@ -38,50 +55,146 @@ const ProductDetails = () => {
 
   const [quantity, setQuantity] = useState(1);
 
-  const [selectedColor, setSelectedColor] = useState("");
+  const [selectedColor, setSelectedColor] =
+    useState("");
 
-  const [selectedImageIndex, setSelectedImageIndex] =
-    useState(0);
+  const [
+    selectedImageIndex,
+    setSelectedImageIndex,
+  ] = useState(0);
 
-  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [isWishlisted, setIsWishlisted] =
+    useState(false);
+
+  /* =====================================================
+     FETCH PRODUCT
+  ===================================================== */
+
+  useEffect(() => {
+    if (!slug) {
+      setProduct(null);
+      setError("Product not found");
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchProduct = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const data =
+          await getProductBySlug(slug);
+
+        setProduct(data);
+      } catch (error) {
+        console.error(
+          "Failed to fetch product:",
+          error,
+        );
+
+        setProduct(null);
+
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load product",
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [slug]);
+
+  /* =====================================================
+     FETCH RELATED PRODUCTS
+  ===================================================== */
+
+  useEffect(() => {
+    if (!product?.category) {
+      setRelatedProducts([]);
+      return;
+    }
+
+    const fetchRelatedProducts =
+      async () => {
+        try {
+          const result =
+            await getProducts({
+              category: product.category,
+              limit: 5,
+            });
+
+          const related =
+            result.products
+              .filter(
+                (item) =>
+                  item.slug !==
+                  product.slug,
+              )
+              .slice(0, 4);
+
+          setRelatedProducts(related);
+        } catch (error) {
+          console.error(
+            "Failed to fetch related products:",
+            error,
+          );
+
+          setRelatedProducts([]);
+        }
+      };
+
+    fetchRelatedProducts();
+  }, [product]);
 
   /* =====================================================
      ACTIVE VARIANT
   ===================================================== */
 
   const activeVariant = useMemo(() => {
-    if (!product?.variants?.length) {
-      return undefined;
-    }
+  if (!product?.variants?.length) {
+    return undefined;
+  }
 
-    if (selectedColor) {
-      return (
-        product.variants.find(
-          (variant) =>
-            variant.color?.toLowerCase() ===
-            selectedColor.toLowerCase(),
-        ) || product.variants[0]
-      );
-    }
+  const colorToUse =
+    selectedColor ||
+    product.colors?.[0];
 
+  if (!colorToUse) {
     return product.variants[0];
-  }, [product, selectedColor]);
+  }
+
+  return (
+    product.variants.find(
+      (variant) =>
+        variant.color?.toLowerCase() ===
+        colorToUse.toLowerCase(),
+    ) || product.variants[0]
+  );
+}, [product, selectedColor]);
 
   /* =====================================================
      ACTIVE PRODUCT DATA
   ===================================================== */
 
   const activeImages = useMemo(() => {
-    if (activeVariant?.images?.length) {
-      return activeVariant.images;
-    }
+  if (activeVariant?.images?.length) {
+    return activeVariant.images;
+  }
 
-    if (product?.image) {
-      return [product.image];
-    }
+  if (product?.images?.length) {
+    return product.images;
+  }
 
-    return [];
-  }, [activeVariant, product]);
+  if (product?.image) {
+    return [product.image];
+  }
+
+  return [];
+}, [activeVariant, product]);
 
   const activeImage =
     activeImages[selectedImageIndex] ||
@@ -118,6 +231,55 @@ const ProductDetails = () => {
     setSelectedImageIndex(0);
     setQuantity(1);
   }, [selectedColor, slug]);
+
+  /* =====================================================
+     LOADING
+  ===================================================== */
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-[#FAF8F5]">
+        <div
+          className="
+            mx-auto
+            flex
+            min-h-[70vh]
+            max-w-375
+            flex-col
+            items-center
+            justify-center
+            px-5
+            text-center
+          "
+        >
+          <div
+            className="
+              h-8
+              w-8
+              animate-spin
+              rounded-full
+              border-2
+              border-[#DCCFC0]
+              border-t-[#8F6B3F]
+            "
+          />
+
+          <p
+            className="
+              mt-5
+              text-[10px]
+              font-medium
+              uppercase
+              tracking-[0.18em]
+              text-[#81776C]
+            "
+          >
+            Loading product
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   /* =====================================================
      PRODUCT NOT FOUND
@@ -171,13 +333,15 @@ const ProductDetails = () => {
               text-[#81776C]
             "
           >
-            The product you're looking for may have
-            been removed or is no longer available.
+            {error ||
+              "The product you're looking for may have been removed or is no longer available."}
           </p>
 
           <button
             type="button"
-            onClick={() => navigate("/products")}
+            onClick={() =>
+              navigate("/products")
+            }
             className="
               mt-7
               flex
@@ -207,18 +371,6 @@ const ProductDetails = () => {
     );
   }
 
-  /* =====================================================
-     RELATED PRODUCTS
-  ===================================================== */
-
-  const relatedProducts = products
-    .filter(
-      (item) =>
-        item._id !== product._id &&
-        item.category === product.category,
-    )
-    .slice(0, 4);
-
   const rating = product.rating ?? 0;
   const reviews = product.reviews ?? 0;
 
@@ -227,22 +379,31 @@ const ProductDetails = () => {
   ===================================================== */
 
   const decreaseQuantity = () => {
-    setQuantity((current) => Math.max(1, current - 1));
+    setQuantity((current) =>
+      Math.max(1, current - 1),
+    );
   };
 
   const increaseQuantity = () => {
     setQuantity((current) =>
-      Math.min(activeStock, current + 1),
+      Math.min(
+        activeStock,
+        current + 1,
+      ),
     );
   };
 
-  const handleColorChange = (color: string) => {
+  const handleColorChange = (
+    color: string,
+  ) => {
     setSelectedColor(color);
     setSelectedImageIndex(0);
     setQuantity(1);
   };
 
-  const handleThumbnailChange = (index: number) => {
+  const handleThumbnailChange = (
+    index: number,
+  ) => {
     setSelectedImageIndex(index);
   };
 
@@ -332,9 +493,7 @@ const ProductDetails = () => {
 
           <div>
 
-            {/* =================================================
-                MAIN IMAGE
-            ================================================= */}
+            {/* MAIN IMAGE */}
 
             <div
               className="
@@ -461,7 +620,9 @@ const ProductDetails = () => {
               <button
                 type="button"
                 onClick={() =>
-                  setIsWishlisted((current) => !current)
+                  setIsWishlisted(
+                    (current) => !current,
+                  )
                 }
                 aria-label="Add to wishlist"
                 className="
@@ -569,15 +730,13 @@ const ProductDetails = () => {
                     backdrop-blur-md
                   "
                 >
-                  {String(selectedImageIndex + 1).padStart(
-                    2,
-                    "0",
-                  )}{" "}
+                  {String(
+                    selectedImageIndex + 1,
+                  ).padStart(2, "0")}{" "}
                   /{" "}
-                  {String(activeImages.length).padStart(
-                    2,
-                    "0",
-                  )}
+                  {String(
+                    activeImages.length,
+                  ).padStart(2, "0")}
                 </div>
               )}
             </div>
@@ -598,117 +757,120 @@ const ProductDetails = () => {
                   lg:grid-cols-4
                 "
               >
-                {activeImages.map((image, index) => {
-                  const isActive =
-                    selectedImageIndex === index;
+                {activeImages.map(
+                  (image, index) => {
+                    const isActive =
+                      selectedImageIndex ===
+                      index;
 
-                  return (
-                    <button
-                      key={`${image}-${index}`}
-                      type="button"
-                      onClick={() =>
-                        handleThumbnailChange(index)
-                      }
-                      aria-label={`View ${product.name} image ${
-                        index + 1
-                      }`}
-                      aria-current={
-                        isActive ? "true" : undefined
-                      }
-                      className={`
-                        group
-                        relative
-                        aspect-square
-                        overflow-hidden
-                        rounded-[14px]
-                        border
-                        bg-[#F1ECE4]
-                        transition-all
-                        duration-300
-                        ${
-                          isActive
-                            ? `
-                              border-[#A4773E]
-                              bg-[#EFE5D8]
-                              shadow-[0_5px_18px_rgba(164,119,62,0.12)]
-                              ring-1
-                              ring-[#A4773E]/25
-                            `
-                            : `
-                              border-[#E1D8CD]
-                              hover:border-[#BDA47F]
-                              hover:bg-[#F5EFE7]
-                            `
+                    return (
+                      <button
+                        key={`${image}-${index}`}
+                        type="button"
+                        onClick={() =>
+                          handleThumbnailChange(
+                            index,
+                          )
                         }
-                      `}
-                    >
-                      <img
-                        src={image}
-                        alt={`${product.name} preview ${
+                        aria-label={`View ${product.name} image ${
                           index + 1
                         }`}
-                        loading="lazy"
+                        aria-current={
+                          isActive
+                            ? "true"
+                            : undefined
+                        }
                         className={`
-                          h-full
-                          w-full
-                          object-contain
-                          p-2.5
-                          transition-transform
-                          duration-500
+                          group
+                          relative
+                          aspect-square
+                          overflow-hidden
+                          rounded-[14px]
+                          border
+                          bg-[#F1ECE4]
+                          transition-all
+                          duration-300
                           ${
                             isActive
-                              ? "scale-[1.025]"
-                              : "group-hover:scale-[1.045]"
-                          }
-                        `}
-                      />
-
-                      {/* Selected dot */}
-
-                      {isActive && (
-                        <span
-                          className="
-                            absolute
-                            bottom-2
-                            left-1/2
-                            h-1.5
-                            w-1.5
-                            -translate-x-1/2
-                            rounded-full
-                            bg-[#A4773E]
-                            shadow-[0_0_0_3px_rgba(164,119,62,0.12)]
-                          "
-                        />
-                      )}
-
-                      {/* Image number */}
-
-                      <span
-                        className={`
-                          absolute
-                          right-2
-                          top-2
-                          flex
-                          h-5
-                          min-w-5
-                          items-center
-                          justify-center
-                          rounded-full
-                          px-1
-                          text-[7px]
-                          font-medium
-                          ${
-                            isActive
-                              ? "bg-[#A4773E] text-white"
-                              : "bg-white/80 text-[#746A5E]"
+                              ? `
+                                border-[#A4773E]
+                                bg-[#EFE5D8]
+                                shadow-[0_5px_18px_rgba(164,119,62,0.12)]
+                                ring-1
+                                ring-[#A4773E]/25
+                              `
+                              : `
+                                border-[#E1D8CD]
+                                hover:border-[#BDA47F]
+                                hover:bg-[#F5EFE7]
+                              `
                           }
                         `}
                       >
-                        {index + 1}
-                      </span>
-                    </button>
-                  );
-                })}
+                        <img
+                          src={image}
+                          alt={`${product.name} preview ${
+                            index + 1
+                          }`}
+                          loading="lazy"
+                          className={`
+                            h-full
+                            w-full
+                            object-contain
+                            p-2.5
+                            transition-transform
+                            duration-500
+                            ${
+                              isActive
+                                ? "scale-[1.025]"
+                                : "group-hover:scale-[1.045]"
+                            }
+                          `}
+                        />
+
+                        {isActive && (
+                          <span
+                            className="
+                              absolute
+                              bottom-2
+                              left-1/2
+                              h-1.5
+                              w-1.5
+                              -translate-x-1/2
+                              rounded-full
+                              bg-[#A4773E]
+                              shadow-[0_0_0_3px_rgba(164,119,62,0.12)]
+                            "
+                          />
+                        )}
+
+                        <span
+                          className={`
+                            absolute
+                            right-2
+                            top-2
+                            flex
+                            h-5
+                            min-w-5
+                            items-center
+                            justify-center
+                            rounded-full
+                            px-1
+                            text-[7px]
+                            font-medium
+                            ${
+                              isActive
+                                ? "bg-[#A4773E] text-white"
+                                : "bg-white/80 text-[#746A5E]"
+                            }
+                          `}
+                        >
+                          {index + 1}
+                        </span>
+                      </button>
+                    );
+                  },
+                )}
               </div>
             )}
 
@@ -849,7 +1011,10 @@ const ProductDetails = () => {
                   sm:text-[29px]
                 "
               >
-                ₹{activePrice.toLocaleString("en-IN")}
+                ₹
+                {activePrice.toLocaleString(
+                  "en-IN",
+                )}
               </span>
 
               <span
@@ -967,59 +1132,63 @@ const ProductDetails = () => {
                       gap-2
                     "
                   >
-                    {product.colors.map((color) => {
-                      const isSelected =
-                        activeColor.toLowerCase() ===
-                        color.toLowerCase();
+                    {product.colors.map(
+                      (color) => {
+                        const isSelected =
+                          activeColor.toLowerCase() ===
+                          color.toLowerCase();
 
-                      return (
-                        <button
-                          key={color}
-                          type="button"
-                          onClick={() =>
-                            handleColorChange(color)
-                          }
-                          className={`
-                            flex
-                            items-center
-                            gap-1.5
-                            rounded-full
-                            border
-                            px-3.5
-                            py-2
-                            text-[9px]
-                            font-medium
-                            transition-all
-                            duration-300
-                            ${
-                              isSelected
-                                ? `
-                                  border-[#A4773E]
-                                  bg-[#F0E5D6]
-                                  text-[#76562F]
-                                  shadow-[0_4px_12px_rgba(164,119,62,0.10)]
-                                `
-                                : `
-                                  border-[#DDD4C9]
-                                  bg-white
-                                  text-[#62594F]
-                                  hover:border-[#BDA47F]
-                                  hover:bg-[#F9F5EF]
-                                `
+                        return (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() =>
+                              handleColorChange(
+                                color,
+                              )
                             }
-                          `}
-                        >
-                          {isSelected && (
-                            <Check
-                              size={10}
-                              strokeWidth={2}
-                            />
-                          )}
+                            className={`
+                              flex
+                              items-center
+                              gap-1.5
+                              rounded-full
+                              border
+                              px-3.5
+                              py-2
+                              text-[9px]
+                              font-medium
+                              transition-all
+                              duration-300
+                              ${
+                                isSelected
+                                  ? `
+                                    border-[#A4773E]
+                                    bg-[#F0E5D6]
+                                    text-[#76562F]
+                                    shadow-[0_4px_12px_rgba(164,119,62,0.10)]
+                                  `
+                                  : `
+                                    border-[#DDD4C9]
+                                    bg-white
+                                    text-[#62594F]
+                                    hover:border-[#BDA47F]
+                                    hover:bg-[#F9F5EF]
+                                  `
+                              }
+                            `}
+                          >
+                            {isSelected && (
+                              <Check
+                                size={10}
+                                strokeWidth={2}
+                              />
+                            )}
 
-                          {color}
-                        </button>
-                      );
-                    })}
+                            {color}
+                          </button>
+                        );
+                      },
+                    )}
                   </div>
                 </div>
               )}
@@ -1364,7 +1533,9 @@ const ProductDetails = () => {
 
             <button
               type="button"
-              onClick={() => navigate("/products")}
+              onClick={() =>
+                navigate("/products")
+              }
               className="
                 mt-5
                 hidden
@@ -1452,7 +1623,9 @@ const ProductDetails = () => {
 
               <button
                 type="button"
-                onClick={() => navigate("/products")}
+                onClick={() =>
+                  navigate("/products")
+                }
                 className="
                   hidden
                   items-center
