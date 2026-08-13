@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Navigation from "./Navigation";
+import { useNavigate } from "react-router-dom";
+import  { useCart } from "../../context/CartContext";
 
 interface AuthUser {
   id?: string | number;
@@ -32,6 +34,8 @@ interface AuthUser {
 const API_BASE_URL = "http://localhost:5001";
 
 const Navbar = () => {
+  const navigate = useNavigate();
+  const { totalItems } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] =
     useState(false);
 
@@ -68,7 +72,7 @@ const Navbar = () => {
         }
 
         const data = await response.json();
-
+       
 
         const currentUser =
           data?.user ??
@@ -416,7 +420,9 @@ const Navbar = () => {
 
 
             <button
+              type="button"
               aria-label="Shopping Cart"
+              onClick={() => navigate("/cart")}
               className="
                 group
                 relative
@@ -465,7 +471,7 @@ const Navbar = () => {
                   text-white
                 "
               >
-                0
+                {totalItems}
               </span>
             </button>
 
@@ -1155,22 +1161,24 @@ const Navbar = () => {
             {/* Cart */}
 
             <button
-              aria-label="Shopping Cart"
-              className="
-                relative
-                flex
-                h-10
-                w-10
-                items-center
-                justify-center
-                rounded-xl
-                text-[#39342E]
-                transition-all
-                duration-200
-                hover:bg-[#F0EAE1]
-                hover:text-[#9A7138]
-                active:scale-95
-              "
+                type="button"
+                aria-label="Shopping Cart"
+                onClick={() => navigate("/cart")}
+                className="
+                  relative
+                  flex
+                  h-10
+                  w-10
+                  items-center
+                  justify-center
+                  rounded-xl
+                  text-[#39342E]
+                  transition-all
+                  duration-200
+                  hover:bg-[#F0EAE1]
+                  hover:text-[#9A7138]
+                  active:scale-95
+                "
             >
               <ShoppingCart
                 size={20}
@@ -1197,7 +1205,7 @@ const Navbar = () => {
                   text-white
                 "
               >
-                0
+                {totalItems}
               </span>
             </button>
 

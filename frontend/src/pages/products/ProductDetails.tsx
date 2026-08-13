@@ -22,6 +22,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import Breadcrumbs from "../../components/product/Breadcrumbs";
 import ProductGrid from "../../components/product/ProductGrid";
 
+import { useCart } from "../../context/CartContext";
+
 import {
   getProductBySlug,
   getProducts,
@@ -30,6 +32,7 @@ import {
 import type { Product } from "../../types/product";
 
 const ProductDetails = () => {
+  const { addToCart } = useCart();
   const { slug } = useParams();
   const navigate = useNavigate();
 
@@ -407,16 +410,17 @@ const ProductDetails = () => {
     setSelectedImageIndex(index);
   };
 
-  const handleAddToCart = () => {
-    console.log("Add to cart:", {
-      product,
-      variant: activeVariant,
-      color: activeColor,
-      image: activeImage,
-      quantity,
-      price: activePrice,
+ const handleAddToCart = () => {
+  if (!product || activeStock <= 0) {
+    return;
+  }
+
+  for (let i = 0; i < quantity; i++) {
+    addToCart(product, {
+      variantId: activeVariant?._id,
     });
-  };
+  }
+};
 
   const handleBuyNow = () => {
     console.log("Buy now:", {

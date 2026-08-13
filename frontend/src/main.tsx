@@ -8,6 +8,7 @@ import App from "./App";
 import "./index.css";
 
 import { AuthProvider } from "./context/AuthContext";
+import { CartProvider } from "./context/CartContext";
 
 const queryClient = new QueryClient();
 
@@ -17,11 +18,13 @@ ReactDOM.createRoot(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <App />
-        <Toaster
-          position="top-right"
-          reverseOrder={false}
-        />
+        <CartProvider>
+          <App />
+          <Toaster
+            position="top-right"
+            reverseOrder={false}
+          />
+        </CartProvider>
       </AuthProvider>
     </QueryClientProvider>
   </React.StrictMode>

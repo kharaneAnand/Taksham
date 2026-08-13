@@ -12,6 +12,7 @@ import ProductGrid from "../../components/product/ProductGrid";
 import MobileFilterSheet from "../../components/product/MobileFilterSheet";
 
 import type { Product } from "../../types/product";
+import { useCart } from "../../context/CartContext";
 
 import {
   getProducts,
@@ -97,6 +98,7 @@ const getPaginationItems = (
 };
 
 const Products = () => {
+  const { addToCart } = useCart();
   const [filters, setFilters] =
     useState<ProductFilterState>(
       initialFilters,
@@ -436,13 +438,10 @@ const Products = () => {
   };
 
   const handleAddToCart = (
-    product: Product,
-  ) => {
-    console.log(
-      "Add to cart:",
-      product,
-    );
-  };
+  product: Product,
+) => {
+  addToCart(product);
+};
 
   const handleToolbarPriceChange = (
     value: string,
