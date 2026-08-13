@@ -1,6 +1,5 @@
 class ApiError extends Error {
   statusCode: number;
-
   errors: unknown[];
 
   constructor(
@@ -10,12 +9,13 @@ class ApiError extends Error {
   ) {
     super(message);
 
+    this.name = "ApiError";
     this.statusCode = statusCode;
     this.errors = errors;
 
-    Object.setPrototypeOf(
+    Error.captureStackTrace(
       this,
-      ApiError.prototype,
+      this.constructor,
     );
   }
 }

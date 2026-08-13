@@ -3,7 +3,7 @@ import { Router } from "express";
 import ProductController from "../controllers/product.controller.js";
 
 import validate from "../middleware/validate.middleware.js";
-
+import { productQuerySchema } from "../validators/product-query.validator.js";
 import {
   createProductSchema,
   updateProductSchema,
@@ -19,8 +19,10 @@ const router = Router();
  */
 router.get(
   "/",
+  validate(productQuerySchema, "query"),
   ProductController.getProducts,
 );
+
 
 router.get(
   "/:slug",

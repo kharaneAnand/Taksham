@@ -16,8 +16,23 @@ const authenticate = async (
   next: NextFunction,
 ) => {
   try {
-    const accessToken =
+    // First try cookie
+    let accessToken =
       req.cookies?.accessToken;
+
+    // If no cookie, try Authorization header
+    if (!accessToken) {
+      const authorization =
+        req.headers.authorization;
+
+      if (
+        authorization &&
+        authorization.startsWith("Bearer ")
+      ) {
+        accessToken =
+          authorization.substring(7);
+      }
+    }
 
     if (!accessToken) {
       throw new ApiError(
@@ -45,7 +60,11 @@ const authenticate = async (
       );
     }
 
-    req.user = user;
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    };
 
     next();
   } catch (error) {
@@ -53,14 +72,22 @@ const authenticate = async (
       throw error;
     }
 
-    if (
-      axios.isAxiosError(error) &&
-      error.response?.status === 401
-    ) {
-      throw new ApiError(
-        StatusCodes.UNAUTHORIZED,
-        "Authentication required",
+    if (axios.isAxiosError(error)) {
+      console.error(
+        "Auth Service error:",
+        error.response?.status,
+        error.response?.data,
       );
+
+      if (
+        error.response?.status ===
+        StatusCodes.UNAUTHORIZED
+      ) {
+        throw new ApiError(
+          StatusCodes.UNAUTHORIZED,
+          "Authentication required",
+        );
+      }
     }
 
     next(error);
