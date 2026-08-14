@@ -92,6 +92,23 @@ getProducts = asyncHandler(
     );
   });
 
+
+  getProductById = asyncHandler<{
+  id: string;
+}>(async (req, res) => {
+  const product =
+    await productService.getProductById(
+      req.params.id,
+    );
+
+  return successResponse(
+    res,
+    200,
+    PRODUCT_MESSAGES.PRODUCT_FETCHED,
+    product,
+  );
+});
+
   /**
    * PATCH /api/v1/products/:id
    */

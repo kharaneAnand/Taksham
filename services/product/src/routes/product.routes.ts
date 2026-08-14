@@ -23,6 +23,11 @@ router.get(
   ProductController.getProducts,
 );
 
+router.get(
+  "/id/:id",
+  ProductController.getProductById,
+);
+
 
 router.get(
   "/:slug",

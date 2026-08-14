@@ -269,6 +269,20 @@ async getProducts({
     return product;
   }
 
+  async getProductById(id: string) {
+  const product =
+    await Product.findById(id);
+
+  if (!product) {
+    throw new ApiError(
+      404,
+      "Product not found",
+    );
+  }
+
+  return product;
+}
+
   async updateProduct(
   id: string,
   data: UpdateProductInput,
