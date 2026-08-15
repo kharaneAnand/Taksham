@@ -954,6 +954,7 @@ const Cart = () => {
 
               <button
                 type="button"
+                onClick={() => navigate("/checkout")}
                 className="
                   group
                   mt-6
