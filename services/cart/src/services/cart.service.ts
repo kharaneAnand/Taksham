@@ -62,43 +62,43 @@ class CartService {
    * ----------------------------------------
    */
 
-  private async getProductById(
-    productId: string,
-  ): Promise<ProductResponse> {
-    const response = await fetch(
-      `${env.PRODUCT_SERVICE_URL}/${encodeURIComponent(
-        productId,
-      )}`,
-      {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-        },
+ private async getProductById(
+  productId: string,
+): Promise<ProductResponse> {
+  const response = await fetch(
+    `${env.PRODUCT_SERVICE_URL}/id/${encodeURIComponent(
+      productId,
+    )}`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
       },
+    },
+  );
+
+  const result =
+    (await response.json()) as {
+      success?: boolean;
+      message?: string;
+      data?: ProductResponse;
+    };
+
+  if (
+    !response.ok ||
+    !result.data
+  ) {
+    throw new ApiError(
+      response.status === 404
+        ? StatusCodes.NOT_FOUND
+        : StatusCodes.BAD_REQUEST,
+      result.message ||
+        CART_MESSAGES.PRODUCT_NOT_FOUND,
     );
-
-    const result =
-      (await response.json()) as {
-        success?: boolean;
-        message?: string;
-        data?: ProductResponse;
-      };
-
-    if (
-      !response.ok ||
-      !result.data
-    ) {
-      throw new ApiError(
-        response.status === 404
-          ? StatusCodes.NOT_FOUND
-          : StatusCodes.BAD_REQUEST,
-        result.message ||
-          CART_MESSAGES.PRODUCT_NOT_FOUND,
-      );
-    }
-
-    return result.data;
   }
+
+  return result.data;
+}
 
   /*
    * ----------------------------------------

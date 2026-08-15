@@ -12,6 +12,13 @@ import toast from "react-hot-toast";
 import type { Product } from "../types/product";
 import type { CartItem } from "../types/cart";
 
+import {
+  addCartItem,
+  updateCartItem,
+  removeCartItem,
+  clearCart as clearCartApi,
+} from "../api/cart.api";
+
 interface AddToCartOptions {
   variantId?: string;
 }
@@ -26,30 +33,31 @@ interface CartContextValue {
   addToCart: (
     product: Product,
     options?: AddToCartOptions,
-  ) => void;
+  ) => Promise<void>;
 
   updateQuantity: (
     itemId: string,
     quantity: number,
-  ) => void;
+  ) => Promise<void>;
 
   removeFromCart: (
     itemId: string,
-  ) => void;
+  ) => Promise<void>;
 
-  clearCart: () => void;
+  clearCart: () => Promise<void>;
 }
 
 const CartContext =
-  createContext<CartContextValue | undefined>(
-    undefined,
-  );
+  createContext<
+    CartContextValue | undefined
+  >(undefined);
 
 interface CartProviderProps {
   children: ReactNode;
 }
 
-const CART_STORAGE_KEY = "taksham_cart";
+const CART_STORAGE_KEY =
+  "taksham_cart";
 
 export const CartProvider = ({
   children,
@@ -60,8 +68,8 @@ export const CartProvider = ({
    * ----------------------------------------
    */
 
-  const [items, setItems] = useState<CartItem[]>(
-    () => {
+  const [items, setItems] =
+    useState<CartItem[]>(() => {
       try {
         const savedCart =
           localStorage.getItem(
@@ -83,12 +91,11 @@ export const CartProvider = ({
 
         return [];
       }
-    },
-  );
+    });
 
   /*
    * ----------------------------------------
-   * Persist Cart
+   * Persist Cart UI Cache
    * ----------------------------------------
    */
 
@@ -112,72 +119,177 @@ export const CartProvider = ({
    * ----------------------------------------
    */
 
-  const addToCart = (
+  const addToCart = async (
     product: Product,
     options?: AddToCartOptions,
   ) => {
-    const variant = options?.variantId
-      ? product.variants?.find(
-          (item) =>
-            item._id ===
-            options.variantId,
-        )
-      : undefined;
+    const variant =
+      options?.variantId
+        ? product.variants?.find(
+            (item) =>
+              item._id ===
+              options.variantId,
+          )
+        : undefined;
+
+    if (
+      options?.variantId &&
+      !variant
+    ) {
+      toast.error(
+        "Selected variant is unavailable",
+      );
+
+      return;
+    }
 
     const price =
       variant?.price ??
       product.price;
 
-    /*
-     * Different variants of the same
-     * product must be different cart items.
-     */
-    const itemId = variant
-      ? `${product._id}-${variant._id}`
-      : product._id;
+    try {
+      /*
+       * ------------------------------------
+       * Save to backend
+       * ------------------------------------
+       */
 
-    setItems((currentItems) => {
-      const existingItem =
-        currentItems.find(
-          (item) =>
-            item.id === itemId,
-        );
+      const cart =
+        await addCartItem({
+          productId:
+            product._id,
+
+          ...(variant
+            ? {
+                variantId:
+                  variant._id,
+              }
+            : {}),
+
+          quantity: 1,
+        });
 
       /*
-       * Product already exists in cart
-       * → increase quantity
+       * ------------------------------------
+       * Find the backend cart item
+       * ------------------------------------
        */
-      if (existingItem) {
-        return currentItems.map(
+
+      const backendItem =
+        cart.items.find(
           (item) =>
-            item.id === itemId
-              ? {
-                  ...item,
-                  quantity:
-                    item.quantity + 1,
-                }
-              : item,
+            item.productId ===
+              product._id &&
+            (item.variantId ??
+              undefined) ===
+              (variant?._id ??
+                undefined),
+        );
+
+      if (!backendItem) {
+        throw new Error(
+          "Cart item was not returned by the server",
         );
       }
 
       /*
-       * New cart item
+       * ------------------------------------
+       * Update frontend state
+       * ------------------------------------
        */
-      return [
-        ...currentItems,
-        {
-          id: itemId,
-          product,
-          variant,
-          quantity: 1,
-          price,
-        },
-      ];
-    });
 
-    toast.success(
-      `${product.name} added to cart`,
-    );
+      setItems((currentItems) => {
+        const existingItem =
+          currentItems.find(
+            (item) =>
+              item.id ===
+              backendItem._id,
+          );
+
+        if (existingItem) {
+          return currentItems.map(
+            (item) =>
+              item.id ===
+              backendItem._id
+                ? {
+                    ...item,
+                    quantity:
+                      backendItem.quantity,
+                    price,
+                  }
+                : item,
+          );
+        }
+
+        /*
+         * Handle an older local item
+         * that used the frontend-generated ID.
+         */
+
+        const oldItemId = variant
+          ? `${product._id}-${variant._id}`
+          : product._id;
+
+        const oldItem =
+          currentItems.find(
+            (item) =>
+              item.id === oldItemId,
+          );
+
+        if (oldItem) {
+          return currentItems.map(
+            (item) =>
+              item.id ===
+              oldItemId
+                ? {
+                    ...item,
+                    id: backendItem._id,
+                    quantity:
+                      backendItem.quantity,
+                    price,
+                    product,
+                    variant,
+                  }
+                : item,
+          );
+        }
+
+        return [
+          ...currentItems,
+          {
+            id: backendItem._id,
+
+            product,
+
+            ...(variant
+              ? {
+                  variant,
+                }
+              : {}),
+
+            quantity:
+              backendItem.quantity,
+
+            price,
+          },
+        ];
+      });
+
+      toast.success(
+        `${product.name} added to cart`,
+      );
+    } catch (error) {
+      console.error(
+        "Failed to add item to cart:",
+        error,
+      );
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to add item to cart",
+      );
+    }
   };
 
   /*
@@ -186,30 +298,61 @@ export const CartProvider = ({
    * ----------------------------------------
    */
 
-  const updateQuantity = (
+  const updateQuantity = async (
     itemId: string,
     quantity: number,
   ) => {
-    /*
-     * Quantity cannot be zero.
-     * If user reaches zero,
-     * remove the item instead.
-     */
     if (quantity <= 0) {
-      removeFromCart(itemId);
+      await removeFromCart(itemId);
+
       return;
     }
 
-    setItems((currentItems) =>
-      currentItems.map((item) =>
-        item.id === itemId
-          ? {
-              ...item,
-              quantity,
-            }
-          : item,
-      ),
-    );
+    try {
+      const cart =
+        await updateCartItem(
+          itemId,
+          {
+            quantity,
+          },
+        );
+
+      const backendItem =
+        cart.items.find(
+          (item) =>
+            item._id === itemId,
+        );
+
+      if (!backendItem) {
+        throw new Error(
+          "Cart item not found after update",
+        );
+      }
+
+      setItems((currentItems) =>
+        currentItems.map(
+          (item) =>
+            item.id === itemId
+              ? {
+                  ...item,
+                  quantity:
+                    backendItem.quantity,
+                }
+              : item,
+        ),
+      );
+    } catch (error) {
+      console.error(
+        "Failed to update cart quantity:",
+        error,
+      );
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update quantity",
+      );
+    }
   };
 
   /*
@@ -218,19 +361,34 @@ export const CartProvider = ({
    * ----------------------------------------
    */
 
-  const removeFromCart = (
+  const removeFromCart = async (
     itemId: string,
   ) => {
-    setItems((currentItems) =>
-      currentItems.filter(
-        (item) =>
-          item.id !== itemId,
-      ),
-    );
+    try {
+      await removeCartItem(itemId);
 
-    toast.success(
-      "Item removed from cart",
-    );
+      setItems((currentItems) =>
+        currentItems.filter(
+          (item) =>
+            item.id !== itemId,
+        ),
+      );
+
+      toast.success(
+        "Item removed from cart",
+      );
+    } catch (error) {
+      console.error(
+        "Failed to remove cart item:",
+        error,
+      );
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to remove item",
+      );
+    }
   };
 
   /*
@@ -239,12 +397,27 @@ export const CartProvider = ({
    * ----------------------------------------
    */
 
-  const clearCart = () => {
-    setItems([]);
+  const clearCart = async () => {
+    try {
+      await clearCartApi();
 
-    toast.success(
-      "Cart cleared",
-    );
+      setItems([]);
+
+      toast.success(
+        "Cart cleared",
+      );
+    } catch (error) {
+      console.error(
+        "Failed to clear cart:",
+        error,
+      );
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to clear cart",
+      );
+    }
   };
 
   /*
@@ -283,7 +456,7 @@ export const CartProvider = ({
 
   /*
    * ----------------------------------------
-   * Context
+   * Context Provider
    * ----------------------------------------
    */
 

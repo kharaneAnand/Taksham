@@ -1,13 +1,15 @@
-import { Request, Response } from "express";
-
 import asyncHandler from "../helpers/asyncHandler.js";
 import { successResponse } from "../helpers/response.js";
 
 import productService from "../services/product.service.js";
+
 import type { ProductQueryInput } from "../validators/product-query.validator.js";
-import { PRODUCT_MESSAGES } from "../constants/messages.js";
 
 import {
+  PRODUCT_MESSAGES,
+} from "../constants/messages.js";
+
+import type {
   CreateProductInput,
   UpdateProductInput,
 } from "../validators/product.validator.js";
@@ -22,7 +24,9 @@ class ProductController {
     CreateProductInput
   >(async (req, res) => {
     const product =
-      await productService.createProduct(req.body);
+      await productService.createProduct(
+        req.body,
+      );
 
     return successResponse(
       res,
@@ -34,80 +38,77 @@ class ProductController {
 
   /**
    * GET /api/v1/products
-   *
-   * Supports:
-   * - pagination
-   * - search
-   * - category
-   * - subcategory
-   * - room
-   * - material
-   * - color
-   * - minPrice
-   * - maxPrice
-   * - sort
    */
-getProducts = asyncHandler(
-  async (req, res) => {
-    console.log(
-      "🔥 GET PRODUCTS CONTROLLER HIT",
-    );
+  getProducts = asyncHandler(
+    async (req, res) => {
+      console.log(
+        "🔥 GET PRODUCTS CONTROLLER HIT",
+      );
 
-    const query =
-      res.locals.validated as ProductQueryInput;
+      const query =
+        res.locals
+          .validated as ProductQueryInput;
 
-    console.log(
-      "Validated query:",
-      query,
-    );
+      console.log(
+        "Validated query:",
+        query,
+      );
 
-    const result =
-      await productService.getProducts(query);
+      const result =
+        await productService.getProducts(
+          query,
+        );
 
-    return successResponse(
-      res,
-      200,
-      PRODUCT_MESSAGES.PRODUCTS_FETCHED,
-      result,
-    );
-  },
-);
+      return successResponse(
+        res,
+        200,
+        PRODUCT_MESSAGES.PRODUCTS_FETCHED,
+        result,
+      );
+    },
+  );
+
+  /**
+   * GET /api/v1/products/id/:id
+   */
+  getProductById = asyncHandler<{
+    id: string;
+  }>(
+    async (req, res) => {
+      const product =
+        await productService.getProductById(
+          req.params.id,
+        );
+
+      return successResponse(
+        res,
+        200,
+        PRODUCT_MESSAGES.PRODUCT_FETCHED,
+        product,
+      );
+    },
+  );
 
   /**
    * GET /api/v1/products/:slug
    */
   getProductBySlug = asyncHandler<{
     slug: string;
-  }>(async (req, res) => {
-    const product =
-      await productService.getProductBySlug(
-        req.params.slug,
+  }>(
+    async (req, res) => {
+      const product =
+        await productService.getProductBySlug(
+          req.params.slug,
+        );
+
+      return successResponse(
+        res,
+        200,
+        PRODUCT_MESSAGES.PRODUCT_FETCHED,
+        product,
       );
-
-    return successResponse(
-      res,
-      200,
-      PRODUCT_MESSAGES.PRODUCT_FETCHED,
-      product,
-    );
-  });
-
-
-  getProductById = asyncHandler<{
-  id: string;
-}>(async (req, res) => {
-  const product =
-    await productService.getProductById(
-      req.params.id,
-    );
-
-  return successResponse(
-    res,
-    200,
-    PRODUCT_MESSAGES.PRODUCT_FETCHED,
-    product,
+    },
   );
-});
 
   /**
    * PATCH /api/v1/products/:id
@@ -136,17 +137,19 @@ getProducts = asyncHandler(
    */
   deleteProduct = asyncHandler<{
     id: string;
-  }>(async (req, res) => {
-    await productService.deleteProduct(
-      req.params.id,
-    );
+  }>(
+    async (req, res) => {
+      await productService.deleteProduct(
+        req.params.id,
+      );
 
-    return successResponse(
-      res,
-      200,
-      PRODUCT_MESSAGES.PRODUCT_DELETED,
-    );
-  });
+      return successResponse(
+        res,
+        200,
+        PRODUCT_MESSAGES.PRODUCT_DELETED,
+      );
+    },
+  );
 }
 
 export default new ProductController();

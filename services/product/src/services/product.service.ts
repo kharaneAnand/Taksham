@@ -270,8 +270,7 @@ async getProducts({
   }
 
   async getProductById(id: string) {
-  const product =
-    await Product.findById(id);
+  const product = await Product.findById(id);
 
   if (!product) {
     throw new ApiError(
