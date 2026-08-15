@@ -165,3 +165,28 @@ export const getProductBySlug = async (
 
   return result.data as Product;
 };
+
+export const getProductById = async (
+  id: string,
+): Promise<Product> => {
+  const response = await fetch(
+    `${PRODUCT_API_URL}/id/${encodeURIComponent(id)}`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    },
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      result?.message ||
+        "Failed to fetch product",
+    );
+  }
+
+  return result.data as Product;
+};

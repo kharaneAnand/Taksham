@@ -3,6 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 
 import cartRoutes from "./routes/cart.routes.js";
+import wishlistRoutes from "./routes/wishlist.routes.js";
 import errorHandler from "./middlewares/errorHandler.js";
 
 const app = express();
@@ -43,6 +44,11 @@ app.get(
 app.use(
   "/api/v1/cart",
   cartRoutes,
+);
+
+app.use(
+  "/api/v1/wishlist",
+  wishlistRoutes,
 );
 
 app.use(

@@ -9,6 +9,7 @@ import "./index.css";
 
 import { AuthProvider } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
+import { WishlistProvider } from "./context/WishlistContext";
 
 const queryClient = new QueryClient();
 
@@ -19,11 +20,13 @@ ReactDOM.createRoot(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <CartProvider>
+         <WishlistProvider>
           <App />
           <Toaster
             position="top-right"
             reverseOrder={false}
           />
+        </WishlistProvider>
         </CartProvider>
       </AuthProvider>
     </QueryClientProvider>

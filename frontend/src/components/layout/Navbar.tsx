@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import Navigation from "./Navigation";
 import { useNavigate } from "react-router-dom";
 import  { useCart } from "../../context/CartContext";
+import { useWishlist } from "../../context/WishlistContext";
 
 interface AuthUser {
   id?: string | number;
@@ -35,7 +36,10 @@ const API_BASE_URL = "http://localhost:5001";
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const { totalItems } = useCart();
+ const { totalItems } = useCart();
+
+const {totalItems: wishlistCount,} = useWishlist();
+
   const [mobileMenuOpen, setMobileMenuOpen] =
     useState(false);
 
@@ -389,9 +393,14 @@ const Navbar = () => {
 
 
             <button
+              type="button"
               aria-label="Wishlist"
+              onClick={() =>
+                navigate("/wishlist")
+              }
               className="
                 group
+                relative
                 flex
                 h-11
                 w-11
@@ -416,6 +425,31 @@ const Navbar = () => {
                   group-hover:scale-105
                 "
               />
+
+              {wishlistCount > 0 && (
+                <span
+                  className="
+                    absolute
+                    -right-0.5
+                    -top-0.5
+                    flex
+                    h-5
+                    min-w-5
+                    items-center
+                    justify-center
+                    rounded-full
+                    border-2
+                    border-[#FEFDFC]
+                    bg-[#B7894A]
+                    px-1
+                    text-[8px]
+                    font-bold
+                    text-white
+                  "
+                >
+                  {wishlistCount}
+                </span>
+              )}
             </button>
 
 
@@ -1135,8 +1169,13 @@ const Navbar = () => {
             {/* Wishlist */}
 
             <button
+              type="button"
               aria-label="Wishlist"
+              onClick={() =>
+                navigate("/wishlist")
+              }
               className="
+                relative
                 flex
                 h-10
                 w-10
@@ -1155,6 +1194,31 @@ const Navbar = () => {
                 size={20}
                 strokeWidth={1.5}
               />
+
+              {wishlistCount > 0 && (
+                <span
+                  className="
+                    absolute
+                    right-0
+                    top-0
+                    flex
+                    h-4
+                    min-w-4
+                    items-center
+                    justify-center
+                    rounded-full
+                    border
+                    border-[#FAF8F5]
+                    bg-[#B7894A]
+                    px-0.5
+                    text-[8px]
+                    font-bold
+                    text-white
+                  "
+                >
+                  {wishlistCount}
+                </span>
+              )}
             </button>
 
 

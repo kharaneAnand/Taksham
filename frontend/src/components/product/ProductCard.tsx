@@ -8,6 +8,7 @@ import {
 import { useNavigate } from "react-router-dom";
 
 import type { Product } from "../../types/product";
+import { useWishlist } from "../../context/WishlistContext";
 
 interface ProductCardProps {
   product: Product;
@@ -22,6 +23,15 @@ const ProductCard = ({
 
   const rating = product.rating ?? 0;
   const reviews = product.reviews ?? 0;
+
+  const {
+  isWishlisted,
+  toggleWishlist,
+} = useWishlist();
+
+const wishlisted = isWishlisted(
+  product._id,
+); 
 
   const category =
     product.subcategory ||
@@ -204,50 +214,61 @@ const ProductCard = ({
         ===================================================== */}
 
         <button
-          type="button"
-          aria-label={`Add ${product.name} to wishlist`}
-          onClick={(event) => {
-            event.stopPropagation();
+            type="button"
+            aria-label={
+              wishlisted
+                ? `Remove ${product.name} from wishlist`
+                : `Add ${product.name} to wishlist`
+            }
+            onClick={async (event) => {
+              event.stopPropagation();
 
-            console.log(
-              "Add to wishlist:",
-              product,
-            );
-          }}
-          className="
-            absolute
-            right-2.5
-            top-2.5
-            z-30
-            flex
-            h-8
-            w-8
-            items-center
-            justify-center
-            rounded-full
-            border
-            border-white/70
-            bg-white/80
-            text-[#403A33]
-            shadow-[0_5px_18px_rgba(45,35,25,0.08)]
-            backdrop-blur-md
-            transition-all
-            duration-300
-            hover:scale-105
-            hover:bg-white
-            hover:text-[#9A7138]
-            active:scale-95
-            sm:right-3
-            sm:top-3
-            sm:h-9
-            sm:w-9
-          "
-        >
-          <Heart
-            size={14}
-            strokeWidth={1.45}
-          />
-        </button>
+              await toggleWishlist(product);
+            }}
+            className="
+              absolute
+              right-2.5
+              top-2.5
+              z-30
+              flex
+              h-8
+              w-8
+              items-center
+              justify-center
+              rounded-full
+              border
+              border-white/70
+              bg-white/80
+              text-[#403A33]
+              shadow-[0_5px_18px_rgba(45,35,25,0.08)]
+              backdrop-blur-md
+              transition-all
+              duration-300
+              hover:scale-105
+              hover:bg-white
+              active:scale-95
+              sm:right-3
+              sm:top-3
+              sm:h-9
+              sm:w-9
+            "
+          >
+            <Heart
+              size={14}
+              strokeWidth={1.45}
+              fill={
+                wishlisted
+                  ? "currentColor"
+                  : "none"
+              }
+              className={
+                wishlisted
+                  ? "text-[#9A7138]"
+                  : "text-[#403A33]"
+              }
+            />
+          </button>
+          
 
         {/* =====================================================
             VIEW PRODUCT

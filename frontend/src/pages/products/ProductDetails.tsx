@@ -20,7 +20,8 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 
 import Breadcrumbs from "../../components/product/Breadcrumbs";
-import ProductGrid from "../../components/product/ProductGrid";
+import ProductGrid from "../../components/product/ProductGrid" ;
+import { useWishlist } from "../../context/WishlistContext";
 
 import { useCart } from "../../context/CartContext";
 
@@ -33,6 +34,8 @@ import type { Product } from "../../types/product";
 
 const ProductDetails = () => {
   const { addToCart } = useCart();
+
+  const {isWishlisted, toggleWishlist,} = useWishlist();
   const { slug } = useParams();
   const navigate = useNavigate();
 
@@ -66,8 +69,6 @@ const ProductDetails = () => {
     setSelectedImageIndex,
   ] = useState(0);
 
-  const [isWishlisted, setIsWishlisted] =
-    useState(false);
 
   /* =====================================================
      FETCH PRODUCT
@@ -373,7 +374,7 @@ const ProductDetails = () => {
       </main>
     );
   }
-
+  const wishlisted = isWishlisted(product._id);
   const rating = product.rating ?? 0;
   const reviews = product.reviews ?? 0;
 
@@ -623,11 +624,10 @@ const ProductDetails = () => {
 
               <button
                 type="button"
-                onClick={() =>
-                  setIsWishlisted(
-                    (current) => !current,
-                  )
-                }
+                onClick={async () => {
+                  if (!product) return;
+                  await toggleWishlist(product);
+                }}
                 aria-label="Add to wishlist"
                 className="
                   absolute
@@ -659,14 +659,14 @@ const ProductDetails = () => {
                   size={18}
                   strokeWidth={1.4}
                   fill={
-                    isWishlisted
+                    wishlisted
                       ? "currentColor"
                       : "none"
                   }
                   className={
-                    isWishlisted
+                    wishlisted
                       ? "text-[#9A7138]"
-                      : ""
+                      : "text-[#403A33]"
                   }
                 />
               </button>
