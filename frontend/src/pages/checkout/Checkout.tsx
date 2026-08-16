@@ -18,6 +18,16 @@ import {
 
 import { useCart } from "../../context/CartContext";
 
+import toast from "react-hot-toast";
+
+import {
+  createOrder,
+} from "../../api/order.api";
+
+import type {
+  CreateOrderInput,
+} from "../../types/order";
+
 type ShippingMethod =
   | "standard"
   | "express";
@@ -55,6 +65,7 @@ const Checkout = () => {
     items,
     totalItems,
     subtotal,
+    clearCart,
   } = useCart();
 
   const [address, setAddress] =
@@ -70,6 +81,9 @@ const Checkout = () => {
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>("cod");
 
+  const [isPlacingOrder, setIsPlacingOrder] =
+  useState(false);
+
   const [errors, setErrors] =
     useState<
       Partial<
@@ -80,11 +94,7 @@ const Checkout = () => {
       >
     >({});
 
-  /*
-   * ----------------------------------------
-   * Shipping
-   * ----------------------------------------
-   */
+
 
   const shippingCost = useMemo(() => {
     if (shippingMethod === "express") {
@@ -97,11 +107,7 @@ const Checkout = () => {
     subtotal,
   ]);
 
-  /*
-   * ----------------------------------------
-   * Total
-   * ----------------------------------------
-   */
+ 
 
   const total = useMemo(
     () =>
@@ -109,11 +115,7 @@ const Checkout = () => {
     [subtotal, shippingCost],
   );
 
-  /*
-   * ----------------------------------------
-   * Empty Cart
-   * ----------------------------------------
-   */
+
 
   if (items.length === 0) {
     return (
@@ -232,11 +234,7 @@ const Checkout = () => {
     );
   }
 
-  /*
-   * ----------------------------------------
-   * Address Change
-   * ----------------------------------------
-   */
+
 
   const handleAddressChange = (
     field: keyof AddressForm,
@@ -257,11 +255,7 @@ const Checkout = () => {
     );
   };
 
-  /*
-   * ----------------------------------------
-   * Validate Address
-   * ----------------------------------------
-   */
+
 
   const validateAddress =
     (): boolean => {
@@ -324,38 +318,118 @@ const Checkout = () => {
       );
     };
 
+  
+
+  const handlePlaceOrder = async () => {
+  if (isPlacingOrder) {
+    return;
+  }
+
+  if (!validateAddress()) {
+    return;
+  }
+
   /*
-   * ----------------------------------------
-   * Continue / Place Order
-   * ----------------------------------------
+   * For now we support COD only.
+   * Online payment will be connected
+   * after Razorpay integration.
    */
+  if (paymentMethod !== "cod") {
+    toast.error(
+      "Online payment will be available soon.",
+    );
 
-  const handlePlaceOrder = () => {
-    if (!validateAddress()) {
-      return;
-    }
+    return;
+  }
 
-    /*
-     * We are NOT creating the order yet.
-     *
-     * This button will be connected to
-     * Order Service after the checkout UI
-     * is verified.
-     */
+  try {
+    setIsPlacingOrder(true);
+
+    const orderData: CreateOrderInput = {
+      shippingAddress: {
+        firstName:
+          address.firstName.trim(),
+
+        lastName:
+          address.lastName.trim(),
+
+        phone:
+          address.phone.trim(),
+
+        address:
+          address.address.trim(),
+
+        city:
+          address.city.trim(),
+
+        state:
+          address.state.trim(),
+
+        pincode:
+          address.pincode.trim(),
+
+        ...(address.landmark.trim()
+          ? {
+              landmark:
+                address.landmark.trim(),
+            }
+          : {}),
+      },
+
+      shippingMethod,
+
+      paymentMethod: "cod",
+    };
 
     console.log(
-      "Checkout data:",
-      {
-        address,
-        shippingMethod,
-        paymentMethod,
-        items,
-        subtotal,
-        shippingCost,
-        total,
-      },
+      "Creating order:",
+      orderData,
     );
-  };
+
+    const order =
+      await createOrder(
+        orderData,
+      );
+
+    console.log(
+      "Order created:",
+      order,
+    );
+
+    /*
+     * Backend clears the cart after
+     * successfully creating the order.
+     *
+     * We also clear the frontend cart
+     * state immediately.
+     */
+    clearCart();
+
+    toast.success(
+      "Order placed successfully!",
+    );
+
+    /*
+     * Navigate to order details.
+     */
+    navigate(
+      `/orders/${order._id}`,
+    );
+  } catch (error) {
+    console.error(
+      "Failed to place order:",
+      error,
+    );
+
+    toast.error(
+      error instanceof Error
+        ? error.message
+        : "Failed to place order",
+    );
+  } finally {
+    setIsPlacingOrder(false);
+  }
+};
 
   /*
    * ----------------------------------------
@@ -988,6 +1062,7 @@ const Checkout = () => {
                   onClick={
                     handlePlaceOrder
                   }
+                  disabled={isPlacingOrder}
                   className="
                     mt-7
                     flex
@@ -1006,14 +1081,20 @@ const Checkout = () => {
                     transition-all
                     hover:bg-[#3A342D]
                     active:scale-[0.985]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-60
                   "
                 >
-                  Place Order
+                  {isPlacingOrder
+                    ? "Placing Order..."
+                    : "Place Order"}
 
-                  <ChevronRight
-                    size={15}
-                    strokeWidth={1.5}
-                  />
+                  {!isPlacingOrder && (
+                    <ChevronRight
+                      size={15}
+                      strokeWidth={1.5}
+                    />
+                  )}
                 </button>
 
                 <div
