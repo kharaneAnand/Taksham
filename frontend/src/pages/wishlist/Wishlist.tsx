@@ -263,7 +263,7 @@ const Wishlist = () => {
               mt-3
               font-serif
               text-[38px]
-              tracking-[-0.025em]
+              tracking-tight
               text-[#302B25]
               sm:text-[48px]
             "
@@ -373,7 +373,7 @@ const Wishlist = () => {
                 mt-2
                 font-serif
                 text-[38px]
-                tracking-[-0.025em]
+                tracking-tight
                 text-[#302B25]
                 sm:text-[48px]
               "
