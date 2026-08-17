@@ -3,7 +3,11 @@ import { Router } from "express";
 import ProductController from "../controllers/product.controller.js";
 
 import validate from "../middleware/validate.middleware.js";
-import { productQuerySchema } from "../validators/product-query.validator.js";
+
+import {
+  productQuerySchema,
+} from "../validators/product-query.validator.js";
+
 import {
   createProductSchema,
   updateProductSchema,
@@ -11,23 +15,63 @@ import {
 
 import authenticate from "../middleware/auth.middleware.js";
 import authorize from "../middleware/authorize.middleware.js";
+import internalAuth from "../middleware/internalAuth.middleware.js";
 
-const router = Router();
+const router =
+  Router();
 
 /*
- * Public
+ * ========================================
+ * Public Routes
+ * ========================================
  */
+
+/*
+ * GET /api/v1/products
+ */
+
 router.get(
   "/",
-  validate(productQuerySchema, "query"),
+  validate(
+    productQuerySchema,
+    "query",
+  ),
   ProductController.getProducts,
 );
+
+/*
+ * GET /api/v1/products/id/:id
+ */
 
 router.get(
   "/id/:id",
   ProductController.getProductById,
 );
 
+/*
+ * ========================================
+ * Internal Service Route
+ * ========================================
+ *
+*/
+
+router.post(
+  "/internal/decrease-stock",
+  internalAuth,
+  ProductController.decreaseStock,
+);
+
+
+
+/*
+ * ========================================
+ * Product By Slug
+ * ========================================
+ */
+
+/*
+ * GET /api/v1/products/:slug
+ */
 
 router.get(
   "/:slug",
@@ -35,23 +79,42 @@ router.get(
 );
 
 /*
- * Admin only
+ * ========================================
+ * Admin Only Routes
+ * ========================================
  */
+
+/*
+ * POST /api/v1/products
+ */
+
 router.post(
   "/",
   authenticate,
   authorize("admin"),
-  validate(createProductSchema),
+  validate(
+    createProductSchema,
+  ),
   ProductController.createProduct,
 );
+
+/*
+ * PATCH /api/v1/products/:id
+ */
 
 router.patch(
   "/:id",
   authenticate,
   authorize("admin"),
-  validate(updateProductSchema),
+  validate(
+    updateProductSchema,
+  ),
   ProductController.updateProduct,
 );
+
+/*
+ * DELETE /api/v1/products/:id
+ */
 
 router.delete(
   "/:id",

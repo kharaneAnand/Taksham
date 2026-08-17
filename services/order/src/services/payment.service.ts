@@ -1,5 +1,7 @@
 import crypto from "crypto";
+
 import env from "../config/env.js";
+
 import ApiError from "../helpers/ApiError.js";
 
 import Order from "../models/order.model.js";
@@ -10,6 +12,23 @@ import {
   StatusCodes,
 } from "../constants/http.js";
 
+/*
+ * ========================================
+ * Types
+ * ========================================
+ */
+
+interface ProductStockResponse {
+  success?: boolean;
+  message?: string;
+  data?: unknown;
+}
+
+/*
+ * ========================================
+ * Payment Service
+ * ========================================
+ */
 
 class PaymentService {
   /*
@@ -75,7 +94,23 @@ class PaymentService {
 
     /*
      * ------------------------------------
-     * 4. Prevent Duplicate Payment Order
+     * 4. Already Paid
+     * ------------------------------------
+     */
+
+    if (
+      order.paymentStatus ===
+      "paid"
+    ) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "This order has already been paid",
+      );
+    }
+
+    /*
+     * ------------------------------------
+     * 5. Prevent Duplicate Razorpay Order
      * ------------------------------------
      */
 
@@ -85,7 +120,9 @@ class PaymentService {
           order.razorpayOrderId,
 
         amount:
-          order.total * 100,
+          Math.round(
+            order.total * 100,
+          ),
 
         currency: "INR",
       };
@@ -93,16 +130,17 @@ class PaymentService {
 
     /*
      * ------------------------------------
-     * 5. Razorpay Amount
+     * 6. Razorpay Amount
      * ------------------------------------
      *
-     * Taksham stores prices in rupees.
+     * Taksham stores amount in rupees.
      *
      * Razorpay expects paise.
      *
      * ₹54,980
      *      ↓
      * 5,498,000 paise
+     * ------------------------------------
      */
 
     const amount =
@@ -112,7 +150,7 @@ class PaymentService {
 
     /*
      * ------------------------------------
-     * 6. Create Razorpay Order
+     * 7. Create Razorpay Order
      * ------------------------------------
      */
 
@@ -138,7 +176,7 @@ class PaymentService {
 
     /*
      * ------------------------------------
-     * 7. Save Razorpay Order ID
+     * 8. Save Razorpay Order ID
      * ------------------------------------
      */
 
@@ -149,7 +187,7 @@ class PaymentService {
 
     /*
      * ------------------------------------
-     * 8. Return Safe Data
+     * 9. Return Safe Data
      * ------------------------------------
      */
 
@@ -165,6 +203,134 @@ class PaymentService {
     };
   }
 
+  /*
+   * ----------------------------------------
+   * Decrease Product Stock
+   * ----------------------------------------
+   *
+   * Communicates with Product Service.
+   * ----------------------------------------
+   */
+
+  private async decreaseProductStock(
+    productId: string,
+    quantity: number,
+    variantId?: string,
+  ): Promise<void> {
+    const response = await fetch(
+      `${env.PRODUCT_SERVICE_URL}/internal/decrease-stock`,
+      {
+        method: "POST",
+
+        headers: {
+          Accept:
+            "application/json",
+
+          "Content-Type":
+            "application/json",
+
+          "x-internal-service-secret":
+            env.INTERNAL_SERVICE_SECRET,
+        },
+
+        body: JSON.stringify({
+          productId,
+
+          quantity,
+
+          ...(variantId
+            ? {
+                variantId,
+              }
+            : {}),
+        }),
+      },
+    );
+
+    const result =
+      (await response.json()) as ProductStockResponse;
+
+    if (!response.ok) {
+      throw new ApiError(
+        response.status >= 400 &&
+          response.status < 500
+          ? response.status
+          : StatusCodes.BAD_REQUEST,
+
+        result.message ||
+          "Failed to update product stock",
+      );
+    }
+  }
+
+  /*
+   * ----------------------------------------
+   * Decrease Stock For Order
+   * ----------------------------------------
+   */
+
+  private async decreaseStockForOrder(
+    order: {
+      items: Array<{
+        productId: string;
+
+        quantity: number;
+
+        variantId?: string;
+      }>;
+    },
+  ): Promise<void> {
+    for (
+      const item of order.items
+    ) {
+      await this.decreaseProductStock(
+        item.productId,
+
+        item.quantity,
+
+        item.variantId,
+      );
+    }
+  }
+
+  /*
+   * ----------------------------------------
+   * Clear Cart
+   * ----------------------------------------
+   */
+
+  private async clearCart(
+    accessToken: string,
+  ): Promise<void> {
+    const response = await fetch(
+      env.CART_SERVICE_URL,
+      {
+        method: "DELETE",
+
+        headers: {
+          Accept:
+            "application/json",
+
+          Cookie:
+            `accessToken=${accessToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const result =
+        (await response.json()) as {
+          message?: string;
+        };
+
+      throw new ApiError(
+        StatusCodes.INTERNAL_SERVER_ERROR,
+
+        result.message ||
+          "Payment succeeded but cart could not be cleared",
+      );
+    }
+  }
 
   /*
    * ----------------------------------------
@@ -174,6 +340,7 @@ class PaymentService {
 
   async verifyPayment(
     userId: string,
+    accessToken: string,
     orderId: string,
     razorpayPaymentId: string,
     razorpayOrderId: string,
@@ -200,9 +367,42 @@ class PaymentService {
 
     /*
      * ------------------------------------
-     * 2. Validate Razorpay Order
+     * 2. Idempotency
+     * ------------------------------------
+     *
+     * If the payment was already verified,
+     * do NOT deduct stock again.
+     *
+     * This protects against:
+     *
+     * - double-clicks
+     * - frontend retries
+     * - Razorpay callback retries
+     * - page refreshes
      * ------------------------------------
      */
+
+    if (
+      order.paymentStatus ===
+      "paid"
+    ) {
+      return order;
+    }
+
+    /*
+     * ------------------------------------
+     * 3. Validate Razorpay Order
+     * ------------------------------------
+     */
+
+    if (
+      !order.razorpayOrderId
+    ) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Razorpay order has not been created",
+      );
+    }
 
     if (
       order.razorpayOrderId !==
@@ -216,7 +416,7 @@ class PaymentService {
 
     /*
      * ------------------------------------
-     * 3. Generate Signature
+     * 4. Generate Signature
      * ------------------------------------
      */
 
@@ -224,7 +424,7 @@ class PaymentService {
       crypto
         .createHmac(
           "sha256",
-         env.RAZORPAY_KEY_SECRET || "",
+          env.RAZORPAY_KEY_SECRET,
         )
         .update(
           `${razorpayOrderId}|${razorpayPaymentId}`,
@@ -233,7 +433,7 @@ class PaymentService {
 
     /*
      * ------------------------------------
-     * 4. Compare Signatures
+     * 5. Compare Signatures
      * ------------------------------------
      */
 
@@ -255,7 +455,46 @@ class PaymentService {
 
     /*
      * ------------------------------------
-     * 5. Mark Payment Successful
+     * 6. Deduct Stock
+     * ------------------------------------
+     *
+     * Payment has been cryptographically
+     * verified.
+     *
+     * Now decrease inventory.
+     * ------------------------------------
+     */
+
+    try {
+      await this.decreaseStockForOrder(
+        order,
+      );
+    } catch (error) {
+      /*
+       * Payment was successful, but stock
+       * could not be updated.
+       *
+       * We do NOT mark the payment as
+       * failed because the payment itself
+       * has already been verified.
+       *
+       * Keep paymentStatus pending so the
+       * order can be handled safely instead
+       * of pretending payment failed.
+       */
+
+      throw new ApiError(
+        StatusCodes.INTERNAL_SERVER_ERROR,
+
+        error instanceof Error
+          ? error.message
+          : "Payment was successful but inventory could not be updated",
+      );
+    }
+
+    /*
+     * ------------------------------------
+     * 7. Mark Payment Successful
      * ------------------------------------
      */
 
@@ -273,9 +512,24 @@ class PaymentService {
 
     await order.save();
 
+    /*
+     * ------------------------------------
+     * 8. Clear Cart
+     * ------------------------------------
+     */
+
+    await this.clearCart(
+      accessToken,
+    );
+
+    /*
+     * ------------------------------------
+     * 9. Return Order
+     * ------------------------------------
+     */
+
     return order;
   }
 }
-
 
 export default new PaymentService();

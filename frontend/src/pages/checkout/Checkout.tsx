@@ -163,10 +163,11 @@ const initialAddress: AddressForm = {
  */
 
 const RAZORPAY_KEY_ID =
-  import.meta.env
-    .VITE_RAZORPAY_KEY_ID as
-    | string
-    | undefined;
+  String(
+    import.meta.env
+      .VITE_RAZORPAY_KEY_ID ||
+      "",
+  ).trim();
 
 const RAZORPAY_SCRIPT_URL =
   "https://checkout.razorpay.com/v1/checkout.js";
@@ -175,6 +176,21 @@ const RAZORPAY_SCRIPT_URL =
  * ========================================
  * Load Razorpay Script
  * ========================================
+ *
+ * Robust loader:
+ *
+ * 1. If Razorpay is already available,
+ *    resolve immediately.
+ *
+ * 2. If a script already exists, check
+ *    whether it has already loaded.
+ *
+ * 3. Otherwise create the script.
+ *
+ * This prevents the checkout from getting
+ * stuck when the script's "load" event has
+ * already fired.
+ * ========================================
  */
 
 const loadRazorpayScript =
@@ -182,28 +198,98 @@ const loadRazorpayScript =
     return new Promise(
       (resolve) => {
         /*
+         * ----------------------------------
          * Already loaded
+         * ----------------------------------
          */
 
-        if (window.Razorpay) {
+        if (
+          typeof window !==
+            "undefined" &&
+          window.Razorpay
+        ) {
           resolve(true);
 
           return;
         }
 
         /*
-         * Script already exists
+         * ----------------------------------
+         * Find existing script
+         * ----------------------------------
          */
 
         const existingScript =
           document.querySelector(
             `script[src="${RAZORPAY_SCRIPT_URL}"]`,
-          );
+          ) as HTMLScriptElement | null;
 
         if (existingScript) {
+          /*
+           * Script may already have loaded
+           * but window.Razorpay may not have
+           * been available at the moment we
+           * checked.
+           *
+           * Check again immediately.
+           */
+
+          if (
+            window.Razorpay
+          ) {
+            resolve(true);
+
+            return;
+          }
+
+          let settled = false;
+
+          const cleanup =
+            () => {
+              existingScript.removeEventListener(
+                "load",
+                handleLoad,
+              );
+
+              existingScript.removeEventListener(
+                "error",
+                handleError,
+              );
+            };
+
+          const handleLoad =
+            () => {
+              if (settled) {
+                return;
+              }
+
+              settled = true;
+
+              cleanup();
+
+              resolve(
+                Boolean(
+                  window.Razorpay,
+                ),
+              );
+            };
+
+          const handleError =
+            () => {
+              if (settled) {
+                return;
+              }
+
+              settled = true;
+
+              cleanup();
+
+              resolve(false);
+            };
+
           existingScript.addEventListener(
             "load",
-            () => resolve(true),
+            handleLoad,
             {
               once: true,
             },
@@ -211,17 +297,74 @@ const loadRazorpayScript =
 
           existingScript.addEventListener(
             "error",
-            () => resolve(false),
+            handleError,
             {
               once: true,
             },
           );
 
+          /*
+           * Safety fallback.
+           *
+           * If the script has already loaded
+           * but its load event was missed,
+           * check periodically for Razorpay.
+           */
+
+          const startedAt =
+            Date.now();
+
+          const checkLoaded =
+            () => {
+              if (settled) {
+                return;
+              }
+
+              if (
+                window.Razorpay
+              ) {
+                settled = true;
+
+                cleanup();
+
+                resolve(true);
+
+                return;
+              }
+
+              /*
+               * Give the script up to 10 seconds.
+               */
+
+              if (
+                Date.now() -
+                  startedAt >
+                10000
+              ) {
+                settled = true;
+
+                cleanup();
+
+                resolve(false);
+
+                return;
+              }
+
+              window.setTimeout(
+                checkLoaded,
+                100,
+              );
+            };
+
+          checkLoaded();
+
           return;
         }
 
         /*
-         * Create script
+         * ----------------------------------
+         * Create Razorpay script
+         * ----------------------------------
          */
 
         const script =
@@ -234,11 +377,19 @@ const loadRazorpayScript =
 
         script.async = true;
 
-        script.onload = () =>
-          resolve(true);
+        script.onload =
+          () => {
+            resolve(
+              Boolean(
+                window.Razorpay,
+              ),
+            );
+          };
 
-        script.onerror = () =>
-          resolve(false);
+        script.onerror =
+          () => {
+            resolve(false);
+          };
 
         document.body.appendChild(
           script,
@@ -576,6 +727,265 @@ const Checkout = () => {
 
   /*
    * ----------------------------------------
+   * Open Razorpay Checkout
+   * ----------------------------------------
+   */
+
+  const openRazorpayCheckout =
+    async (
+      order: {
+        _id: string;
+
+        orderNumber: string;
+      },
+    ) => {
+      /*
+       * ------------------------------------
+       * 1. Validate Key
+       * ------------------------------------
+       */
+
+      if (
+        !RAZORPAY_KEY_ID
+      ) {
+        throw new Error(
+          "Razorpay Key ID is not configured. Check VITE_RAZORPAY_KEY_ID in the frontend .env file.",
+        );
+      }
+
+      /*
+       * ------------------------------------
+       * 2. Load Razorpay
+       * ------------------------------------
+       */
+
+      const isLoaded =
+        await loadRazorpayScript();
+
+      if (
+        !isLoaded ||
+        !window.Razorpay
+      ) {
+        throw new Error(
+          "Razorpay Checkout could not be loaded. Please check your internet connection or try again.",
+        );
+      }
+
+      /*
+       * ------------------------------------
+       * 3. Create Razorpay Order
+       * ------------------------------------
+       */
+
+      console.log(
+        "Creating Razorpay payment order...",
+      );
+
+      const paymentOrder =
+        await createPaymentOrder(
+          order._id,
+        );
+
+      console.log(
+        "Razorpay payment order created:",
+        paymentOrder,
+      );
+
+      if (
+        !paymentOrder
+          ?.razorpayOrderId
+      ) {
+        throw new Error(
+          "Razorpay order ID was not returned by the server.",
+        );
+      }
+
+      if (
+        !paymentOrder.amount
+      ) {
+        throw new Error(
+          "Invalid Razorpay payment amount.",
+        );
+      }
+
+      /*
+       * ------------------------------------
+       * 4. Create Checkout Instance
+       * ------------------------------------
+       */
+
+      const razorpay =
+        new window.Razorpay({
+          key:
+            RAZORPAY_KEY_ID,
+
+          amount:
+            paymentOrder.amount,
+
+          currency:
+            paymentOrder.currency ||
+            "INR",
+
+          name: "Taksham",
+
+          description:
+            `Order ${order.orderNumber}`,
+
+          order_id:
+            paymentOrder.razorpayOrderId,
+
+          prefill: {
+            name: `${address.firstName.trim()} ${address.lastName.trim()}`,
+
+            contact:
+              address.phone.trim(),
+          },
+
+          notes: {
+            orderNumber:
+              order.orderNumber,
+          },
+
+          theme: {
+            color:
+              "#9A7138",
+          },
+
+          /*
+           * --------------------------------
+           * Payment Success
+           * --------------------------------
+           */
+
+          handler:
+            async (
+              response,
+            ) => {
+              try {
+                console.log(
+                  "Razorpay payment successful:",
+                  response,
+                );
+
+                /*
+                 * Verify payment with
+                 * backend.
+                 */
+
+                await verifyPayment(
+                  {
+                    orderId:
+                      order._id,
+
+                    razorpayPaymentId:
+                      response.razorpay_payment_id,
+
+                    razorpayOrderId:
+                      response.razorpay_order_id,
+
+                    razorpaySignature:
+                      response.razorpay_signature,
+                  },
+                );
+
+                /*
+                 * Backend verified the
+                 * payment and deducted stock.
+                 */
+
+                clearCart();
+
+                toast.success(
+                  "Payment successful! Order placed.",
+                );
+
+                navigate(
+                  `/orders/${order._id}`,
+                );
+              } catch (error) {
+                console.error(
+                  "Payment verification failed:",
+                  error,
+                );
+
+                toast.error(
+                  error instanceof
+                    Error
+                    ? error.message
+                    : "Payment verification failed",
+                );
+              } finally {
+                setIsPlacingOrder(
+                  false,
+                );
+              }
+            },
+
+          /*
+           * --------------------------------
+           * Checkout Closed
+           * --------------------------------
+           */
+
+          modal: {
+            ondismiss:
+              () => {
+                console.log(
+                  "Razorpay checkout dismissed",
+                );
+
+                toast.error(
+                  "Payment cancelled. You can try again.",
+                );
+
+                setIsPlacingOrder(
+                  false,
+                );
+              },
+          },
+        });
+
+      /*
+       * ------------------------------------
+       * Payment Failed Listener
+       * ------------------------------------
+       */
+
+      razorpay.on(
+        "payment.failed",
+        (
+          response,
+        ) => {
+          console.error(
+            "Razorpay payment failed:",
+            response,
+          );
+
+          toast.error(
+            "Payment failed. Please try again.",
+          );
+
+          setIsPlacingOrder(
+            false,
+          );
+        },
+      );
+
+      /*
+       * ------------------------------------
+       * Open Razorpay
+       * ------------------------------------
+       */
+
+      console.log(
+        "Opening Razorpay Checkout...",
+      );
+
+      razorpay.open();
+    };
+
+  /*
+   * ----------------------------------------
    * Place Order
    * ----------------------------------------
    */
@@ -588,9 +998,42 @@ const Checkout = () => {
         return;
       }
 
+      /*
+       * ------------------------------------
+       * Validate Address
+       * ------------------------------------
+       */
+
       if (
         !validateAddress()
       ) {
+        toast.error(
+          "Please complete your delivery address.",
+        );
+
+        return;
+      }
+
+      /*
+       * ------------------------------------
+       * Validate Razorpay BEFORE creating
+       * the Taksham order.
+       * ------------------------------------
+       */
+
+      if (
+        paymentMethod ===
+          "online" &&
+        !RAZORPAY_KEY_ID
+      ) {
+        toast.error(
+          "Online payment is not configured. Please check the Razorpay Key ID.",
+        );
+
+        console.error(
+          "VITE_RAZORPAY_KEY_ID is missing from the frontend environment.",
+        );
+
         return;
       }
 
@@ -598,6 +1041,12 @@ const Checkout = () => {
         setIsPlacingOrder(
           true,
         );
+
+        /*
+         * ------------------------------------
+         * Order Data
+         * ------------------------------------
+         */
 
         const orderData: CreateOrderInput =
           {
@@ -642,10 +1091,19 @@ const Checkout = () => {
          * ------------------------------------
          */
 
+        console.log(
+          "Creating Taksham order...",
+        );
+
         const order =
           await createOrder(
             orderData,
           );
+
+        console.log(
+          "Taksham order created:",
+          order,
+        );
 
         /*
          * ------------------------------------
@@ -676,187 +1134,29 @@ const Checkout = () => {
          * ------------------------------------
          */
 
-        if (
-          !RAZORPAY_KEY_ID
-        ) {
-          throw new Error(
-            "Razorpay Key ID is not configured",
-          );
-        }
+        await openRazorpayCheckout(
+          {
+            _id:
+              order._id,
 
-        /*
-         * Load Razorpay Checkout
-         */
-
-        const isLoaded =
-          await loadRazorpayScript();
-
-        if (
-          !isLoaded ||
-          !window.Razorpay
-        ) {
-          throw new Error(
-            "Failed to load Razorpay Checkout",
-          );
-        }
-
-        /*
-         * ------------------------------------
-         * Create Razorpay Order
-         * ------------------------------------
-         */
-
-        const paymentOrder =
-          await createPaymentOrder(
-            order._id,
-          );
-
-        /*
-         * ------------------------------------
-         * Open Razorpay Checkout
-         * ------------------------------------
-         */
-
-        const razorpay =
-          new window.Razorpay({
-            key:
-              RAZORPAY_KEY_ID,
-
-            amount:
-              paymentOrder.amount,
-
-            currency:
-              paymentOrder.currency,
-
-            name: "Taksham",
-
-            description:
-              `Order ${order.orderNumber}`,
-
-            order_id:
-              paymentOrder.razorpayOrderId,
-
-            prefill: {
-              name: `${address.firstName.trim()} ${address.lastName.trim()}`,
-
-              contact:
-                address.phone.trim(),
-            },
-
-            notes: {
-              orderNumber:
-                order.orderNumber,
-            },
-
-            theme: {
-              color:
-                "#9A7138",
-            },
-
-            /*
-             * --------------------------------
-             * Payment Success
-             * --------------------------------
-             */
-
-            handler:
-              async (
-                response,
-              ) => {
-                try {
-                  /*
-                   * Verify payment with
-                   * our backend.
-                   */
-
-                  await verifyPayment(
-                    {
-                      orderId:
-                        order._id,
-
-                      razorpayPaymentId:
-                        response.razorpay_payment_id,
-
-                      razorpayOrderId:
-                        response.razorpay_order_id,
-
-                      razorpaySignature:
-                        response.razorpay_signature,
-                    },
-                  );
-
-                  /*
-                   * Payment verified.
-                   */
-
-                  clearCart();
-
-                  toast.success(
-                    "Payment successful! Order placed.",
-                  );
-
-                  navigate(
-                    `/orders/${order._id}`,
-                  );
-                } catch (error) {
-                  console.error(
-                    "Payment verification failed:",
-                    error,
-                  );
-
-                  toast.error(
-                    error instanceof
-                      Error
-                      ? error.message
-                      : "Payment verification failed",
-                  );
-                } finally {
-                  setIsPlacingOrder(
-                    false,
-                  );
-                }
-              },
-
-            /*
-             * --------------------------------
-             * Checkout Closed
-             * --------------------------------
-             */
-
-            modal: {
-              ondismiss:
-                () => {
-                  toast.error(
-                    "Payment cancelled. You can try again.",
-                  );
-
-                  setIsPlacingOrder(
-                    false,
-                  );
-                },
-            },
-          });
-
-        /*
-         * ------------------------------------
-         * Payment Failed Listener
-         * ------------------------------------
-         */
-
-        razorpay.on(
-          "payment.failed",
-          () => {
-            toast.error(
-              "Payment failed. Please try again.",
-            );
-
-            setIsPlacingOrder(
-              false,
-            );
+            orderNumber:
+              order.orderNumber,
           },
         );
 
-        razorpay.open();
+        /*
+         * Do NOT set isPlacingOrder(false)
+         * here.
+         *
+         * Razorpay is now open.
+         *
+         * It will be reset by:
+         *
+         * - payment success
+         * - payment failure
+         * - checkout dismissal
+         */
+
       } catch (error) {
         console.error(
           "Failed to place order:",

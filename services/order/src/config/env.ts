@@ -29,13 +29,36 @@ const env = {
     process.env.PRODUCT_SERVICE_URL ||
     "http://localhost:5002/api/v1/products",
 
+  /*
+   * ----------------------------------------
+   * Internal Service Authentication
+   * ----------------------------------------
+   */
+
+  INTERNAL_SERVICE_SECRET:
+    process.env.INTERNAL_SERVICE_SECRET ||
+    "",
+
+  /*
+   * ----------------------------------------
+   * Razorpay
+   * ----------------------------------------
+   */
 
   RAZORPAY_KEY_ID:
-    process.env.RAZORPAY_KEY_ID || "",
+    process.env.RAZORPAY_KEY_ID ||
+    "",
 
   RAZORPAY_KEY_SECRET:
-    process.env.RAZORPAY_KEY_SECRET || "",
+    process.env.RAZORPAY_KEY_SECRET ||
+    "",
 };
+
+/*
+ * ========================================
+ * Required Environment Variables
+ * ========================================
+ */
 
 if (!env.MONGO_URI) {
   throw new Error(
@@ -52,6 +75,12 @@ if (!env.JWT_ACCESS_SECRET) {
 if (!env.JWT_REFRESH_SECRET) {
   throw new Error(
     "JWT_REFRESH_SECRET is not configured",
+  );
+}
+
+if (!env.INTERNAL_SERVICE_SECRET) {
+  throw new Error(
+    "INTERNAL_SERVICE_SECRET is not configured",
   );
 }
 

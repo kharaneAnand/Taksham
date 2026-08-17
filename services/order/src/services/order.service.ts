@@ -1,4 +1,5 @@
 import ApiError from "../helpers/ApiError.js";
+
 import Order from "../models/order.model.js";
 
 import env from "../config/env.js";
@@ -23,32 +24,47 @@ import type {
 
 interface CartItemResponse {
   productId: string;
+
   variantId?: string;
+
   quantity: number;
 }
 
 interface CartResponse {
   _id?: string;
+
   userId: string;
+
   items: CartItemResponse[];
 }
 
 interface ProductVariantResponse {
   _id: string;
+
   color?: string;
+
   material?: string;
+
   price?: number;
+
   stock?: number;
+
   images?: string[];
 }
 
 interface ProductResponse {
   _id: string;
+
   name: string;
+
   price: number;
+
   stock: number;
+
   image: string;
+
   images?: string[];
+
   variants?: ProductVariantResponse[];
 }
 
@@ -86,7 +102,9 @@ class OrderService {
     const result =
       (await response.json()) as {
         success?: boolean;
+
         message?: string;
+
         data?: CartResponse;
       };
 
@@ -136,7 +154,9 @@ class OrderService {
     const result =
       (await response.json()) as {
         success?: boolean;
+
         message?: string;
+
         data?: ProductResponse;
       };
 
@@ -156,6 +176,116 @@ class OrderService {
     }
 
     return result.data;
+  }
+
+  /*
+   * ----------------------------------------
+   * Decrease Product Stock
+   * ----------------------------------------
+   *
+   * Calls the protected internal
+   * Product Service endpoint.
+   *
+   * This is used for COD orders.
+   *
+   * Online orders will call the same
+   * logic after Razorpay verification.
+   * ----------------------------------------
+   */
+
+  private async decreaseProductStock(
+    productId: string,
+    quantity: number,
+    variantId?: string,
+  ): Promise<void> {
+    const response = await fetch(
+      `${env.PRODUCT_SERVICE_URL}/internal/decrease-stock`,
+      {
+        method: "POST",
+
+        headers: {
+          Accept:
+            "application/json",
+
+          "Content-Type":
+            "application/json",
+
+          /*
+           * --------------------------------
+           * Internal Service Authentication
+           * --------------------------------
+           */
+
+          "x-internal-service-secret":
+            env.INTERNAL_SERVICE_SECRET,
+        },
+
+        body: JSON.stringify({
+          productId,
+
+          quantity,
+
+          ...(variantId
+            ? {
+                variantId,
+              }
+            : {}),
+        }),
+      },
+    );
+
+    const result =
+      (await response.json()) as {
+        success?: boolean;
+
+        message?: string;
+
+        data?: unknown;
+      };
+
+    if (!response.ok) {
+      throw new ApiError(
+        response.status >= 400 &&
+          response.status < 500
+          ? response.status
+          : StatusCodes.BAD_REQUEST,
+
+        result.message ||
+          "Failed to update product stock",
+      );
+    }
+  }
+
+  /*
+   * ----------------------------------------
+   * Decrease Stock For Order
+   * ----------------------------------------
+   *
+   * Deducts stock for every item in
+   * the order.
+   * ----------------------------------------
+   */
+
+  private async decreaseStockForOrder(
+    items: Array<{
+      productId: string;
+
+      quantity: number;
+
+      variantId?: string;
+    }>,
+  ): Promise<void> {
+    for (
+      const item of items
+    ) {
+      await this.decreaseProductStock(
+        item.productId,
+
+        item.quantity,
+
+        item.variantId,
+      );
+    }
   }
 
   /*
@@ -266,7 +396,9 @@ class OrderService {
       let variantSnapshot:
         | {
             color?: string;
+
             material?: string;
+
             image?: string;
           }
         | undefined;
@@ -331,7 +463,7 @@ class OrderService {
 
       /*
        * ----------------------------------
-       * Stock
+       * Stock Validation
        * ----------------------------------
        */
 
@@ -361,7 +493,7 @@ class OrderService {
 
       /*
        * ----------------------------------
-       * Snapshot
+       * Create Order Item Snapshot
        * ----------------------------------
        */
 
@@ -436,7 +568,7 @@ class OrderService {
 
     /*
      * ------------------------------------
-     * 7. Create Order
+     * 7. Shipping Address Snapshot
      * ------------------------------------
      */
 
@@ -470,6 +602,19 @@ class OrderService {
         : {}),
     };
 
+    /*
+     * ------------------------------------
+     * 8. Create Order
+     * ------------------------------------
+     *
+     * COD:
+     * confirmed immediately.
+     *
+     * Online:
+     * remains pending until Razorpay
+     * payment verification.
+     */
+
     const order =
       await Order.create({
         userId,
@@ -489,15 +634,6 @@ class OrderService {
         paymentStatus:
           "pending",
 
-        /*
-         * COD:
-         * Order is immediately confirmed.
-         *
-         * Online:
-         * Order remains pending until
-         * Razorpay payment verification.
-         */
-
         orderStatus:
           data.paymentMethod ===
           "cod"
@@ -513,26 +649,85 @@ class OrderService {
 
     /*
      * ------------------------------------
-     * 8. Clear Cart
+     * 9. COD Stock Deduction
      * ------------------------------------
      *
-     * COD:
-     * Clear immediately because the
-     * order is successfully placed.
+     * COD orders are confirmed
+     * immediately, so stock is deducted
+     * immediately.
      *
-     * Online:
-     * Keep cart until payment is
-     * successfully verified.
+     * Online orders DO NOT deduct stock
+     * here.
+     *
+     * Their stock will be deducted after
+     * successful Razorpay verification.
+     * ------------------------------------
      */
 
     if (
       data.paymentMethod ===
       "cod"
     ) {
+      try {
+        await this.decreaseStockForOrder(
+          orderItems.map(
+            (item) => ({
+              productId:
+                item.productId,
+
+              quantity:
+                item.quantity,
+
+              ...(item.variantId
+                ? {
+                    variantId:
+                      item.variantId,
+                  }
+                : {}),
+            }),
+          ),
+        );
+      } catch (error) {
+        /*
+         * Stock deduction failed.
+         *
+         * Delete the order because the
+         * customer should not receive a
+         * confirmed COD order when stock
+         * could not be reserved.
+         */
+
+        await Order.findByIdAndDelete(
+          order._id,
+        );
+
+        throw error;
+      }
+
+      /*
+       * ----------------------------------
+       * Clear Cart
+       * ----------------------------------
+       */
+
       await this.clearCart(
         accessToken,
       );
     }
+
+    /*
+     * ------------------------------------
+     * 10. Online Payment
+     * ------------------------------------
+     *
+     * Do NOT clear the cart.
+     *
+     * Do NOT decrease stock.
+     *
+     * Razorpay payment verification will
+     * handle both.
+     * ------------------------------------
+     */
 
     return order;
   }
@@ -566,6 +761,7 @@ class OrderService {
     const order =
       await Order.findOne({
         _id: orderId,
+
         userId,
       });
 
