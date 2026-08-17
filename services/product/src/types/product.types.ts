@@ -1,7 +1,13 @@
 import { Types } from "mongoose";
 
+
+
 export interface IProductVariant {
-  _id?: Types.ObjectId;
+  /*
+   * Mongoose automatically generates this
+   * ID for every variant.
+   */
+  _id: Types.ObjectId;
 
   color?: string;
 
@@ -14,7 +20,11 @@ export interface IProductVariant {
   material?: string;
 }
 
+
+
 export interface IProduct {
+  _id?: Types.ObjectId;
+
   name: string;
 
   slug: string;
@@ -23,7 +33,7 @@ export interface IProduct {
 
   image: string;
 
-  images:string[] ;
+  images: string[];
 
   category: string;
 

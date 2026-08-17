@@ -20,15 +20,7 @@ import internalAuth from "../middleware/internalAuth.middleware.js";
 const router =
   Router();
 
-/*
- * ========================================
- * Public Routes
- * ========================================
- */
 
-/*
- * GET /api/v1/products
- */
 
 router.get(
   "/",
@@ -48,12 +40,6 @@ router.get(
   ProductController.getProductById,
 );
 
-/*
- * ========================================
- * Internal Service Route
- * ========================================
- *
-*/
 
 router.post(
   "/internal/decrease-stock",
@@ -63,11 +49,13 @@ router.post(
 
 
 
-/*
- * ========================================
- * Product By Slug
- * ========================================
- */
+router.post(
+  "/internal/increase-stock",
+  internalAuth,
+  ProductController.increaseStock,
+);
+
+
 
 /*
  * GET /api/v1/products/:slug
@@ -78,11 +66,7 @@ router.get(
   ProductController.getProductBySlug,
 );
 
-/*
- * ========================================
- * Admin Only Routes
- * ========================================
- */
+
 
 /*
  * POST /api/v1/products

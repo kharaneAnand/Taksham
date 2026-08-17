@@ -68,6 +68,14 @@ interface ProductResponse {
   variants?: ProductVariantResponse[];
 }
 
+interface StockItem {
+  productId: string;
+
+  quantity: number;
+
+  variantId?: string;
+}
+
 /*
  * ========================================
  * Order Service
@@ -84,33 +92,44 @@ class OrderService {
   private async getCart(
     accessToken: string,
   ): Promise<CartResponse> {
-    const response = await fetch(
-      env.CART_SERVICE_URL,
-      {
-        method: "GET",
+    const response =
+      await fetch(
+        env.CART_SERVICE_URL,
+        {
+          method: "GET",
 
-        headers: {
-          Accept:
-            "application/json",
+          headers: {
+            Accept:
+              "application/json",
 
-          Cookie:
-            `accessToken=${accessToken}`,
+            Cookie:
+              `accessToken=${accessToken}`,
+          },
         },
-      },
-    );
+      );
 
-    const result =
-      (await response.json()) as {
-        success?: boolean;
+    let result:
+      | {
+          success?: boolean;
+          message?: string;
+          data?: CartResponse;
+        }
+      | null = null;
 
-        message?: string;
-
-        data?: CartResponse;
-      };
+    try {
+      result =
+        (await response.json()) as {
+          success?: boolean;
+          message?: string;
+          data?: CartResponse;
+        };
+    } catch {
+      result = null;
+    }
 
     if (
       !response.ok ||
-      !result.data
+      !result?.data
     ) {
       throw new ApiError(
         response.status ===
@@ -118,7 +137,7 @@ class OrderService {
           ? StatusCodes.NOT_FOUND
           : StatusCodes.BAD_REQUEST,
 
-        result.message ||
+        result?.message ||
           ORDER_MESSAGES.CART_EMPTY,
       );
     }
@@ -135,34 +154,45 @@ class OrderService {
   private async getProductById(
     productId: string,
   ): Promise<ProductResponse> {
-    const response = await fetch(
-      `${
-        env.PRODUCT_SERVICE_URL
-      }/id/${encodeURIComponent(
-        productId,
-      )}`,
-      {
-        method: "GET",
+    const response =
+      await fetch(
+        `${
+          env.PRODUCT_SERVICE_URL
+        }/id/${encodeURIComponent(
+          productId,
+        )}`,
+        {
+          method: "GET",
 
-        headers: {
-          Accept:
-            "application/json",
+          headers: {
+            Accept:
+              "application/json",
+          },
         },
-      },
-    );
+      );
 
-    const result =
-      (await response.json()) as {
-        success?: boolean;
+    let result:
+      | {
+          success?: boolean;
+          message?: string;
+          data?: ProductResponse;
+        }
+      | null = null;
 
-        message?: string;
-
-        data?: ProductResponse;
-      };
+    try {
+      result =
+        (await response.json()) as {
+          success?: boolean;
+          message?: string;
+          data?: ProductResponse;
+        };
+    } catch {
+      result = null;
+    }
 
     if (
       !response.ok ||
-      !result.data
+      !result?.data
     ) {
       throw new ApiError(
         response.status ===
@@ -170,7 +200,7 @@ class OrderService {
           ? StatusCodes.NOT_FOUND
           : StatusCodes.BAD_REQUEST,
 
-        result.message ||
+        result?.message ||
           "Product not found",
       );
     }
@@ -179,17 +209,18 @@ class OrderService {
   }
 
   /*
+   * ========================================
+   * PRODUCT STOCK
+   * ========================================
+   */
+
+  /*
    * ----------------------------------------
    * Decrease Product Stock
    * ----------------------------------------
    *
-   * Calls the protected internal
-   * Product Service endpoint.
-   *
-   * This is used for COD orders.
-   *
-   * Online orders will call the same
-   * logic after Razorpay verification.
+   * Calls Product Service's atomic
+   * stock deduction endpoint.
    * ----------------------------------------
    */
 
@@ -198,50 +229,55 @@ class OrderService {
     quantity: number,
     variantId?: string,
   ): Promise<void> {
-    const response = await fetch(
-      `${env.PRODUCT_SERVICE_URL}/internal/decrease-stock`,
-      {
-        method: "POST",
+    const response =
+      await fetch(
+        `${env.PRODUCT_SERVICE_URL}/internal/decrease-stock`,
+        {
+          method: "POST",
 
-        headers: {
-          Accept:
-            "application/json",
+          headers: {
+            Accept:
+              "application/json",
 
-          "Content-Type":
-            "application/json",
+            "Content-Type":
+              "application/json",
 
-          /*
-           * --------------------------------
-           * Internal Service Authentication
-           * --------------------------------
-           */
+            "x-internal-service-secret":
+              env.INTERNAL_SERVICE_SECRET,
+          },
 
-          "x-internal-service-secret":
-            env.INTERNAL_SERVICE_SECRET,
+          body: JSON.stringify({
+            productId,
+
+            quantity,
+
+            ...(variantId
+              ? {
+                  variantId,
+                }
+              : {}),
+          }),
         },
+      );
 
-        body: JSON.stringify({
-          productId,
+    let result:
+      | {
+          success?: boolean;
+          message?: string;
+          data?: unknown;
+        }
+      | null = null;
 
-          quantity,
-
-          ...(variantId
-            ? {
-                variantId,
-              }
-            : {}),
-        }),
-      },
-    );
-
-    const result =
-      (await response.json()) as {
-        success?: boolean;
-
-        message?: string;
-
-        data?: unknown;
-      };
+    try {
+      result =
+        (await response.json()) as {
+          success?: boolean;
+          message?: string;
+          data?: unknown;
+        };
+    } catch {
+      result = null;
+    }
 
     if (!response.ok) {
       throw new ApiError(
@@ -250,7 +286,7 @@ class OrderService {
           ? response.status
           : StatusCodes.BAD_REQUEST,
 
-        result.message ||
+        result?.message ||
           "Failed to update product stock",
       );
     }
@@ -258,11 +294,95 @@ class OrderService {
 
   /*
    * ----------------------------------------
+   * Increase Product Stock
+   * ----------------------------------------
+   *
+   * Used to rollback stock that was
+   * successfully deducted before a
+   * later item failed.
+   * ----------------------------------------
+   */
+
+  private async increaseProductStock(
+    productId: string,
+    quantity: number,
+    variantId?: string,
+  ): Promise<void> {
+    const response =
+      await fetch(
+        `${env.PRODUCT_SERVICE_URL}/internal/increase-stock`,
+        {
+          method: "POST",
+
+          headers: {
+            Accept:
+              "application/json",
+
+            "Content-Type":
+              "application/json",
+
+            "x-internal-service-secret":
+              env.INTERNAL_SERVICE_SECRET,
+          },
+
+          body: JSON.stringify({
+            productId,
+
+            quantity,
+
+            ...(variantId
+              ? {
+                  variantId,
+                }
+              : {}),
+          }),
+        },
+      );
+
+    let result:
+      | {
+          success?: boolean;
+          message?: string;
+          data?: unknown;
+        }
+      | null = null;
+
+    try {
+      result =
+        (await response.json()) as {
+          success?: boolean;
+          message?: string;
+          data?: unknown;
+        };
+    } catch {
+      result = null;
+    }
+
+    if (!response.ok) {
+      throw new ApiError(
+        StatusCodes.INTERNAL_SERVER_ERROR,
+
+        result?.message ||
+          "Failed to restore product stock",
+      );
+    }
+  }
+
+  /*
+   * ========================================
+   * STOCK FOR COMPLETE ORDER
+   * ========================================
+   */
+
+  /*
+   * ----------------------------------------
    * Decrease Stock For Order
    * ----------------------------------------
    *
-   * Deducts stock for every item in
-   * the order.
+   * Deduct stock one item at a time.
+   *
+   * If a later item fails, all previously
+   * deducted items are restored.
    * ----------------------------------------
    */
 
@@ -274,11 +394,106 @@ class OrderService {
 
       variantId?: string;
     }>,
+  ): Promise<StockItem[]> {
+    const deductedItems: StockItem[] =
+      [];
+
+    try {
+      for (
+        const item of items
+      ) {
+        await this.decreaseProductStock(
+          item.productId,
+
+          item.quantity,
+
+          item.variantId,
+        );
+
+        deductedItems.push({
+          productId:
+            item.productId,
+
+          quantity:
+            item.quantity,
+
+          ...(item.variantId
+            ? {
+                variantId:
+                  item.variantId,
+              }
+            : {}),
+        });
+      }
+
+      return deductedItems;
+    } catch (error) {
+      /*
+       * ----------------------------------
+       * Rollback previously deducted stock
+       * ----------------------------------
+       */
+
+      if (
+        deductedItems.length >
+        0
+      ) {
+        try {
+          await this.restoreStock(
+            deductedItems,
+          );
+        } catch {
+          /*
+           * The inventory is now potentially
+           * inconsistent.
+           *
+           * Do not hide this situation.
+           */
+
+          throw new ApiError(
+            StatusCodes.INTERNAL_SERVER_ERROR,
+
+            "Stock update failed and inventory rollback also failed. Manual inventory reconciliation is required.",
+          );
+        }
+      }
+
+      /*
+       * Preserve original error.
+       */
+
+      throw error;
+    }
+  }
+
+  /*
+   * ----------------------------------------
+   * Restore Stock
+   * ----------------------------------------
+   *
+   * Restores successfully deducted items.
+   *
+   * Reverse order is used intentionally.
+   * ----------------------------------------
+   */
+
+  private async restoreStock(
+    items: StockItem[],
   ): Promise<void> {
     for (
-      const item of items
+      let index =
+        items.length - 1;
+      index >= 0;
+      index--
     ) {
-      await this.decreaseProductStock(
+      const item =
+        items[index];
+
+      if (!item) {
+        continue;
+      }
+
+      await this.increaseProductStock(
         item.productId,
 
         item.quantity,
@@ -289,6 +504,12 @@ class OrderService {
   }
 
   /*
+   * ========================================
+   * CART
+   * ========================================
+   */
+
+  /*
    * ----------------------------------------
    * Clear Cart
    * ----------------------------------------
@@ -297,40 +518,51 @@ class OrderService {
   private async clearCart(
     accessToken: string,
   ): Promise<void> {
-    const response = await fetch(
-      env.CART_SERVICE_URL,
-      {
-        method: "DELETE",
+    const response =
+      await fetch(
+        env.CART_SERVICE_URL,
+        {
+          method: "DELETE",
 
-        headers: {
-          Accept:
-            "application/json",
+          headers: {
+            Accept:
+              "application/json",
 
-          Cookie:
-            `accessToken=${accessToken}`,
+            Cookie:
+              `accessToken=${accessToken}`,
+          },
         },
-      },
-    );
+      );
 
-    if (!response.ok) {
-      const result =
+    let result:
+      | {
+          message?: string;
+        }
+      | null = null;
+
+    try {
+      result =
         (await response.json()) as {
           message?: string;
         };
+    } catch {
+      result = null;
+    }
 
+    if (!response.ok) {
       throw new ApiError(
         StatusCodes.INTERNAL_SERVER_ERROR,
 
-        result.message ||
+        result?.message ||
           "Failed to clear cart",
       );
     }
   }
 
   /*
-   * ----------------------------------------
-   * Create Order
-   * ----------------------------------------
+   * ========================================
+   * CREATE ORDER
+   * ========================================
    */
 
   async createOrder(
@@ -464,6 +696,16 @@ class OrderService {
       /*
        * ----------------------------------
        * Stock Validation
+       * ----------------------------------
+       *
+       * This is an early validation only.
+       *
+       * The actual atomic stock check
+       * happens later in Product Service.
+       *
+       * This prevents obvious bad orders
+       * while Product Service remains the
+       * source of truth.
        * ----------------------------------
        */
 
@@ -613,6 +855,7 @@ class OrderService {
      * Online:
      * remains pending until Razorpay
      * payment verification.
+     * ------------------------------------
      */
 
     const order =
@@ -648,20 +891,9 @@ class OrderService {
       });
 
     /*
-     * ------------------------------------
-     * 9. COD Stock Deduction
-     * ------------------------------------
-     *
-     * COD orders are confirmed
-     * immediately, so stock is deducted
-     * immediately.
-     *
-     * Online orders DO NOT deduct stock
-     * here.
-     *
-     * Their stock will be deducted after
-     * successful Razorpay verification.
-     * ------------------------------------
+     * ====================================
+     * COD STOCK FLOW
+     * ====================================
      */
 
     if (
@@ -669,6 +901,16 @@ class OrderService {
       "cod"
     ) {
       try {
+        /*
+         * --------------------------------
+         * Deduct stock.
+         *
+         * This operation is atomic per
+         * product and rollback-safe for
+         * the complete order.
+         * --------------------------------
+         */
+
         await this.decreaseStockForOrder(
           orderItems.map(
             (item) => ({
@@ -689,12 +931,12 @@ class OrderService {
         );
       } catch (error) {
         /*
-         * Stock deduction failed.
+         * --------------------------------
+         * Stock failed.
          *
-         * Delete the order because the
-         * customer should not receive a
-         * confirmed COD order when stock
-         * could not be reserved.
+         * The order cannot remain as a
+         * confirmed COD order.
+         * --------------------------------
          */
 
         await Order.findByIdAndDelete(
@@ -705,27 +947,52 @@ class OrderService {
       }
 
       /*
-       * ----------------------------------
+       * --------------------------------
        * Clear Cart
-       * ----------------------------------
+       * --------------------------------
+       *
+       * Order and stock are already
+       * successful.
+       *
+       * Therefore a cart failure should
+       * NOT make the order appear failed.
+       * --------------------------------
        */
 
-      await this.clearCart(
-        accessToken,
-      );
+      try {
+        await this.clearCart(
+          accessToken,
+        );
+      } catch (error) {
+        console.error(
+          "COD order created successfully but cart clearing failed:",
+          error,
+        );
+      }
     }
 
     /*
-     * ------------------------------------
-     * 10. Online Payment
-     * ------------------------------------
+     * ====================================
+     * ONLINE PAYMENT FLOW
+     * ====================================
      *
-     * Do NOT clear the cart.
+     * Important:
      *
-     * Do NOT decrease stock.
+     * DO NOT deduct stock here.
      *
-     * Razorpay payment verification will
-     * handle both.
+     * DO NOT clear cart here.
+     *
+     * Payment Service will perform:
+     *
+     * Razorpay verification
+     *        ↓
+     * Atomic stock deduction
+     *        ↓
+     * Stock rollback if necessary
+     *        ↓
+     * Mark order paid
+     *        ↓
+     * Clear cart
      * ------------------------------------
      */
 

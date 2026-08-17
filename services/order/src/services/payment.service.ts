@@ -24,6 +24,12 @@ interface ProductStockResponse {
   data?: unknown;
 }
 
+interface StockItem {
+  productId: string;
+  quantity: number;
+  variantId?: string;
+}
+
 /*
  * ========================================
  * Payment Service
@@ -204,11 +210,14 @@ class PaymentService {
   }
 
   /*
+   * ========================================
+   * PRODUCT SERVICE
+   * ========================================
+   */
+
+  /*
    * ----------------------------------------
    * Decrease Product Stock
-   * ----------------------------------------
-   *
-   * Communicates with Product Service.
    * ----------------------------------------
    */
 
@@ -247,8 +256,16 @@ class PaymentService {
       },
     );
 
-    const result =
-      (await response.json()) as ProductStockResponse;
+    let result:
+      | ProductStockResponse
+      | null = null;
+
+    try {
+      result =
+        (await response.json()) as ProductStockResponse;
+    } catch {
+      result = null;
+    }
 
     if (!response.ok) {
       throw new ApiError(
@@ -257,15 +274,97 @@ class PaymentService {
           ? response.status
           : StatusCodes.BAD_REQUEST,
 
-        result.message ||
-          "Failed to update product stock",
+        result?.message ||
+          "Failed to decrease product stock",
       );
     }
   }
 
   /*
    * ----------------------------------------
+   * Increase Product Stock
+   * ----------------------------------------
+   *
+   * Used for compensation / rollback.
+   * ----------------------------------------
+   */
+
+  private async increaseProductStock(
+    productId: string,
+    quantity: number,
+    variantId?: string,
+  ): Promise<void> {
+    const response = await fetch(
+      `${env.PRODUCT_SERVICE_URL}/internal/increase-stock`,
+      {
+        method: "POST",
+
+        headers: {
+          Accept:
+            "application/json",
+
+          "Content-Type":
+            "application/json",
+
+          "x-internal-service-secret":
+            env.INTERNAL_SERVICE_SECRET,
+        },
+
+        body: JSON.stringify({
+          productId,
+
+          quantity,
+
+          ...(variantId
+            ? {
+                variantId,
+              }
+            : {}),
+        }),
+      },
+    );
+
+    let result:
+      | ProductStockResponse
+      | null = null;
+
+    try {
+      result =
+        (await response.json()) as ProductStockResponse;
+    } catch {
+      result = null;
+    }
+
+    if (!response.ok) {
+      throw new ApiError(
+        response.status >= 400 &&
+          response.status < 500
+          ? response.status
+          : StatusCodes.INTERNAL_SERVER_ERROR,
+
+        result?.message ||
+          "Failed to restore product stock",
+      );
+    }
+  }
+
+  /*
+   * ========================================
+   * STOCK MANAGEMENT
+   * ========================================
+   */
+
+  /*
+   * ----------------------------------------
    * Decrease Stock For Order
+   * ----------------------------------------
+   *
+   * Returns the items that were successfully
+   * deducted.
+   *
+   * This is important because if a later
+   * item fails, we know exactly what needs
+   * to be restored.
    * ----------------------------------------
    */
 
@@ -273,17 +372,110 @@ class PaymentService {
     order: {
       items: Array<{
         productId: string;
-
         quantity: number;
-
         variantId?: string;
       }>;
     },
+  ): Promise<StockItem[]> {
+    const deductedItems: StockItem[] =
+      [];
+
+    try {
+      for (
+        const item of order.items
+      ) {
+        await this.decreaseProductStock(
+          item.productId,
+
+          item.quantity,
+
+          item.variantId,
+        );
+
+        deductedItems.push({
+          productId:
+            item.productId,
+
+          quantity:
+            item.quantity,
+
+          ...(item.variantId
+            ? {
+                variantId:
+                  item.variantId,
+              }
+            : {}),
+        });
+      }
+
+      return deductedItems;
+    } catch (error) {
+      /*
+       * ----------------------------------
+       * Something failed.
+       *
+       * Restore everything that was
+       * successfully deducted before
+       * the failure.
+       * ----------------------------------
+       */
+
+      try {
+        await this.restoreStock(
+          deductedItems,
+        );
+      } catch {
+        /*
+         * If rollback itself fails, we
+         * deliberately throw a clear
+         * inventory inconsistency error.
+         *
+         * This requires manual attention
+         * rather than silently continuing.
+         */
+
+        throw new ApiError(
+          StatusCodes.INTERNAL_SERVER_ERROR,
+          "Stock update failed and inventory rollback also failed. Manual inventory reconciliation is required.",
+        );
+      }
+
+      /*
+       * Original stock failure.
+       */
+
+      throw error;
+    }
+  }
+
+  /*
+   * ----------------------------------------
+   * Restore Stock
+   * ----------------------------------------
+   *
+   * Restores previously deducted items.
+   *
+   * We process in reverse order.
+   * ----------------------------------------
+   */
+
+  private async restoreStock(
+    items: StockItem[],
   ): Promise<void> {
     for (
-      const item of order.items
+      let index =
+        items.length - 1;
+      index >= 0;
+      index--
     ) {
-      await this.decreaseProductStock(
+      const item =
+        items[index];
+
+      if (!item) {
+        continue;
+      }
+
+      await this.increaseProductStock(
         item.productId,
 
         item.quantity,
@@ -292,6 +484,12 @@ class PaymentService {
       );
     }
   }
+
+  /*
+   * ========================================
+   * CART
+   * ========================================
+   */
 
   /*
    * ----------------------------------------
@@ -318,24 +516,34 @@ class PaymentService {
     );
 
     if (!response.ok) {
-      const result =
-        (await response.json()) as {
-          message?: string;
-        };
+      let result:
+        | {
+            message?: string;
+          }
+        | null = null;
+
+      try {
+        result =
+          (await response.json()) as {
+            message?: string;
+          };
+      } catch {
+        result = null;
+      }
 
       throw new ApiError(
         StatusCodes.INTERNAL_SERVER_ERROR,
 
-        result.message ||
+        result?.message ||
           "Payment succeeded but cart could not be cleared",
       );
     }
   }
 
   /*
-   * ----------------------------------------
-   * Verify Razorpay Payment
-   * ----------------------------------------
+   * ========================================
+   * VERIFY PAYMENT
+   * ========================================
    */
 
   async verifyPayment(
@@ -370,15 +578,8 @@ class PaymentService {
      * 2. Idempotency
      * ------------------------------------
      *
-     * If the payment was already verified,
-     * do NOT deduct stock again.
-     *
-     * This protects against:
-     *
-     * - double-clicks
-     * - frontend retries
-     * - Razorpay callback retries
-     * - page refreshes
+     * If payment was already verified,
+     * never deduct stock again.
      * ------------------------------------
      */
 
@@ -458,10 +659,16 @@ class PaymentService {
      * 6. Deduct Stock
      * ------------------------------------
      *
-     * Payment has been cryptographically
+     * The payment is now cryptographically
      * verified.
      *
-     * Now decrease inventory.
+     * Inventory must be successfully
+     * deducted before marking the order
+     * as confirmed.
+     *
+     * If any item fails, previously
+     * deducted items are automatically
+     * restored.
      * ------------------------------------
      */
 
@@ -471,16 +678,14 @@ class PaymentService {
       );
     } catch (error) {
       /*
-       * Payment was successful, but stock
-       * could not be updated.
+       * The Razorpay payment itself is
+       * already successful.
        *
-       * We do NOT mark the payment as
-       * failed because the payment itself
-       * has already been verified.
+       * Therefore we MUST NOT mark it as
+       * "failed".
        *
-       * Keep paymentStatus pending so the
-       * order can be handled safely instead
-       * of pretending payment failed.
+       * The stock operation has already
+       * performed its own rollback.
        */
 
       throw new ApiError(
@@ -516,11 +721,34 @@ class PaymentService {
      * ------------------------------------
      * 8. Clear Cart
      * ------------------------------------
+     *
+     * Payment and inventory are already
+     * successfully completed.
+     *
+     * If cart clearing fails, we do NOT
+     * undo the successful payment/order.
+     * ------------------------------------
      */
 
-    await this.clearCart(
-      accessToken,
-    );
+    try {
+      await this.clearCart(
+        accessToken,
+      );
+    } catch (error) {
+      /*
+       * Order is already paid and confirmed.
+       *
+       * We intentionally do not change
+       * paymentStatus back to failed.
+       *
+       * The order remains valid.
+       */
+
+      console.error(
+        "Payment successful but cart clearing failed:",
+        error,
+      );
+    }
 
     /*
      * ------------------------------------

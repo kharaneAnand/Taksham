@@ -25,7 +25,7 @@ import type {
  * ========================================
  */
 
-interface DecreaseStockBody {
+interface StockBody {
   productId: string;
 
   quantity: number;
@@ -171,12 +171,8 @@ class ProductController {
    * /api/v1/products/internal/decrease-stock
    * ----------------------------------------
    *
-   * This endpoint will be used by the
-   * Order Service.
-   *
-   * We will secure this route with an
-   * internal service secret in the next
-   * step.
+   * Used by Order Service to atomically
+   * decrease product inventory.
    * ----------------------------------------
    */
 
@@ -184,7 +180,7 @@ class ProductController {
     asyncHandler<
       Record<string, string>,
       unknown,
-      DecreaseStockBody
+      StockBody
     >(
       async (
         req,
@@ -214,7 +210,70 @@ class ProductController {
         return successResponse(
           res,
           200,
-          "Product stock updated successfully",
+          "Product stock decreased successfully",
+          result,
+        );
+      },
+    );
+
+  /*
+   * ----------------------------------------
+   * Increase Product Stock
+   *
+   * POST
+   * /api/v1/products/internal/increase-stock
+   * ----------------------------------------
+   *
+   * Used by Order Service when it needs
+   * to compensate / rollback a previous
+   * stock deduction.
+   *
+   * Example:
+   *
+   * Item 1 → stock deducted
+   * Item 2 → stock deducted
+   * Item 3 → stock fails
+   *
+   * Order Service can then restore
+   * Item 1 and Item 2.
+   * ----------------------------------------
+   */
+
+  increaseStock =
+    asyncHandler<
+      Record<string, string>,
+      unknown,
+      StockBody
+    >(
+      async (
+        req,
+        res,
+      ) => {
+        const {
+          productId,
+          quantity,
+          variantId,
+        } = req.body;
+
+        const result =
+          await productService.increaseStock(
+            {
+              productId,
+
+              quantity,
+
+              ...(variantId
+                ? {
+                    variantId,
+                  }
+                : {}),
+            },
+          );
+
+        return successResponse(
+          res,
+          200,
+          "Product stock increased successfully",
           result,
         );
       },

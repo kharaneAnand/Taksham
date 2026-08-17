@@ -33,9 +33,13 @@ interface GetProductsOptions {
 
 interface DecreaseStockInput {
   productId: string;
-
   quantity: number;
+  variantId?: string;
+}
 
+interface IncreaseStockInput {
+  productId: string;
+  quantity: number;
   variantId?: string;
 }
 
@@ -111,21 +115,18 @@ class ProductService {
             $options: "i",
           },
         },
-
         {
           description: {
             $regex: search,
             $options: "i",
           },
         },
-
         {
           category: {
             $regex: search,
             $options: "i",
           },
         },
-
         {
           subcategory: {
             $regex: search,
@@ -375,11 +376,10 @@ class ProductService {
    * Decrease Product Stock
    * ----------------------------------------
    *
-   * Used by Order Service after a
-   * successful order/payment.
+   * Atomic stock deduction.
    *
-   * This method performs an atomic
-   * stock check + deduction.
+   * Used by Order Service when an order
+   * needs to reserve/deduct inventory.
    * ----------------------------------------
    */
 
@@ -391,6 +391,19 @@ class ProductService {
       quantity,
       variantId,
     } = data;
+
+    /*
+     * ------------------------------------
+     * Validate Product ID
+     * ------------------------------------
+     */
+
+    if (!productId?.trim()) {
+      throw new ApiError(
+        400,
+        "Product ID is required",
+      );
+    }
 
     /*
      * ------------------------------------
@@ -417,6 +430,13 @@ class ProductService {
      */
 
     if (variantId) {
+      if (!variantId.trim()) {
+        throw new ApiError(
+          400,
+          "Variant ID is invalid",
+        );
+      }
+
       const product =
         await Product.findOneAndUpdate(
           {
@@ -444,12 +464,6 @@ class ProductService {
             new: true,
           },
         );
-
-      /*
-       * ----------------------------------
-       * Product / Variant / Stock Error
-       * ----------------------------------
-       */
 
       if (!product) {
         const existingProduct =
@@ -484,12 +498,6 @@ class ProductService {
         );
       }
 
-      /*
-       * ----------------------------------
-       * Return Remaining Variant Stock
-       * ----------------------------------
-       */
-
       const updatedVariant =
         product.variants?.find(
           (item) =>
@@ -499,13 +507,9 @@ class ProductService {
 
       return {
         success: true,
-
         productId,
-
         variantId,
-
         quantity,
-
         remainingStock:
           updatedVariant?.stock ?? 0,
       };
@@ -538,12 +542,6 @@ class ProductService {
         },
       );
 
-    /*
-     * ------------------------------------
-     * Product / Stock Error
-     * ------------------------------------
-     */
-
     if (!product) {
       const existingProduct =
         await Product.findById(
@@ -565,11 +563,188 @@ class ProductService {
 
     return {
       success: true,
-
       productId,
-
       quantity,
+      remainingStock:
+        product.stock,
+    };
+  }
 
+  /*
+   * ----------------------------------------
+   * Increase Product Stock
+   * ----------------------------------------
+   *
+   * This is the compensation/rollback
+   * operation.
+   *
+   * If Order Service has already deducted
+   * stock for some items but a later item
+   * fails, Order Service can call this
+   * method to restore the previously
+   * deducted inventory.
+   *
+   * This operation is also atomic.
+   * ----------------------------------------
+   */
+
+  async increaseStock(
+    data: IncreaseStockInput,
+  ) {
+    const {
+      productId,
+      quantity,
+      variantId,
+    } = data;
+
+    /*
+     * ------------------------------------
+     * Validate Product ID
+     * ------------------------------------
+     */
+
+    if (!productId?.trim()) {
+      throw new ApiError(
+        400,
+        "Product ID is required",
+      );
+    }
+
+    /*
+     * ------------------------------------
+     * Validate Quantity
+     * ------------------------------------
+     */
+
+    if (
+      !Number.isInteger(
+        quantity,
+      ) ||
+      quantity <= 0
+    ) {
+      throw new ApiError(
+        400,
+        "Quantity must be a positive integer",
+      );
+    }
+
+    /*
+     * ------------------------------------
+     * Variant Stock
+     * ------------------------------------
+     */
+
+    if (variantId) {
+      if (!variantId.trim()) {
+        throw new ApiError(
+          400,
+          "Variant ID is invalid",
+        );
+      }
+
+      const product =
+        await Product.findOneAndUpdate(
+          {
+            _id: productId,
+
+            variants: {
+              $elemMatch: {
+                _id: variantId,
+              },
+            },
+          },
+
+          {
+            $inc: {
+              "variants.$.stock":
+                quantity,
+            },
+          },
+
+          {
+            new: true,
+          },
+        );
+
+      if (!product) {
+        const existingProduct =
+          await Product.findById(
+            productId,
+          );
+
+        if (!existingProduct) {
+          throw new ApiError(
+            404,
+            "Product not found",
+          );
+        }
+
+        const variant =
+          existingProduct.variants?.find(
+            (item) =>
+              item._id?.toString() ===
+              variantId,
+          );
+
+        if (!variant) {
+          throw new ApiError(
+            404,
+            "Product variant not found",
+          );
+        }
+      }
+
+      const updatedVariant =
+        product?.variants?.find(
+          (item) =>
+            item._id?.toString() ===
+            variantId,
+        );
+
+      return {
+        success: true,
+        productId,
+        variantId,
+        quantity,
+        remainingStock:
+          updatedVariant?.stock ?? 0,
+      };
+    }
+
+    /*
+     * ------------------------------------
+     * Product-Level Stock
+     * ------------------------------------
+     */
+
+    const product =
+      await Product.findOneAndUpdate(
+        {
+          _id: productId,
+        },
+
+        {
+          $inc: {
+            stock: quantity,
+          },
+        },
+
+        {
+          new: true,
+        },
+      );
+
+    if (!product) {
+      throw new ApiError(
+        404,
+        "Product not found",
+      );
+    }
+
+    return {
+      success: true,
+      productId,
+      quantity,
       remainingStock:
         product.stock,
     };
@@ -582,7 +757,7 @@ class ProductService {
    *
    * ADMIN PANEL USES THIS METHOD.
    *
-   * Admin can update:
+   * Admin can directly update:
    *
    * - Product stock
    * - Variant stock
@@ -590,6 +765,10 @@ class ProductService {
    * - Images
    * - Product information
    * - Variants
+   *
+   * This remains completely separate
+   * from decreaseStock() and
+   * increaseStock().
    * ----------------------------------------
    */
 
