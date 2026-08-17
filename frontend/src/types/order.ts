@@ -67,6 +67,12 @@ export interface Order {
 
   paymentStatus: PaymentStatus;
 
+  razorpayOrderId?: string;
+
+  razorpayPaymentId?: string;
+
+  razorpaySignature?: string;
+
   orderStatus: OrderStatus;
 
   subtotal: number;
@@ -86,4 +92,22 @@ export interface CreateOrderInput {
   shippingMethod: ShippingMethod;
 
   paymentMethod: PaymentMethod;
+}
+
+export interface CreatePaymentOrderResponse {
+  razorpayOrderId: string;
+
+  amount: number;
+
+  currency: string;
+}
+
+export interface VerifyPaymentInput {
+  orderId: string;
+
+  razorpayPaymentId: string;
+
+  razorpayOrderId: string;
+
+  razorpaySignature: string;
 }

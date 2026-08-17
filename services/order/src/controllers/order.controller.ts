@@ -133,40 +133,6 @@ class OrderController {
       );
     },
   );
-
-  /*
-   * ----------------------------------------
-   * Cancel Order
-   * PATCH /api/v1/orders/:id/cancel
-   * ----------------------------------------
-   */
-
-  cancelOrder = asyncHandler<
-    { id: string }
-  >(
-    async (
-      req,
-      res,
-    ) => {
-      const request =
-        req as AuthenticatedRequest<{
-          id: string;
-        }>;
-
-      const order =
-        await orderService.cancelOrder(
-          request.user.id,
-          request.params.id,
-        );
-
-      successResponse(
-        res,
-        200,
-        ORDER_MESSAGES.ORDER_CANCELLED,
-        order,
-      );
-    },
-  );
 }
 
 export default new OrderController();

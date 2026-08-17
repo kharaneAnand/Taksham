@@ -14,18 +14,20 @@ import {
 const router = Router();
 
 /*
- * ----------------------------------------
+ * ========================================
  * All Order Routes Require Authentication
- * ----------------------------------------
+ * ========================================
  */
 
-router.use(authenticate);
+router.use(
+  authenticate,
+);
 
 /*
- * ----------------------------------------
+ * ========================================
  * Create Order
  * POST /api/v1/orders
- * ----------------------------------------
+ * ========================================
  */
 
 router.post(
@@ -37,10 +39,10 @@ router.post(
 );
 
 /*
- * ----------------------------------------
+ * ========================================
  * Get Current User Orders
  * GET /api/v1/orders
- * ----------------------------------------
+ * ========================================
  */
 
 router.get(
@@ -49,10 +51,10 @@ router.get(
 );
 
 /*
- * ----------------------------------------
+ * ========================================
  * Get Single Order
  * GET /api/v1/orders/:id
- * ----------------------------------------
+ * ========================================
  */
 
 router.get(
@@ -62,22 +64,6 @@ router.get(
     "params",
   ),
   OrderController.getOrderById,
-);
-
-/*
- * ----------------------------------------
- * Cancel Order
- * PATCH /api/v1/orders/:id/cancel
- * ----------------------------------------
- */
-
-router.patch(
-  "/:id/cancel",
-  validate(
-    orderIdParamSchema,
-    "params",
-  ),
-  OrderController.cancelOrder,
 );
 
 export default router;

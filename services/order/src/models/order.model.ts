@@ -5,10 +5,11 @@ import mongoose, {
 } from "mongoose";
 
 
-
 export interface IOrderItem {
   productId: string;
+
   productName: string;
+
   productImage: string;
 
   variantId?: string;
@@ -20,22 +21,31 @@ export interface IOrderItem {
   };
 
   quantity: number;
+
   price: number;
+
   subtotal: number;
 }
 
 
-
 export interface IShippingAddress {
   firstName: string;
+
   lastName: string;
+
   phone: string;
+
   address: string;
+
   city: string;
+
   state: string;
+
   pincode: string;
+
   landmark?: string;
 }
+
 
 
 export type OrderStatus =
@@ -47,9 +57,13 @@ export type OrderStatus =
   | "delivered"
   | "cancelled";
 
+
+
 export type PaymentMethod =
   | "cod"
   | "online";
+
+
 
 export type PaymentStatus =
   | "pending"
@@ -57,9 +71,13 @@ export type PaymentStatus =
   | "failed"
   | "refunded";
 
+
+
 export type ShippingMethod =
   | "standard"
   | "express";
+
+
 
 export interface IOrder
   extends Document {
@@ -77,6 +95,18 @@ export interface IOrder
 
   paymentStatus: PaymentStatus;
 
+  /*
+   * ----------------------------------------
+   * Razorpay Payment Details
+   * ----------------------------------------
+   */
+
+  razorpayOrderId?: string;
+
+  razorpayPaymentId?: string;
+
+  razorpaySignature?: string;
+
   orderStatus: OrderStatus;
 
   subtotal: number;
@@ -86,6 +116,7 @@ export interface IOrder
   total: number;
 
   createdAt: Date;
+
   updatedAt: Date;
 }
 
@@ -96,17 +127,21 @@ const orderItemSchema =
     {
       productId: {
         type: String,
+
         required: true,
       },
 
       productName: {
         type: String,
+
         required: true,
+
         trim: true,
       },
 
       productImage: {
         type: String,
+
         required: true,
       },
 
@@ -130,22 +165,29 @@ const orderItemSchema =
 
       quantity: {
         type: Number,
+
         required: true,
+
         min: 1,
       },
 
       price: {
         type: Number,
+
         required: true,
+
         min: 0,
       },
 
       subtotal: {
         type: Number,
+
         required: true,
+
         min: 0,
       },
     },
+
     {
       _id: false,
     },
@@ -158,51 +200,67 @@ const shippingAddressSchema =
     {
       firstName: {
         type: String,
+
         required: true,
+
         trim: true,
       },
 
       lastName: {
         type: String,
+
         required: true,
+
         trim: true,
       },
 
       phone: {
         type: String,
+
         required: true,
+
         trim: true,
       },
 
       address: {
         type: String,
+
         required: true,
+
         trim: true,
       },
 
       city: {
         type: String,
+
         required: true,
+
         trim: true,
       },
 
       state: {
         type: String,
+
         required: true,
+
         trim: true,
       },
 
       pincode: {
         type: String,
+
         required: true,
+
         trim: true,
       },
 
       landmark: {
         type: String,
+
         trim: true,
       },
     },
+
     {
       _id: false,
     },
@@ -215,24 +273,33 @@ const orderSchema =
     {
       userId: {
         type: String,
+
         required: true,
+
         index: true,
       },
 
       orderNumber: {
         type: String,
+
         required: true,
+
         unique: true,
+
         index: true,
       },
 
       items: {
         type: [orderItemSchema],
+
         required: true,
+
         validate: {
           validator: (
             items: IOrderItem[],
-          ) => items.length > 0,
+          ) =>
+            items.length > 0,
+
           message:
             "Order must contain at least one item",
         },
@@ -240,40 +307,64 @@ const orderSchema =
 
       shippingAddress: {
         type: shippingAddressSchema,
+
         required: true,
       },
 
       shippingMethod: {
         type: String,
+
         enum: [
           "standard",
           "express",
         ],
+
         required: true,
       },
 
       paymentMethod: {
         type: String,
+
         enum: [
           "cod",
           "online",
         ],
+
         required: true,
       },
 
       paymentStatus: {
         type: String,
+
         enum: [
           "pending",
           "paid",
           "failed",
           "refunded",
         ],
+
         default: "pending",
+      },
+
+   
+
+      razorpayOrderId: {
+        type: String,
+
+        index: true,
+      },
+
+      razorpayPaymentId: {
+        type: String,
+      },
+
+      razorpaySignature: {
+        type: String,
       },
 
       orderStatus: {
         type: String,
+
         enum: [
           "pending",
           "confirmed",
@@ -283,27 +374,35 @@ const orderSchema =
           "delivered",
           "cancelled",
         ],
+
         default: "pending",
       },
 
       subtotal: {
         type: Number,
+
         required: true,
+
         min: 0,
       },
 
       shippingCost: {
         type: Number,
+
         required: true,
+
         min: 0,
       },
 
       total: {
         type: Number,
+
         required: true,
+
         min: 0,
       },
     },
+
     {
       timestamps: true,
     },
@@ -313,6 +412,7 @@ const orderSchema =
 
 orderSchema.index({
   userId: 1,
+
   createdAt: -1,
 });
 

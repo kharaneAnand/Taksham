@@ -16,17 +16,95 @@ import {
   useNavigate,
 } from "react-router-dom";
 
-import { useCart } from "../../context/CartContext";
-
 import toast from "react-hot-toast";
+
+import { useCart } from "../../context/CartContext";
 
 import {
   createOrder,
+  createPaymentOrder,
+  verifyPayment,
 } from "../../api/order.api";
 
 import type {
   CreateOrderInput,
 } from "../../types/order";
+
+/*
+ * ========================================
+ * Razorpay Global Type
+ * ========================================
+ */
+
+declare global {
+  interface Window {
+    Razorpay?: new (
+      options: RazorpayOptions,
+    ) => RazorpayInstance;
+  }
+}
+
+interface RazorpayOptions {
+  key: string;
+
+  amount: number;
+
+  currency: string;
+
+  name: string;
+
+  description?: string;
+
+  order_id: string;
+
+  prefill?: {
+    name?: string;
+    contact?: string;
+    email?: string;
+  };
+
+  notes?: Record<
+    string,
+    string
+  >;
+
+  theme?: {
+    color?: string;
+  };
+
+  handler: (
+    response: RazorpayResponse,
+  ) => void;
+
+  modal?: {
+    ondismiss?: () => void;
+  };
+}
+
+interface RazorpayResponse {
+  razorpay_payment_id: string;
+
+  razorpay_order_id: string;
+
+  razorpay_signature: string;
+}
+
+interface RazorpayInstance {
+  open: () => void;
+
+  on: (
+    event: string,
+    handler: (
+      response: unknown,
+    ) => void,
+  ) => void;
+}
+
+/*
+ * ========================================
+ * Checkout Types
+ * ========================================
+ */
 
 type ShippingMethod =
   | "standard"
@@ -38,28 +116,146 @@ type PaymentMethod =
 
 interface AddressForm {
   firstName: string;
+
   lastName: string;
+
   phone: string;
+
   address: string;
+
   city: string;
+
   state: string;
+
   pincode: string;
+
   landmark: string;
 }
 
+/*
+ * ========================================
+ * Initial Address
+ * ========================================
+ */
+
 const initialAddress: AddressForm = {
   firstName: "",
+
   lastName: "",
+
   phone: "",
+
   address: "",
+
   city: "",
+
   state: "",
+
   pincode: "",
+
   landmark: "",
 };
 
+/*
+ * ========================================
+ * Razorpay Configuration
+ * ========================================
+ */
+
+const RAZORPAY_KEY_ID =
+  import.meta.env
+    .VITE_RAZORPAY_KEY_ID as
+    | string
+    | undefined;
+
+const RAZORPAY_SCRIPT_URL =
+  "https://checkout.razorpay.com/v1/checkout.js";
+
+/*
+ * ========================================
+ * Load Razorpay Script
+ * ========================================
+ */
+
+const loadRazorpayScript =
+  (): Promise<boolean> => {
+    return new Promise(
+      (resolve) => {
+        /*
+         * Already loaded
+         */
+
+        if (window.Razorpay) {
+          resolve(true);
+
+          return;
+        }
+
+        /*
+         * Script already exists
+         */
+
+        const existingScript =
+          document.querySelector(
+            `script[src="${RAZORPAY_SCRIPT_URL}"]`,
+          );
+
+        if (existingScript) {
+          existingScript.addEventListener(
+            "load",
+            () => resolve(true),
+            {
+              once: true,
+            },
+          );
+
+          existingScript.addEventListener(
+            "error",
+            () => resolve(false),
+            {
+              once: true,
+            },
+          );
+
+          return;
+        }
+
+        /*
+         * Create script
+         */
+
+        const script =
+          document.createElement(
+            "script",
+          );
+
+        script.src =
+          RAZORPAY_SCRIPT_URL;
+
+        script.async = true;
+
+        script.onload = () =>
+          resolve(true);
+
+        script.onerror = () =>
+          resolve(false);
+
+        document.body.appendChild(
+          script,
+        );
+      },
+    );
+  };
+
+/*
+ * ========================================
+ * Checkout Component
+ * ========================================
+ */
+
 const Checkout = () => {
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
 
   const {
     items,
@@ -68,21 +264,38 @@ const Checkout = () => {
     clearCart,
   } = useCart();
 
+  /*
+   * ----------------------------------------
+   * State
+   * ----------------------------------------
+   */
+
   const [address, setAddress] =
     useState<AddressForm>(
       initialAddress,
     );
 
-  const [shippingMethod, setShippingMethod] =
+  const [
+    shippingMethod,
+    setShippingMethod,
+  ] =
     useState<ShippingMethod>(
       "standard",
     );
 
-  const [paymentMethod, setPaymentMethod] =
-    useState<PaymentMethod>("cod");
+  const [
+    paymentMethod,
+    setPaymentMethod,
+  ] =
+    useState<PaymentMethod>(
+      "cod",
+    );
 
-  const [isPlacingOrder, setIsPlacingOrder] =
-  useState(false);
+  const [
+    isPlacingOrder,
+    setIsPlacingOrder,
+  ] =
+    useState(false);
 
   const [errors, setErrors] =
     useState<
@@ -94,28 +307,50 @@ const Checkout = () => {
       >
     >({});
 
+  /*
+   * ----------------------------------------
+   * Shipping
+   * ----------------------------------------
+   */
 
+  const shippingCost =
+    useMemo(() => {
+      if (
+        shippingMethod ===
+        "express"
+      ) {
+        return 199;
+      }
 
-  const shippingCost = useMemo(() => {
-    if (shippingMethod === "express") {
-      return 199;
-    }
+      return subtotal >= 999
+        ? 0
+        : 99;
+    }, [
+      shippingMethod,
+      subtotal,
+    ]);
 
-    return subtotal >= 999 ? 0 : 99;
-  }, [
-    shippingMethod,
-    subtotal,
-  ]);
-
- 
+  /*
+   * ----------------------------------------
+   * Total
+   * ----------------------------------------
+   */
 
   const total = useMemo(
     () =>
-      subtotal + shippingCost,
-    [subtotal, shippingCost],
+      subtotal +
+      shippingCost,
+    [
+      subtotal,
+      shippingCost,
+    ],
   );
 
-
+  /*
+   * ----------------------------------------
+   * Empty Cart
+   * ----------------------------------------
+   */
 
   if (items.length === 0) {
     return (
@@ -195,15 +430,18 @@ const Checkout = () => {
               text-[#81776C]
             "
           >
-            Add something you love
-            to your cart before
-            continuing to checkout.
+            Add something you
+            love to your cart
+            before continuing
+            to checkout.
           </p>
 
           <button
             type="button"
             onClick={() =>
-              navigate("/products")
+              navigate(
+                "/products",
+              )
             }
             className="
               mt-8
@@ -234,7 +472,11 @@ const Checkout = () => {
     );
   }
 
-
+  /*
+   * ----------------------------------------
+   * Address Change
+   * ----------------------------------------
+   */
 
   const handleAddressChange = (
     field: keyof AddressForm,
@@ -243,6 +485,7 @@ const Checkout = () => {
     setAddress(
       (current) => ({
         ...current,
+
         [field]: value,
       }),
     );
@@ -250,12 +493,17 @@ const Checkout = () => {
     setErrors(
       (current) => ({
         ...current,
+
         [field]: undefined,
       }),
     );
   };
 
-
+  /*
+   * ----------------------------------------
+   * Validate Address
+   * ----------------------------------------
+   */
 
   const validateAddress =
     (): boolean => {
@@ -266,12 +514,16 @@ const Checkout = () => {
         >
       > = {};
 
-      if (!address.firstName.trim()) {
+      if (
+        !address.firstName.trim()
+      ) {
         newErrors.firstName =
           "First name is required";
       }
 
-      if (!address.lastName.trim()) {
+      if (
+        !address.lastName.trim()
+      ) {
         newErrors.lastName =
           "Last name is required";
       }
@@ -285,7 +537,9 @@ const Checkout = () => {
           "Enter a valid 10-digit phone number";
       }
 
-      if (!address.address.trim()) {
+      if (
+        !address.address.trim()
+      ) {
         newErrors.address =
           "Address is required";
       }
@@ -309,7 +563,9 @@ const Checkout = () => {
           "Enter a valid 6-digit pincode";
       }
 
-      setErrors(newErrors);
+      setErrors(
+        newErrors,
+      );
 
       return (
         Object.keys(
@@ -318,118 +574,306 @@ const Checkout = () => {
       );
     };
 
-  
-
-  const handlePlaceOrder = async () => {
-  if (isPlacingOrder) {
-    return;
-  }
-
-  if (!validateAddress()) {
-    return;
-  }
-
   /*
-   * For now we support COD only.
-   * Online payment will be connected
-   * after Razorpay integration.
+   * ----------------------------------------
+   * Place Order
+   * ----------------------------------------
    */
-  if (paymentMethod !== "cod") {
-    toast.error(
-      "Online payment will be available soon.",
-    );
 
-    return;
-  }
+  const handlePlaceOrder =
+    async () => {
+      if (
+        isPlacingOrder
+      ) {
+        return;
+      }
 
-  try {
-    setIsPlacingOrder(true);
+      if (
+        !validateAddress()
+      ) {
+        return;
+      }
 
-    const orderData: CreateOrderInput = {
-      shippingAddress: {
-        firstName:
-          address.firstName.trim(),
+      try {
+        setIsPlacingOrder(
+          true,
+        );
 
-        lastName:
-          address.lastName.trim(),
+        const orderData: CreateOrderInput =
+          {
+            shippingAddress: {
+              firstName:
+                address.firstName.trim(),
 
-        phone:
-          address.phone.trim(),
+              lastName:
+                address.lastName.trim(),
 
-        address:
-          address.address.trim(),
+              phone:
+                address.phone.trim(),
 
-        city:
-          address.city.trim(),
+              address:
+                address.address.trim(),
 
-        state:
-          address.state.trim(),
+              city:
+                address.city.trim(),
 
-        pincode:
-          address.pincode.trim(),
+              state:
+                address.state.trim(),
 
-        ...(address.landmark.trim()
-          ? {
-              landmark:
-                address.landmark.trim(),
-            }
-          : {}),
-      },
+              pincode:
+                address.pincode.trim(),
 
-      shippingMethod,
+              ...(address.landmark.trim()
+                ? {
+                    landmark:
+                      address.landmark.trim(),
+                  }
+                : {}),
+            },
 
-      paymentMethod: "cod",
+            shippingMethod,
+
+            paymentMethod,
+          };
+
+        /*
+         * ------------------------------------
+         * Create Taksham Order
+         * ------------------------------------
+         */
+
+        const order =
+          await createOrder(
+            orderData,
+          );
+
+        /*
+         * ------------------------------------
+         * COD
+         * ------------------------------------
+         */
+
+        if (
+          paymentMethod ===
+          "cod"
+        ) {
+          clearCart();
+
+          toast.success(
+            "Order placed successfully!",
+          );
+
+          navigate(
+            `/orders/${order._id}`,
+          );
+
+          return;
+        }
+
+        /*
+         * ------------------------------------
+         * ONLINE PAYMENT
+         * ------------------------------------
+         */
+
+        if (
+          !RAZORPAY_KEY_ID
+        ) {
+          throw new Error(
+            "Razorpay Key ID is not configured",
+          );
+        }
+
+        /*
+         * Load Razorpay Checkout
+         */
+
+        const isLoaded =
+          await loadRazorpayScript();
+
+        if (
+          !isLoaded ||
+          !window.Razorpay
+        ) {
+          throw new Error(
+            "Failed to load Razorpay Checkout",
+          );
+        }
+
+        /*
+         * ------------------------------------
+         * Create Razorpay Order
+         * ------------------------------------
+         */
+
+        const paymentOrder =
+          await createPaymentOrder(
+            order._id,
+          );
+
+        /*
+         * ------------------------------------
+         * Open Razorpay Checkout
+         * ------------------------------------
+         */
+
+        const razorpay =
+          new window.Razorpay({
+            key:
+              RAZORPAY_KEY_ID,
+
+            amount:
+              paymentOrder.amount,
+
+            currency:
+              paymentOrder.currency,
+
+            name: "Taksham",
+
+            description:
+              `Order ${order.orderNumber}`,
+
+            order_id:
+              paymentOrder.razorpayOrderId,
+
+            prefill: {
+              name: `${address.firstName.trim()} ${address.lastName.trim()}`,
+
+              contact:
+                address.phone.trim(),
+            },
+
+            notes: {
+              orderNumber:
+                order.orderNumber,
+            },
+
+            theme: {
+              color:
+                "#9A7138",
+            },
+
+            /*
+             * --------------------------------
+             * Payment Success
+             * --------------------------------
+             */
+
+            handler:
+              async (
+                response,
+              ) => {
+                try {
+                  /*
+                   * Verify payment with
+                   * our backend.
+                   */
+
+                  await verifyPayment(
+                    {
+                      orderId:
+                        order._id,
+
+                      razorpayPaymentId:
+                        response.razorpay_payment_id,
+
+                      razorpayOrderId:
+                        response.razorpay_order_id,
+
+                      razorpaySignature:
+                        response.razorpay_signature,
+                    },
+                  );
+
+                  /*
+                   * Payment verified.
+                   */
+
+                  clearCart();
+
+                  toast.success(
+                    "Payment successful! Order placed.",
+                  );
+
+                  navigate(
+                    `/orders/${order._id}`,
+                  );
+                } catch (error) {
+                  console.error(
+                    "Payment verification failed:",
+                    error,
+                  );
+
+                  toast.error(
+                    error instanceof
+                      Error
+                      ? error.message
+                      : "Payment verification failed",
+                  );
+                } finally {
+                  setIsPlacingOrder(
+                    false,
+                  );
+                }
+              },
+
+            /*
+             * --------------------------------
+             * Checkout Closed
+             * --------------------------------
+             */
+
+            modal: {
+              ondismiss:
+                () => {
+                  toast.error(
+                    "Payment cancelled. You can try again.",
+                  );
+
+                  setIsPlacingOrder(
+                    false,
+                  );
+                },
+            },
+          });
+
+        /*
+         * ------------------------------------
+         * Payment Failed Listener
+         * ------------------------------------
+         */
+
+        razorpay.on(
+          "payment.failed",
+          () => {
+            toast.error(
+              "Payment failed. Please try again.",
+            );
+
+            setIsPlacingOrder(
+              false,
+            );
+          },
+        );
+
+        razorpay.open();
+      } catch (error) {
+        console.error(
+          "Failed to place order:",
+          error,
+        );
+
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Failed to place order",
+        );
+
+        setIsPlacingOrder(
+          false,
+        );
+      }
     };
-
-    console.log(
-      "Creating order:",
-      orderData,
-    );
-
-    const order =
-      await createOrder(
-        orderData,
-      );
-
-    console.log(
-      "Order created:",
-      order,
-    );
-
-    /*
-     * Backend clears the cart after
-     * successfully creating the order.
-     *
-     * We also clear the frontend cart
-     * state immediately.
-     */
-    clearCart();
-
-    toast.success(
-      "Order placed successfully!",
-    );
-
-    /*
-     * Navigate to order details.
-     */
-    navigate(
-      `/orders/${order._id}`,
-    );
-  } catch (error) {
-    console.error(
-      "Failed to place order:",
-      error,
-    );
-
-    toast.error(
-      error instanceof Error
-        ? error.message
-        : "Failed to place order",
-    );
-  } finally {
-    setIsPlacingOrder(false);
-  }
-};
 
   /*
    * ----------------------------------------
@@ -450,7 +894,9 @@ const Checkout = () => {
       "
     >
       <div className="mx-auto max-w-7xl">
-        {/* Header */}
+        {/* ===================================
+            HEADER
+        =================================== */}
 
         <div
           className="
@@ -462,7 +908,9 @@ const Checkout = () => {
           <button
             type="button"
             onClick={() =>
-              navigate("/cart")
+              navigate(
+                "/cart",
+              )
             }
             className="
               flex
@@ -527,7 +975,9 @@ const Checkout = () => {
           </div>
         </div>
 
-        {/* Main */}
+        {/* ===================================
+            MAIN
+        =================================== */}
 
         <div
           className="
@@ -538,10 +988,14 @@ const Checkout = () => {
             lg:items-start
           "
         >
-          {/* LEFT */}
+          {/* =================================
+              LEFT
+          ================================= */}
 
           <div className="space-y-8">
-            {/* Address */}
+            {/* =================================
+                ADDRESS
+            ================================= */}
 
             <section
               className="
@@ -553,53 +1007,11 @@ const Checkout = () => {
                 sm:p-7
               "
             >
-              <div className="flex items-start gap-4">
-                <div
-                  className="
-                    flex
-                    h-9
-                    w-9
-                    shrink-0
-                    items-center
-                    justify-center
-                    rounded-full
-                    bg-[#F3ECE3]
-                    text-[#9A7138]
-                  "
-                >
-                  <span
-                    className="
-                      text-[11px]
-                      font-semibold
-                    "
-                  >
-                    01
-                  </span>
-                </div>
-
-                <div>
-                  <h2
-                    className="
-                      font-serif
-                      text-[22px]
-                      text-[#302B25]
-                    "
-                  >
-                    Delivery Address
-                  </h2>
-
-                  <p
-                    className="
-                      mt-1
-                      text-[11px]
-                      text-[#8A8178]
-                    "
-                  >
-                    Where should we
-                    deliver your order?
-                  </p>
-                </div>
-              </div>
+              <CheckoutSectionHeader
+                number="01"
+                title="Delivery Address"
+                description="Where should we deliver your order?"
+              />
 
               <div
                 className="
@@ -646,7 +1058,9 @@ const Checkout = () => {
                   value={
                     address.phone
                   }
-                  error={errors.phone}
+                  error={
+                    errors.phone
+                  }
                   type="tel"
                   onChange={(value) =>
                     handleAddressChange(
@@ -693,7 +1107,9 @@ const Checkout = () => {
 
                 <InputField
                   label="City"
-                  value={address.city}
+                  value={
+                    address.city
+                  }
                   error={
                     errors.city
                   }
@@ -707,7 +1123,9 @@ const Checkout = () => {
 
                 <InputField
                   label="State"
-                  value={address.state}
+                  value={
+                    address.state
+                  }
                   error={
                     errors.state
                   }
@@ -736,7 +1154,9 @@ const Checkout = () => {
               </div>
             </section>
 
-            {/* Shipping */}
+            {/* =================================
+                SHIPPING
+            ================================= */}
 
             <section
               className="
@@ -803,7 +1223,9 @@ const Checkout = () => {
               </div>
             </section>
 
-            {/* Payment */}
+            {/* =================================
+                PAYMENT
+            ================================= */}
 
             <section
               className="
@@ -850,10 +1272,80 @@ const Checkout = () => {
                   }
                 />
               </div>
+
+              {/* =================================
+                  NO-CANCELLATION POLICY
+              ================================= */}
+
+              <div
+                className="
+                  mt-4
+                  rounded-xl
+                  border
+                  border-[#E5D6C2]
+                  bg-[#FBF6EE]
+                  px-4
+                  py-3.5
+                "
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className="
+                      mt-0.5
+                      flex
+                      h-5
+                      w-5
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-full
+                      bg-[#EADBC5]
+                      text-[11px]
+                      font-bold
+                      text-[#9A7138]
+                    "
+                  >
+                    !
+                  </div>
+
+                  <div>
+                    <p
+                      className="
+                        text-[10px]
+                        font-semibold
+                        uppercase
+                        tracking-[0.08em]
+                        text-[#6E563A]
+                      "
+                    >
+                      Important
+                    </p>
+
+                    <p
+                      className="
+                        mt-1
+                        text-[10px]
+                        leading-5
+                        text-[#81776C]
+                      "
+                    >
+                      Once your order is
+                      placed, it cannot be
+                      cancelled. Please review
+                      your items, delivery
+                      address and payment
+                      method carefully before
+                      placing your order.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </section>
           </div>
 
-          {/* RIGHT — ORDER SUMMARY */}
+          {/* =================================
+              RIGHT — ORDER SUMMARY
+          ================================= */}
 
           <aside
             className="
@@ -1011,7 +1503,8 @@ const Checkout = () => {
                   <SummaryRow
                     label="Shipping"
                     value={
-                      shippingCost === 0
+                      shippingCost ===
+                      0
                         ? "FREE"
                         : `₹${shippingCost.toLocaleString(
                             "en-IN",
@@ -1062,7 +1555,9 @@ const Checkout = () => {
                   onClick={
                     handlePlaceOrder
                   }
-                  disabled={isPlacingOrder}
+                  disabled={
+                    isPlacingOrder
+                  }
                   className="
                     mt-7
                     flex
@@ -1086,8 +1581,14 @@ const Checkout = () => {
                   "
                 >
                   {isPlacingOrder
-                    ? "Placing Order..."
-                    : "Place Order"}
+                    ? paymentMethod ===
+                      "online"
+                      ? "Opening Payment..."
+                      : "Placing Order..."
+                    : paymentMethod ===
+                        "online"
+                      ? "Pay Securely"
+                      : "Place Order"}
 
                   {!isPlacingOrder && (
                     <ChevronRight
@@ -1128,15 +1629,19 @@ const Checkout = () => {
 
 /*
  * ========================================
- * Reusable Components
+ * Input Field
  * ========================================
  */
 
 interface InputFieldProps {
   label: string;
+
   value: string;
+
   error?: string;
+
   type?: string;
+
   onChange: (
     value: string,
   ) => void;
@@ -1209,9 +1714,17 @@ const InputField = ({
   );
 };
 
+/*
+ * ========================================
+ * Section Header
+ * ========================================
+ */
+
 interface CheckoutSectionHeaderProps {
   number: string;
+
   title: string;
+
   description: string;
 }
 
@@ -1270,12 +1783,23 @@ const CheckoutSectionHeader = ({
   );
 };
 
+/*
+ * ========================================
+ * Shipping Option
+ * ========================================
+ */
+
 interface ShippingOptionProps {
   selected: boolean;
+
   title: string;
+
   description: string;
+
   price: string;
+
   icon: React.ReactNode;
+
   onClick: () => void;
 }
 
@@ -1389,10 +1913,19 @@ const ShippingOption = ({
   );
 };
 
+/*
+ * ========================================
+ * Payment Option
+ * ========================================
+ */
+
 interface PaymentOptionProps {
   selected: boolean;
+
   title: string;
+
   description: string;
+
   onClick: () => void;
 }
 
@@ -1441,7 +1974,14 @@ const PaymentOption = ({
         `}
       >
         {selected && (
-          <div className="h-1.5 w-1.5 rounded-full bg-white" />
+          <div
+            className="
+              h-1.5
+              w-1.5
+              rounded-full
+              bg-white
+            "
+          />
         )}
       </div>
 
@@ -1470,8 +2010,15 @@ const PaymentOption = ({
   );
 };
 
+/*
+ * ========================================
+ * Summary Row
+ * ========================================
+ */
+
 interface SummaryRowProps {
   label: string;
+
   value: string;
 }
 

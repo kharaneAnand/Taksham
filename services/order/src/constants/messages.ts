@@ -8,9 +8,6 @@ export const ORDER_MESSAGES = {
   ORDER_FETCHED:
     "Order fetched successfully",
 
-  ORDER_CANCELLED:
-    "Order cancelled successfully",
-
   ORDER_NOT_FOUND:
     "Order not found",
 

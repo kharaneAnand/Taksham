@@ -24,7 +24,6 @@ import toast from "react-hot-toast";
 
 import {
   getOrderById,
-  cancelOrder,
 } from "../../api/order.api";
 
 import type {
@@ -32,20 +31,19 @@ import type {
 } from "../../types/order";
 
 const OrderDetails = () => {
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
 
-  const { id } = useParams<{
-    id: string;
-  }>();
+  const { id } =
+    useParams<{
+      id: string;
+    }>();
 
   const [order, setOrder] =
     useState<Order | null>(null);
 
   const [loading, setLoading] =
     useState(true);
-
-  const [isCancelling, setIsCancelling] =
-    useState(false);
 
   const [error, setError] =
     useState("");
@@ -74,6 +72,7 @@ const OrderDetails = () => {
       async () => {
         try {
           setLoading(true);
+
           setError("");
 
           const result =
@@ -101,80 +100,6 @@ const OrderDetails = () => {
 
     loadOrder();
   }, [id]);
-
-  /*
-   * ----------------------------------------
-   * Cancel Order
-   * ----------------------------------------
-   */
-
-  const handleCancelOrder =
-    async () => {
-      if (
-        !order ||
-        isCancelling
-      ) {
-        return;
-      }
-
-      /*
-       * Frontend UX protection.
-       *
-       * Backend is still the final
-       * authority for cancellation.
-       */
-
-      const canCancel =
-        order.orderStatus ===
-          "pending" ||
-        order.orderStatus ===
-          "confirmed";
-
-      if (!canCancel) {
-        toast.error(
-          "This order can no longer be cancelled.",
-        );
-
-        return;
-      }
-
-      const confirmed =
-        window.confirm(
-          "Are you sure you want to cancel this order?",
-        );
-
-      if (!confirmed) {
-        return;
-      }
-
-      try {
-        setIsCancelling(true);
-
-        const updatedOrder =
-          await cancelOrder(
-            order._id,
-          );
-
-        setOrder(updatedOrder);
-
-        toast.success(
-          "Order cancelled successfully.",
-        );
-      } catch (error) {
-        console.error(
-          "Failed to cancel order:",
-          error,
-        );
-
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Failed to cancel order",
-        );
-      } finally {
-        setIsCancelling(false);
-      }
-    };
 
   /*
    * ----------------------------------------
@@ -318,12 +243,6 @@ const OrderDetails = () => {
   const isDelivered =
     order.orderStatus ===
     "delivered";
-
-  const canCancel =
-    order.orderStatus ===
-      "pending" ||
-    order.orderStatus ===
-      "confirmed";
 
   const shippingText =
     order.shippingCost === 0
@@ -908,47 +827,36 @@ const OrderDetails = () => {
               </div>
             </section>
 
+            {/* ORDER POLICY */}
+
+            <section className="rounded-[22px] border border-[#E1D6C7] bg-[#F8F2E9] px-5 py-5 sm:px-6">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#E9DCC9] text-[#8D6B40]">
+                  <ShieldCheck
+                    size={14}
+                    strokeWidth={1.5}
+                  />
+                </div>
+
+                <div>
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#806545]">
+                    Order Policy
+                  </p>
+
+                  <p className="mt-1.5 text-[11px] leading-5 text-[#81776C]">
+                    Orders cannot be cancelled
+                    once they have been placed.
+                    Please review your order
+                    details carefully before
+                    checkout.
+                  </p>
+                </div>
+              </div>
+            </section>
+
             {/* ACTIONS */}
 
             <div className="space-y-3 pt-1">
-              {canCancel && (
-                <button
-                  type="button"
-                  onClick={
-                    handleCancelOrder
-                  }
-                  disabled={isCancelling}
-                  className="
-                    flex
-                    h-13
-                    w-full
-                    items-center
-                    justify-center
-                    rounded-[14px]
-                    border
-                    border-[#D8C9B7]
-                    bg-white
-                    text-[10px]
-                    font-semibold
-                    uppercase
-                    tracking-[0.18em]
-                    text-[#765F47]
-                    transition-all
-                    duration-300
-                    hover:border-[#BDA27B]
-                    hover:bg-[#F8F2E9]
-                    hover:text-[#604A34]
-                    active:scale-[0.985]
-                    disabled:cursor-not-allowed
-                    disabled:opacity-50
-                  "
-                >
-                  {isCancelling
-                    ? "Cancelling..."
-                    : "Cancel Order"}
-                </button>
-              )}
-
               <button
                 type="button"
                 onClick={() =>

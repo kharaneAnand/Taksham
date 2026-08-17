@@ -3,6 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 
 import orderRoutes from "./routes/order.routes.js" ;
+import paymentRoutes from "./routes/payment.routes.js";
 import errorHandler from "./middlewares/errorHandler.js";
 
 const app = express();
@@ -40,6 +41,10 @@ app.get(
 app.use(
   "/api/v1/orders",
   orderRoutes,
+);
+app.use(
+  "/api/v1/payments",
+  paymentRoutes,
 );
 
 app.use(errorHandler);

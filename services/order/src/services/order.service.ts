@@ -72,10 +72,13 @@ class OrderService {
       env.CART_SERVICE_URL,
       {
         method: "GET",
-        headers: {
-          Accept: "application/json",
 
-          Cookie: `accessToken=${accessToken}`,
+        headers: {
+          Accept:
+            "application/json",
+
+          Cookie:
+            `accessToken=${accessToken}`,
         },
       },
     );
@@ -96,6 +99,7 @@ class OrderService {
           StatusCodes.NOT_FOUND
           ? StatusCodes.NOT_FOUND
           : StatusCodes.BAD_REQUEST,
+
         result.message ||
           ORDER_MESSAGES.CART_EMPTY,
       );
@@ -121,8 +125,10 @@ class OrderService {
       )}`,
       {
         method: "GET",
+
         headers: {
-          Accept: "application/json",
+          Accept:
+            "application/json",
         },
       },
     );
@@ -143,6 +149,7 @@ class OrderService {
           StatusCodes.NOT_FOUND
           ? StatusCodes.NOT_FOUND
           : StatusCodes.BAD_REQUEST,
+
         result.message ||
           "Product not found",
       );
@@ -164,10 +171,13 @@ class OrderService {
       env.CART_SERVICE_URL,
       {
         method: "DELETE",
-        headers: {
-          Accept: "application/json",
 
-          Cookie: `accessToken=${accessToken}`,
+        headers: {
+          Accept:
+            "application/json",
+
+          Cookie:
+            `accessToken=${accessToken}`,
         },
       },
     );
@@ -180,6 +190,7 @@ class OrderService {
 
       throw new ApiError(
         StatusCodes.INTERNAL_SERVER_ERROR,
+
         result.message ||
           "Failed to clear cart",
       );
@@ -214,6 +225,7 @@ class OrderService {
     ) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
+
         ORDER_MESSAGES.CART_EMPTY,
       );
     }
@@ -276,6 +288,7 @@ class OrderService {
         if (!variant) {
           throw new ApiError(
             StatusCodes.NOT_FOUND,
+
             "Product variant not found",
           );
         }
@@ -328,6 +341,7 @@ class OrderService {
       ) {
         throw new ApiError(
           StatusCodes.BAD_REQUEST,
+
           `Insufficient stock for ${product.name}`,
         );
       }
@@ -427,76 +441,98 @@ class OrderService {
      */
 
     const shippingAddress = {
-        firstName:
-            data.shippingAddress.firstName,
+      firstName:
+        data.shippingAddress.firstName,
 
-        lastName:
-            data.shippingAddress.lastName,
+      lastName:
+        data.shippingAddress.lastName,
 
-        phone:
-            data.shippingAddress.phone,
+      phone:
+        data.shippingAddress.phone,
 
-        address:
-            data.shippingAddress.address,
+      address:
+        data.shippingAddress.address,
 
-        city:
-            data.shippingAddress.city,
+      city:
+        data.shippingAddress.city,
 
-        state:
-            data.shippingAddress.state,
+      state:
+        data.shippingAddress.state,
 
-        pincode:
-            data.shippingAddress.pincode,
+      pincode:
+        data.shippingAddress.pincode,
 
-        ...(data.shippingAddress.landmark
-            ? {
-                landmark:
-                data.shippingAddress.landmark,
-            }
-            : {}),
-        };
+      ...(data.shippingAddress.landmark
+        ? {
+            landmark:
+              data.shippingAddress.landmark,
+          }
+        : {}),
+    };
 
-        const order =
-        await Order.create({
-            userId,
+    const order =
+      await Order.create({
+        userId,
 
-            orderNumber,
+        orderNumber,
 
-            items: orderItems,
+        items: orderItems,
 
-            shippingAddress,
+        shippingAddress,
 
-            shippingMethod:
-            data.shippingMethod,
+        shippingMethod:
+          data.shippingMethod,
 
-            paymentMethod:
-            data.paymentMethod,
+        paymentMethod:
+          data.paymentMethod,
 
-            paymentStatus:
-            "pending",
+        paymentStatus:
+          "pending",
 
-            orderStatus:
-            data.paymentMethod ===
-            "cod"
-                ? "confirmed"
-                : "pending",
+        /*
+         * COD:
+         * Order is immediately confirmed.
+         *
+         * Online:
+         * Order remains pending until
+         * Razorpay payment verification.
+         */
 
-            subtotal,
+        orderStatus:
+          data.paymentMethod ===
+          "cod"
+            ? "confirmed"
+            : "pending",
 
-            shippingCost,
+        subtotal,
 
-            total,
-        });
+        shippingCost,
+
+        total,
+      });
 
     /*
      * ------------------------------------
      * 8. Clear Cart
      * ------------------------------------
+     *
+     * COD:
+     * Clear immediately because the
+     * order is successfully placed.
+     *
+     * Online:
+     * Keep cart until payment is
+     * successfully verified.
      */
 
-    await this.clearCart(
-      accessToken,
-    );
+    if (
+      data.paymentMethod ===
+      "cod"
+    ) {
+      await this.clearCart(
+        accessToken,
+      );
+    }
 
     return order;
   }
@@ -536,55 +572,10 @@ class OrderService {
     if (!order) {
       throw new ApiError(
         StatusCodes.NOT_FOUND,
+
         ORDER_MESSAGES.ORDER_NOT_FOUND,
       );
     }
-
-    return order;
-  }
-
-  /*
-   * ----------------------------------------
-   * Cancel Order
-   * ----------------------------------------
-   */
-
-  async cancelOrder(
-    userId: string,
-    orderId: string,
-  ) {
-    const order =
-      await Order.findOne({
-        _id: orderId,
-        userId,
-      });
-
-    if (!order) {
-      throw new ApiError(
-        StatusCodes.NOT_FOUND,
-        ORDER_MESSAGES.ORDER_NOT_FOUND,
-      );
-    }
-
-    if (
-      [
-        "shipped",
-        "out_for_delivery",
-        "delivered",
-      ].includes(
-        order.orderStatus,
-      )
-    ) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        "Order cannot be cancelled at this stage",
-      );
-    }
-
-    order.orderStatus =
-      "cancelled";
-
-    await order.save();
 
     return order;
   }
