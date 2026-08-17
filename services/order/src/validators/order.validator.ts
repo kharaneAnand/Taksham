@@ -135,9 +135,103 @@ export const orderIdParamSchema =
 
 /*
  * ========================================
- * Types
+ * Update Order Status
+ * ========================================
+ *
+ * Used by ADMIN only.
+ *
+ * The service layer is responsible for
+ * validating the actual transition.
  * ========================================
  */
+
+export const updateOrderStatusSchema =
+  z.object({
+    orderStatus: z.enum([
+      "confirmed",
+      "processing",
+      "shipped",
+      "out_for_delivery",
+      "delivered",
+    ]),
+  });
+
+
+
+export const adminOrderQuerySchema =
+  z.object({
+    page: z
+      .coerce
+      .number()
+      .int()
+      .min(
+        1,
+        "Page must be at least 1",
+      )
+      .default(1),
+
+    limit: z
+      .coerce
+      .number()
+      .int()
+      .min(
+        1,
+        "Limit must be at least 1",
+      )
+      .max(
+        100,
+        "Limit cannot exceed 100",
+      )
+      .default(20),
+
+    search: z
+      .string()
+      .trim()
+      .max(
+        100,
+        "Search query is too long",
+      )
+      .optional(),
+
+    orderStatus: z
+      .enum([
+        "pending",
+        "confirmed",
+        "processing",
+        "shipped",
+        "out_for_delivery",
+        "delivered",
+        "cancelled",
+      ])
+      .optional(),
+
+    paymentStatus: z
+      .enum([
+        "pending",
+        "paid",
+        "failed",
+        "refunded",
+      ])
+      .optional(),
+
+    paymentMethod: z
+      .enum([
+        "cod",
+        "online",
+      ])
+      .optional(),
+
+    sort: z
+      .enum([
+        "newest",
+        "oldest",
+        "total_asc",
+        "total_desc",
+      ])
+      .default("newest"),
+  });
+
+
 
 export type CreateOrderInput =
   z.infer<
@@ -147,4 +241,14 @@ export type CreateOrderInput =
 export type OrderIdParam =
   z.infer<
     typeof orderIdParamSchema
+  >;
+
+export type UpdateOrderStatusInput =
+  z.infer<
+    typeof updateOrderStatusSchema
+  >;
+
+export type AdminOrderQueryInput =
+  z.infer<
+    typeof adminOrderQuerySchema
   >;

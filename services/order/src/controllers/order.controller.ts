@@ -8,6 +8,8 @@ import orderService from "../services/order.service.js";
 
 import type {
   CreateOrderInput,
+  UpdateOrderStatusInput,
+  AdminOrderQueryInput,
 } from "../validators/order.validator.js";
 
 import {
@@ -17,6 +19,12 @@ import {
 import type {
   AuthenticatedRequest,
 } from "../middlewares/auth.middleware.js";
+
+/*
+ * ========================================
+ * Order Controller
+ * ========================================
+ */
 
 class OrderController {
   /*
@@ -129,6 +137,102 @@ class OrderController {
         res,
         200,
         ORDER_MESSAGES.ORDER_FETCHED,
+        order,
+      );
+    },
+  );
+
+  /*
+   * ========================================
+   * ADMIN ORDER MANAGEMENT
+   * ========================================
+   */
+
+  /*
+   * ----------------------------------------
+   * Get All Orders
+   *
+   * GET /api/v1/orders/admin
+   * ----------------------------------------
+   *
+   * Admin only.
+   *
+   * Supports:
+   *
+   * - Pagination
+   * - Search
+   * - Order status
+   * - Payment status
+   * - Payment method
+   * - Sorting
+   * ----------------------------------------
+   */
+
+  getAllOrders = asyncHandler(
+    async (
+      req,
+      res,
+    ) => {
+      const query =
+        res.locals
+          .validated as AdminOrderQueryInput;
+
+      const result =
+        await orderService.getAllOrders(
+          query,
+        );
+
+      successResponse(
+        res,
+        200,
+        ORDER_MESSAGES.ORDERS_FETCHED,
+        result,
+      );
+    },
+  );
+
+  /*
+   * ----------------------------------------
+   * Update Order Status
+   *
+   * PATCH /api/v1/orders/:id/status
+   * ----------------------------------------
+   *
+   * Admin only.
+   *
+   * The actual status transition rules
+   * are enforced inside OrderService.
+   * ----------------------------------------
+   */
+
+  updateOrderStatus = asyncHandler<
+    { id: string },
+    unknown,
+    UpdateOrderStatusInput
+  >(
+    async (
+      req,
+      res,
+    ) => {
+      const request =
+        req as AuthenticatedRequest<
+          {
+            id: string;
+          },
+          unknown,
+          UpdateOrderStatusInput
+        >;
+
+      const order =
+        await orderService.updateOrderStatus(
+          request.params.id,
+          request.body,
+        );
+
+      successResponse(
+        res,
+        200,
+        "Order status updated successfully",
         order,
       );
     },

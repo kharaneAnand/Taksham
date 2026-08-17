@@ -14,6 +14,8 @@ import {
 
 import type {
   CreateOrderInput,
+  UpdateOrderStatusInput,
+  AdminOrderQueryInput,
 } from "../validators/order.validator.js";
 
 /*
@@ -78,15 +80,30 @@ interface StockItem {
 
 /*
  * ========================================
+ * Order Status Transitions
+ * ========================================
+ */
+
+const ORDER_STATUS_FLOW = [
+  "pending",
+  "confirmed",
+  "processing",
+  "shipped",
+  "out_for_delivery",
+  "delivered",
+] as const;
+
+/*
+ * ========================================
  * Order Service
  * ========================================
  */
 
 class OrderService {
   /*
-   * ----------------------------------------
+   * ========================================
    * Get Cart
-   * ----------------------------------------
+   * ========================================
    */
 
   private async getCart(
@@ -146,9 +163,9 @@ class OrderService {
   }
 
   /*
-   * ----------------------------------------
+   * ========================================
    * Get Product By ID
-   * ----------------------------------------
+   * ========================================
    */
 
   private async getProductById(
@@ -212,16 +229,6 @@ class OrderService {
    * ========================================
    * PRODUCT STOCK
    * ========================================
-   */
-
-  /*
-   * ----------------------------------------
-   * Decrease Product Stock
-   * ----------------------------------------
-   *
-   * Calls Product Service's atomic
-   * stock deduction endpoint.
-   * ----------------------------------------
    */
 
   private async decreaseProductStock(
@@ -293,14 +300,9 @@ class OrderService {
   }
 
   /*
-   * ----------------------------------------
+   * ========================================
    * Increase Product Stock
-   * ----------------------------------------
-   *
-   * Used to rollback stock that was
-   * successfully deducted before a
-   * later item failed.
-   * ----------------------------------------
+   * ========================================
    */
 
   private async increaseProductStock(
@@ -374,18 +376,6 @@ class OrderService {
    * ========================================
    */
 
-  /*
-   * ----------------------------------------
-   * Decrease Stock For Order
-   * ----------------------------------------
-   *
-   * Deduct stock one item at a time.
-   *
-   * If a later item fails, all previously
-   * deducted items are restored.
-   * ----------------------------------------
-   */
-
   private async decreaseStockForOrder(
     items: Array<{
       productId: string;
@@ -428,12 +418,6 @@ class OrderService {
 
       return deductedItems;
     } catch (error) {
-      /*
-       * ----------------------------------
-       * Rollback previously deducted stock
-       * ----------------------------------
-       */
-
       if (
         deductedItems.length >
         0
@@ -443,13 +427,6 @@ class OrderService {
             deductedItems,
           );
         } catch {
-          /*
-           * The inventory is now potentially
-           * inconsistent.
-           *
-           * Do not hide this situation.
-           */
-
           throw new ApiError(
             StatusCodes.INTERNAL_SERVER_ERROR,
 
@@ -458,23 +435,14 @@ class OrderService {
         }
       }
 
-      /*
-       * Preserve original error.
-       */
-
       throw error;
     }
   }
 
   /*
-   * ----------------------------------------
+   * ========================================
    * Restore Stock
-   * ----------------------------------------
-   *
-   * Restores successfully deducted items.
-   *
-   * Reverse order is used intentionally.
-   * ----------------------------------------
+   * ========================================
    */
 
   private async restoreStock(
@@ -507,12 +475,6 @@ class OrderService {
    * ========================================
    * CART
    * ========================================
-   */
-
-  /*
-   * ----------------------------------------
-   * Clear Cart
-   * ----------------------------------------
    */
 
   private async clearCart(
@@ -570,12 +532,6 @@ class OrderService {
     accessToken: string,
     data: CreateOrderInput,
   ) {
-    /*
-     * ------------------------------------
-     * 1. Get Cart
-     * ------------------------------------
-     */
-
     const cart =
       await this.getCart(
         accessToken,
@@ -592,21 +548,9 @@ class OrderService {
       );
     }
 
-    /*
-     * ------------------------------------
-     * 2. Prepare Order Items
-     * ------------------------------------
-     */
-
     const orderItems = [];
 
     let subtotal = 0;
-
-    /*
-     * ------------------------------------
-     * 3. Fetch Products
-     * ------------------------------------
-     */
 
     for (
       const cartItem of cart.items
@@ -634,12 +578,6 @@ class OrderService {
             image?: string;
           }
         | undefined;
-
-      /*
-       * ----------------------------------
-       * Variant
-       * ----------------------------------
-       */
 
       if (cartItem.variantId) {
         const variant =
@@ -693,22 +631,6 @@ class OrderService {
         };
       }
 
-      /*
-       * ----------------------------------
-       * Stock Validation
-       * ----------------------------------
-       *
-       * This is an early validation only.
-       *
-       * The actual atomic stock check
-       * happens later in Product Service.
-       *
-       * This prevents obvious bad orders
-       * while Product Service remains the
-       * source of truth.
-       * ----------------------------------
-       */
-
       if (
         cartItem.quantity >
         availableStock
@@ -720,24 +642,12 @@ class OrderService {
         );
       }
 
-      /*
-       * ----------------------------------
-       * Calculate Item Subtotal
-       * ----------------------------------
-       */
-
       const itemSubtotal =
         price *
         cartItem.quantity;
 
       subtotal +=
         itemSubtotal;
-
-      /*
-       * ----------------------------------
-       * Create Order Item Snapshot
-       * ----------------------------------
-       */
 
       orderItems.push({
         productId:
@@ -772,12 +682,6 @@ class OrderService {
       });
     }
 
-    /*
-     * ------------------------------------
-     * 4. Shipping
-     * ------------------------------------
-     */
-
     const shippingCost =
       data.shippingMethod ===
       "express"
@@ -786,33 +690,15 @@ class OrderService {
           ? 0
           : 99;
 
-    /*
-     * ------------------------------------
-     * 5. Total
-     * ------------------------------------
-     */
-
     const total =
       subtotal +
       shippingCost;
-
-    /*
-     * ------------------------------------
-     * 6. Order Number
-     * ------------------------------------
-     */
 
     const orderNumber =
       `TAK-${Date.now()}-${Math.floor(
         1000 +
           Math.random() * 9000,
       )}`;
-
-    /*
-     * ------------------------------------
-     * 7. Shipping Address Snapshot
-     * ------------------------------------
-     */
 
     const shippingAddress = {
       firstName:
@@ -843,20 +729,6 @@ class OrderService {
           }
         : {}),
     };
-
-    /*
-     * ------------------------------------
-     * 8. Create Order
-     * ------------------------------------
-     *
-     * COD:
-     * confirmed immediately.
-     *
-     * Online:
-     * remains pending until Razorpay
-     * payment verification.
-     * ------------------------------------
-     */
 
     const order =
       await Order.create({
@@ -901,16 +773,6 @@ class OrderService {
       "cod"
     ) {
       try {
-        /*
-         * --------------------------------
-         * Deduct stock.
-         *
-         * This operation is atomic per
-         * product and rollback-safe for
-         * the complete order.
-         * --------------------------------
-         */
-
         await this.decreaseStockForOrder(
           orderItems.map(
             (item) => ({
@@ -930,34 +792,12 @@ class OrderService {
           ),
         );
       } catch (error) {
-        /*
-         * --------------------------------
-         * Stock failed.
-         *
-         * The order cannot remain as a
-         * confirmed COD order.
-         * --------------------------------
-         */
-
         await Order.findByIdAndDelete(
           order._id,
         );
 
         throw error;
       }
-
-      /*
-       * --------------------------------
-       * Clear Cart
-       * --------------------------------
-       *
-       * Order and stock are already
-       * successful.
-       *
-       * Therefore a cart failure should
-       * NOT make the order appear failed.
-       * --------------------------------
-       */
 
       try {
         await this.clearCart(
@@ -975,34 +815,15 @@ class OrderService {
      * ====================================
      * ONLINE PAYMENT FLOW
      * ====================================
-     *
-     * Important:
-     *
-     * DO NOT deduct stock here.
-     *
-     * DO NOT clear cart here.
-     *
-     * Payment Service will perform:
-     *
-     * Razorpay verification
-     *        ↓
-     * Atomic stock deduction
-     *        ↓
-     * Stock rollback if necessary
-     *        ↓
-     * Mark order paid
-     *        ↓
-     * Clear cart
-     * ------------------------------------
      */
 
     return order;
   }
 
   /*
-   * ----------------------------------------
-   * Get User Orders
-   * ----------------------------------------
+   * ========================================
+   * GET USER ORDERS
+   * ========================================
    */
 
   async getUserOrders(
@@ -1016,9 +837,9 @@ class OrderService {
   }
 
   /*
-   * ----------------------------------------
-   * Get Single Order
-   * ----------------------------------------
+   * ========================================
+   * GET SINGLE ORDER
+   * ========================================
    */
 
   async getOrderById(
@@ -1039,6 +860,415 @@ class OrderService {
         ORDER_MESSAGES.ORDER_NOT_FOUND,
       );
     }
+
+    return order;
+  }
+
+  /*
+   * ========================================
+   * GET ALL ORDERS - ADMIN
+   * ========================================
+   *
+   * Supports:
+   *
+   * - Pagination
+   * - Search
+   * - Order status
+   * - Payment status
+   * - Payment method
+   * - Sorting
+   * ========================================
+   */
+
+  async getAllOrders(
+    query: AdminOrderQueryInput,
+  ) {
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      orderStatus,
+      paymentStatus,
+      paymentMethod,
+      sort = "newest",
+    } = query;
+
+    /*
+     * ------------------------------------
+     * Build Filter
+     * ------------------------------------
+     */
+
+    const filter: Record<
+      string,
+      unknown
+    > = {};
+
+    /*
+     * ------------------------------------
+     * Search
+     * ------------------------------------
+     *
+     * Search supports:
+     *
+     * - Order number
+     * - User ID
+     * - Customer first name
+     * - Customer last name
+     * - Phone number
+     * ------------------------------------
+     */
+
+    if (search) {
+      const escapedSearch =
+        search.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          "\\$&",
+        );
+
+      const searchRegex =
+        new RegExp(
+          escapedSearch,
+          "i",
+        );
+
+      filter.$or = [
+        {
+          orderNumber:
+            searchRegex,
+        },
+
+        {
+          userId:
+            searchRegex,
+        },
+
+        {
+          "shippingAddress.firstName":
+            searchRegex,
+        },
+
+        {
+          "shippingAddress.lastName":
+            searchRegex,
+        },
+
+        {
+          "shippingAddress.phone":
+            searchRegex,
+        },
+      ];
+    }
+
+    /*
+     * ------------------------------------
+     * Order Status
+     * ------------------------------------
+     */
+
+    if (orderStatus) {
+      filter.orderStatus =
+        orderStatus;
+    }
+
+    /*
+     * ------------------------------------
+     * Payment Status
+     * ------------------------------------
+     */
+
+    if (paymentStatus) {
+      filter.paymentStatus =
+        paymentStatus;
+    }
+
+    /*
+     * ------------------------------------
+     * Payment Method
+     * ------------------------------------
+     */
+
+    if (paymentMethod) {
+      filter.paymentMethod =
+        paymentMethod;
+    }
+
+    /*
+     * ------------------------------------
+     * Sorting
+     * ------------------------------------
+     */
+
+    let sortOption:
+      Record<
+        string,
+        1 | -1
+      > = {
+      createdAt: -1,
+    };
+
+    switch (sort) {
+      case "oldest":
+        sortOption = {
+          createdAt: 1,
+        };
+        break;
+
+      case "total_asc":
+        sortOption = {
+          total: 1,
+        };
+        break;
+
+      case "total_desc":
+        sortOption = {
+          total: -1,
+        };
+        break;
+
+      case "newest":
+      default:
+        sortOption = {
+          createdAt: -1,
+        };
+        break;
+    }
+
+    /*
+     * ------------------------------------
+     * Pagination
+     * ------------------------------------
+     */
+
+    const skip =
+      (page - 1) *
+      limit;
+
+    /*
+     * ------------------------------------
+     * Fetch Orders + Count
+     * ------------------------------------
+     */
+
+    const [
+      orders,
+      totalOrders,
+    ] =
+      await Promise.all([
+        Order.find(filter)
+          .sort(sortOption)
+          .skip(skip)
+          .limit(limit),
+
+        Order.countDocuments(
+          filter,
+        ),
+      ]);
+
+    /*
+     * ------------------------------------
+     * Pagination Metadata
+     * ------------------------------------
+     */
+
+    const totalPages =
+      Math.ceil(
+        totalOrders /
+          limit,
+      );
+
+    return {
+      orders,
+
+      pagination: {
+        page,
+
+        limit,
+
+        totalOrders,
+
+        totalPages,
+
+        hasNextPage:
+          page <
+          totalPages,
+
+        hasPreviousPage:
+          page > 1,
+      },
+    };
+  }
+
+  /*
+   * ========================================
+   * UPDATE ORDER STATUS
+   * ========================================
+   *
+   * ADMIN ONLY
+   * ========================================
+   */
+
+  async updateOrderStatus(
+    orderId: string,
+    data: UpdateOrderStatusInput,
+  ) {
+    /*
+     * ------------------------------------
+     * 1. Find Order
+     * ------------------------------------
+     */
+
+    const order =
+      await Order.findById(
+        orderId,
+      );
+
+    if (!order) {
+      throw new ApiError(
+        StatusCodes.NOT_FOUND,
+
+        ORDER_MESSAGES.ORDER_NOT_FOUND,
+      );
+    }
+
+    /*
+     * ------------------------------------
+     * 2. Current Status
+     * ------------------------------------
+     */
+
+    const currentStatus =
+      order.orderStatus;
+
+    const requestedStatus =
+      data.orderStatus;
+
+    /*
+     * ------------------------------------
+     * 3. Prevent Updating Delivered
+     * ------------------------------------
+     */
+
+    if (
+      currentStatus ===
+      "delivered"
+    ) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+
+        "Delivered orders cannot be updated",
+      );
+    }
+
+    /*
+     * ------------------------------------
+     * 4. Find Status Positions
+     * ------------------------------------
+     */
+
+    const currentIndex =
+      ORDER_STATUS_FLOW.indexOf(
+        currentStatus as
+          (typeof ORDER_STATUS_FLOW)[number],
+      );
+
+    const requestedIndex =
+      ORDER_STATUS_FLOW.indexOf(
+        requestedStatus as
+          (typeof ORDER_STATUS_FLOW)[number],
+      );
+
+    /*
+     * ------------------------------------
+     * 5. Validate Current Status
+     * ------------------------------------
+     */
+
+    if (
+      currentIndex === -1
+    ) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+
+        `Invalid current order status: ${currentStatus}`,
+      );
+    }
+
+    /*
+     * ------------------------------------
+     * 6. Validate Requested Status
+     * ------------------------------------
+     */
+
+    if (
+      requestedIndex === -1
+    ) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+
+        "Invalid order status",
+      );
+    }
+
+    /*
+     * ------------------------------------
+     * 7. Only Allow Next Status
+     * ------------------------------------
+     */
+
+    if (
+      requestedIndex !==
+      currentIndex + 1
+    ) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+
+        `Invalid order status transition: ${currentStatus} → ${requestedStatus}`,
+      );
+    }
+
+    /*
+     * ------------------------------------
+     * 8. Payment Validation
+     * ------------------------------------
+     */
+
+    if (
+      currentStatus ===
+        "pending" &&
+      requestedStatus ===
+        "confirmed"
+    ) {
+      if (
+        order.paymentMethod ===
+          "online" &&
+        order.paymentStatus !==
+          "paid"
+      ) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+
+          "Online payment must be completed before confirming the order",
+        );
+      }
+    }
+
+    /*
+     * ------------------------------------
+     * 9. Update Status
+     * ------------------------------------
+     */
+
+    order.orderStatus =
+      requestedStatus;
+
+    await order.save();
+
+    /*
+     * ------------------------------------
+     * 10. Return Updated Order
+     * ------------------------------------
+     */
 
     return order;
   }

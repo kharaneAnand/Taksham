@@ -2,46 +2,56 @@ import jwt from "jsonwebtoken";
 
 import env from "../config/env.js";
 
+/*
+ * ========================================
+ * Token Payload
+ * ========================================
+ */
+
 export interface TokenPayload {
   userId: string;
+
+  role: string;
 }
 
 /*
  * ----------------------------------------
  * JWT expiration types
  * ----------------------------------------
- *
- * jsonwebtoken's SignOptions expiresIn
- * accepts a number or a time string such
- * as "15m", "7d", "1h".
- *
- * Our env.ts guarantees these values
- * are always strings.
  */
 
 type JwtExpiresIn = NonNullable<
   Parameters<typeof jwt.sign>[2] extends infer Options
-    ? Options extends { expiresIn?: infer Value }
+    ? Options extends {
+        expiresIn?: infer Value;
+      }
       ? Value
       : never
     : never
 >;
 
 /*
- * ----------------------------------------
+ * ========================================
  * Generate Access Token
- * ----------------------------------------
+ * ========================================
  */
 
 export const generateAccessToken = (
   userId: string,
+  role: string,
 ): string => {
   const expiresIn =
     env.JWT_ACCESS_EXPIRES_IN as JwtExpiresIn;
 
   return jwt.sign(
-    { userId },
+    {
+      userId,
+
+      role,
+    },
+
     env.JWT_ACCESS_SECRET,
+
     {
       expiresIn,
     },
@@ -49,9 +59,13 @@ export const generateAccessToken = (
 };
 
 /*
- * ----------------------------------------
+ * ========================================
  * Generate Refresh Token
- * ----------------------------------------
+ * ========================================
+ *
+ * Refresh token only needs the user ID.
+ * Role is not required for refreshing.
+ * ========================================
  */
 
 export const generateRefreshToken = (
@@ -61,8 +75,12 @@ export const generateRefreshToken = (
     env.JWT_REFRESH_EXPIRES_IN as JwtExpiresIn;
 
   return jwt.sign(
-    { userId },
+    {
+      userId,
+    },
+
     env.JWT_REFRESH_SECRET,
+
     {
       expiresIn,
     },
@@ -70,9 +88,9 @@ export const generateRefreshToken = (
 };
 
 /*
- * ----------------------------------------
+ * ========================================
  * Verify Access Token
- * ----------------------------------------
+ * ========================================
  */
 
 export const verifyAccessToken = (
@@ -80,21 +98,31 @@ export const verifyAccessToken = (
 ): TokenPayload => {
   return jwt.verify(
     token,
+
     env.JWT_ACCESS_SECRET,
   ) as TokenPayload;
 };
 
 /*
- * ----------------------------------------
+ * ========================================
  * Verify Refresh Token
- * ----------------------------------------
+ * ========================================
+ *
+ * Refresh tokens contain only userId,
+ * so their payload is handled separately.
+ * ========================================
  */
 
 export const verifyRefreshToken = (
   token: string,
-): TokenPayload => {
+): {
+  userId: string;
+} => {
   return jwt.verify(
     token,
+
     env.JWT_REFRESH_SECRET,
-  ) as TokenPayload;
+  ) as {
+    userId: string;
+  };
 };

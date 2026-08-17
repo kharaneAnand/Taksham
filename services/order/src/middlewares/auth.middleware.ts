@@ -22,6 +22,12 @@ import {
   COOKIE_NAMES,
 } from "../constants/cookies.js";
 
+/*
+ * ========================================
+ * Authenticated Request
+ * ========================================
+ */
+
 export interface AuthenticatedRequest<
   P = Record<string, string>,
   ResBody = unknown,
@@ -35,8 +41,16 @@ export interface AuthenticatedRequest<
   > {
   user: {
     id: string;
+
+    role: string;
   };
 }
+
+/*
+ * ========================================
+ * Authenticate
+ * ========================================
+ */
 
 const authenticate = (
   req: Request,
@@ -44,6 +58,12 @@ const authenticate = (
   next: NextFunction,
 ): void => {
   try {
+    /*
+     * ------------------------------------
+     * Get Access Token
+     * ------------------------------------
+     */
+
     const accessToken =
       req.cookies?.[
         COOKIE_NAMES.ACCESS_TOKEN
@@ -56,15 +76,47 @@ const authenticate = (
       );
     }
 
+    /*
+     * ------------------------------------
+     * Verify Access Token
+     * ------------------------------------
+     */
+
     const payload =
       verifyAccessToken(
         accessToken,
       );
 
+    /*
+     * ------------------------------------
+     * Validate Token Payload
+     * ------------------------------------
+     */
+
+    if (
+      !payload.userId ||
+      !payload.role
+    ) {
+      throw new ApiError(
+        StatusCodes.UNAUTHORIZED,
+        AUTH_MESSAGES.INVALID_TOKEN,
+      );
+    }
+
+    /*
+     * ------------------------------------
+     * Attach User To Request
+     * ------------------------------------
+     */
+
     (
       req as AuthenticatedRequest
     ).user = {
-      id: payload.userId,
+      id:
+        payload.userId,
+
+      role:
+        payload.role,
     };
 
     next();

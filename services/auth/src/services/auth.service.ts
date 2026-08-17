@@ -1,554 +1,930 @@
 import User from "../models/user.model.js";
-import ApiError from "../helpers/ApiError.js";
-import env from "../config/env.js";
-import { AUTH_MESSAGES } from "../constants/messages.js";
-import { StatusCodes } from "../constants/http.js";
-import { hashPassword , comparePassword} from "../utils/bcrypt.js";
-import { RegisterInput , LoginInput , UpdateProfileInput } from "../validators/auth.validator.js";
-import {generateAccessToken,generateRefreshToken,verifyRefreshToken} from "../utils/jwt.js";
-import UserToken, {TokenType,} from "../models/user-token.model.js";
-import { generateRandomToken } from "../utils/token.js";
-import { sendEmail } from "../utils/email.js";
-import { verifyEmailTemplate , forgotPasswordTemplate } from "../templates/index.js";
-import { hashToken } from "../utils/hash.js";
-import type { IUser } from "../types/user.types.js";
-import crypto from "crypto";
-import MediaService from "./media.service.js";
 
+import ApiError from "../helpers/ApiError.js";
+
+import env from "../config/env.js";
+
+import {
+  AUTH_MESSAGES,
+} from "../constants/messages.js";
+
+import {
+  StatusCodes,
+} from "../constants/http.js";
+
+import {
+  hashPassword,
+  comparePassword,
+} from "../utils/bcrypt.js";
+
+import {
+  RegisterInput,
+  LoginInput,
+  UpdateProfileInput,
+} from "../validators/auth.validator.js";
+
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+} from "../utils/jwt.js";
+
+import UserToken, {
+  TokenType,
+} from "../models/user-token.model.js";
+
+import {
+  generateRandomToken,
+} from "../utils/token.js";
+
+import {
+  sendEmail,
+} from "../utils/email.js";
+
+import {
+  verifyEmailTemplate,
+  forgotPasswordTemplate,
+} from "../templates/index.js";
+
+import {
+  hashToken,
+} from "../utils/hash.js";
+
+import type {
+  IUser,
+} from "../types/user.types.js";
+
+import crypto from "crypto";
+
+import MediaService from "./media.service.js";
 
 
 class AuthService {
 
-  private generateTokens(userId: string) {
+  /*
+   * ========================================
+   * Generate Authentication Tokens
+   * ========================================
+   */
+
+  private generateTokens(
+    userId: string,
+    role: string,
+  ) {
     return {
-      accessToken: generateAccessToken(userId),
-      refreshToken: generateRefreshToken(userId),
+      accessToken:
+        generateAccessToken(
+          userId,
+          role,
+        ),
+
+      refreshToken:
+        generateRefreshToken(
+          userId,
+        ),
     };
   }
 
+
+  /*
+   * ========================================
+   * Create User Token
+   * ========================================
+   */
+
   private async createUserToken(
-  userId: string,
-  type: TokenType
-): Promise<string> {
+    userId: string,
+    type: TokenType,
+  ): Promise<string> {
 
-  // Generate random token
-  const plainToken = generateRandomToken();
+    const plainToken =
+      generateRandomToken();
 
-  // Hash token
-  const hashedToken = hashToken(plainToken);
+    const hashedToken =
+      hashToken(
+        plainToken,
+      );
 
-  // Delete existing token of same type
-  await UserToken.deleteOne({
-    userId,
-    type,
-  });
+    await UserToken.deleteOne({
+      userId,
+      type,
+    });
 
-  // Save new token
-  await UserToken.create({
-    userId,
-    token: hashedToken,
-    type,
-    expiresAt: new Date(
-      Date.now() + 15 * 60 * 1000
-    ),
-  });
+    await UserToken.create({
+      userId,
 
-  return plainToken;
-}
+      token:
+        hashedToken,
 
-  private async sendVerificationEmail(user: IUser) {
- 
+      type,
+
+      expiresAt:
+        new Date(
+          Date.now() +
+            15 * 60 * 1000,
+        ),
+    });
+
+    return plainToken;
+  }
+
+
+  /*
+   * ========================================
+   * Send Verification Email
+   * ========================================
+   */
+
+  private async sendVerificationEmail(
+    user: IUser,
+  ) {
+
     const verificationToken =
-    await this.createUserToken(
-      user._id.toString(),
-      TokenType.EMAIL_VERIFICATION
-  );
+      await this.createUserToken(
+        user._id.toString(),
+
+        TokenType.EMAIL_VERIFICATION,
+      );
 
 
-  // Verification link
-  const verificationLink =
-    `${env.CLIENT_URL}/verify-email/${verificationToken}`;
+    const verificationLink =
+      `${env.CLIENT_URL}/verify-email/${verificationToken}`;
 
-  // Send email
-  await sendEmail({
-    to: user.email,
-    subject: "Verify Your Email",
-    html: verifyEmailTemplate({
-      firstName: user.firstName,
-      verificationLink,
-    }),
-  });
-}
 
-  async register(data: RegisterInput) {
-  const existingUser = await User.findOne({
-    email: data.email,
-  });
+    await sendEmail({
+      to: user.email,
 
-  if (existingUser) {
-    throw new ApiError(
-      StatusCodes.CONFLICT,
-      AUTH_MESSAGES.EMAIL_EXISTS
-    );
+      subject:
+        "Verify Your Email",
+
+      html:
+        verifyEmailTemplate({
+          firstName:
+            user.firstName,
+
+          verificationLink,
+        }),
+    });
   }
 
-  const hashedPassword = await hashPassword(data.password);
 
-  const user = await User.create({
-    ...data,
-    password: hashedPassword,
-  });
+  /*
+   * ========================================
+   * Register
+   * ========================================
+   */
 
-  await this.sendVerificationEmail(user);
+  async register(
+    data: RegisterInput,
+  ) {
 
-  const userObject = user.toObject();
+    const existingUser =
+      await User.findOne({
+        email: data.email,
+      });
 
-  const { password, refreshToken, ...userData } = userObject;
+    if (existingUser) {
+      throw new ApiError(
+        StatusCodes.CONFLICT,
 
-  return userData;
-}
+        AUTH_MESSAGES.EMAIL_EXISTS,
+      );
+    }
 
-  async login(data: LoginInput) {
-  const user = await User.findOne({
-    email: data.email,
-  }).select("+password +refreshToken");
+    const hashedPassword =
+      await hashPassword(
+        data.password,
+      );
 
-  if (!user) {
-    throw new ApiError(
-      StatusCodes.UNAUTHORIZED,
-      AUTH_MESSAGES.INVALID_CREDENTIALS
+    const user =
+      await User.create({
+        ...data,
+
+        password:
+          hashedPassword,
+      });
+
+    await this.sendVerificationEmail(
+      user,
     );
+
+    const userObject =
+      user.toObject();
+
+    const {
+      password,
+      refreshToken,
+      ...userData
+    } = userObject;
+
+    return userData;
   }
 
-  const isPasswordValid = await comparePassword(
-    data.password,
-    user.password
-  );
 
-  if (!isPasswordValid) {
-    throw new ApiError(
-      StatusCodes.UNAUTHORIZED,
-      AUTH_MESSAGES.INVALID_CREDENTIALS
-    );
-  }
+  /*
+   * ========================================
+   * Login
+   * ========================================
+   */
 
-  if (!user.isVerified) {
-  throw new ApiError(
-    StatusCodes.UNAUTHORIZED,
-    AUTH_MESSAGES.EMAIL_NOT_VERIFIED
-  );
-}
+  async login(
+    data: LoginInput,
+  ) {
 
-  const {accessToken,refreshToken,} = this.generateTokens(user._id.toString());
-
- user.refreshToken = await hashPassword(
-    refreshToken
-  );
-
-  await user.save();
-
-  const userObject = user.toObject();
-
-  const { password, refreshToken: _, ...userData } = userObject;
-
-  return {
-    user: userData,
-    accessToken,
-    refreshToken,
-  };
-}
-
-  async refreshToken(refreshToken: string) {
-
-  const payload = verifyRefreshToken(refreshToken);
-
-  const user = await User.findById(payload.userId)
-    .select("+refreshToken");
-
-  if (!user) {
-    throw new ApiError(
-      StatusCodes.UNAUTHORIZED,
-      AUTH_MESSAGES.INVALID_TOKEN
-    );
-  }
-
-  const isRefreshTokenValid = await comparePassword(
-    refreshToken,
-    user.refreshToken
-  );
-
-  if (!isRefreshTokenValid) {
-    throw new ApiError(
-      StatusCodes.UNAUTHORIZED,
-      AUTH_MESSAGES.INVALID_TOKEN
-    );
-  }
-
-  const {
-    accessToken,
-    refreshToken: newRefreshToken,
-  } = this.generateTokens(user._id.toString());
-
-  user.refreshToken = await hashPassword(
-    newRefreshToken
-  );
-
-  await user.save();
-
-  const userObject = user.toObject();
-
-  const { password, refreshToken: _, ...userData } = userObject;
-
-  return {
-    user: userData,
-    accessToken,
-    refreshToken: newRefreshToken,
-  };
-}
-
-  async logout(refreshToken: string) {
-    const payload = verifyRefreshToken(refreshToken);
-
-    const user = await User.findById(payload.userId)
-      .select("+refreshToken");
+    const user =
+      await User.findOne({
+        email: data.email,
+      }).select(
+        "+password +refreshToken",
+      );
 
     if (!user) {
       throw new ApiError(
         StatusCodes.UNAUTHORIZED,
-        AUTH_MESSAGES.INVALID_TOKEN
+
+        AUTH_MESSAGES.INVALID_CREDENTIALS,
       );
     }
 
-    const isRefreshTokenValid = await comparePassword(
+    const isPasswordValid =
+      await comparePassword(
+        data.password,
+
+        user.password,
+      );
+
+    if (!isPasswordValid) {
+      throw new ApiError(
+        StatusCodes.UNAUTHORIZED,
+
+        AUTH_MESSAGES.INVALID_CREDENTIALS,
+      );
+    }
+
+    if (!user.isVerified) {
+      throw new ApiError(
+        StatusCodes.UNAUTHORIZED,
+
+        AUTH_MESSAGES.EMAIL_NOT_VERIFIED,
+      );
+    }
+
+
+    /*
+     * ------------------------------------
+     * Include user role in access token
+     * ------------------------------------
+     */
+
+    const {
+      accessToken,
       refreshToken,
-      user.refreshToken
-    );
+    } =
+      this.generateTokens(
+        user._id.toString(),
+
+        user.role,
+      );
+
+
+    user.refreshToken =
+      await hashPassword(
+        refreshToken,
+      );
+
+    await user.save();
+
+
+    const userObject =
+      user.toObject();
+
+    const {
+      password,
+      refreshToken: _,
+      ...userData
+    } = userObject;
+
+
+    return {
+      user:
+        userData,
+
+      accessToken,
+
+      refreshToken,
+    };
+  }
+
+
+  /*
+   * ========================================
+   * Refresh Token
+   * ========================================
+   */
+
+  async refreshToken(
+    refreshToken: string,
+  ) {
+
+    const payload =
+      verifyRefreshToken(
+        refreshToken,
+      );
+
+    const user =
+      await User.findById(
+        payload.userId,
+      ).select(
+        "+refreshToken",
+      );
+
+    if (!user) {
+      throw new ApiError(
+        StatusCodes.UNAUTHORIZED,
+
+        AUTH_MESSAGES.INVALID_TOKEN,
+      );
+    }
+
+    const isRefreshTokenValid =
+      await comparePassword(
+        refreshToken,
+
+        user.refreshToken,
+      );
 
     if (!isRefreshTokenValid) {
       throw new ApiError(
         StatusCodes.UNAUTHORIZED,
-        AUTH_MESSAGES.INVALID_TOKEN
+
+        AUTH_MESSAGES.INVALID_TOKEN,
       );
     }
 
-    user.refreshToken = await hashPassword(
-      crypto.randomUUID()
-    );
+
+    /*
+     * ------------------------------------
+     * Generate access token with role
+     * ------------------------------------
+     */
+
+    const {
+      accessToken,
+      refreshToken:
+        newRefreshToken,
+    } =
+      this.generateTokens(
+        user._id.toString(),
+
+        user.role,
+      );
+
+
+    user.refreshToken =
+      await hashPassword(
+        newRefreshToken,
+      );
+
+    await user.save();
+
+
+    const userObject =
+      user.toObject();
+
+    const {
+      password,
+      refreshToken: _,
+      ...userData
+    } = userObject;
+
+
+    return {
+      user:
+        userData,
+
+      accessToken,
+
+      refreshToken:
+        newRefreshToken,
+    };
+  }
+
+
+  /*
+   * ========================================
+   * Logout
+   * ========================================
+   */
+
+  async logout(
+    refreshToken: string,
+  ) {
+
+    const payload =
+      verifyRefreshToken(
+        refreshToken,
+      );
+
+    const user =
+      await User.findById(
+        payload.userId,
+      ).select(
+        "+refreshToken",
+      );
+
+    if (!user) {
+      throw new ApiError(
+        StatusCodes.UNAUTHORIZED,
+
+        AUTH_MESSAGES.INVALID_TOKEN,
+      );
+    }
+
+    const isRefreshTokenValid =
+      await comparePassword(
+        refreshToken,
+
+        user.refreshToken,
+      );
+
+    if (!isRefreshTokenValid) {
+      throw new ApiError(
+        StatusCodes.UNAUTHORIZED,
+
+        AUTH_MESSAGES.INVALID_TOKEN,
+      );
+    }
+
+    user.refreshToken =
+      await hashPassword(
+        crypto.randomUUID(),
+      );
 
     await user.save();
   }
 
-async verifyEmail(token: string) {
 
-  const hashedToken = hashToken(token);
+  /*
+   * ========================================
+   * Verify Email
+   * ========================================
+   */
 
-  const verificationToken =
-  await UserToken.findOne({
-    token: hashedToken,
-    type: TokenType.EMAIL_VERIFICATION,
-  });
+  async verifyEmail(
+    token: string,
+  ) {
 
-  if (!verificationToken) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      AUTH_MESSAGES.INVALID_TOKEN
-    );
-  }
+    const hashedToken =
+      hashToken(token);
 
-  const user = await User.findById(
-    verificationToken.userId
-  );
+    const verificationToken =
+      await UserToken.findOne({
+        token:
+          hashedToken,
 
-  if (!user) {
-    throw new ApiError(
-      StatusCodes.NOT_FOUND,
-      AUTH_MESSAGES.USER_NOT_FOUND
-    );
-  }
+        type:
+          TokenType.EMAIL_VERIFICATION,
+      });
 
-  if (user.isVerified) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      AUTH_MESSAGES.EMAIL_ALREADY_VERIFIED
-    );
-  }
+    if (!verificationToken) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
 
-  user.isVerified = true;
+        AUTH_MESSAGES.INVALID_TOKEN,
+      );
+    }
 
-  await user.save();
+    const user =
+      await User.findById(
+        verificationToken.userId,
+      );
 
-  await UserToken.deleteOne({
-  _id: verificationToken._id,
-});
-}
+    if (!user) {
+      throw new ApiError(
+        StatusCodes.NOT_FOUND,
 
+        AUTH_MESSAGES.USER_NOT_FOUND,
+      );
+    }
 
-async resendVerificationEmail(email: string) {
-  const user = await User.findOne({
-    email,
-  });
+    if (user.isVerified) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
 
-  if (!user) {
-    throw new ApiError(
-      StatusCodes.NOT_FOUND,
-      AUTH_MESSAGES.USER_NOT_FOUND
-    );
-  }
+        AUTH_MESSAGES.EMAIL_ALREADY_VERIFIED,
+      );
+    }
 
-  if (user.isVerified) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      AUTH_MESSAGES.EMAIL_ALREADY_VERIFIED
-    );
-  }
+    user.isVerified =
+      true;
 
-  await this.sendVerificationEmail(user);
-}
+    await user.save();
 
-
-  async forgotPassword(email: string) {
-
-  const user = await User.findOne({
-    email,
-  });
-
-  if (!user) {
-    throw new ApiError(
-      StatusCodes.NOT_FOUND,
-      AUTH_MESSAGES.USER_NOT_FOUND
-    );
-  }
-
-  const resetToken =
-    await this.createUserToken(
-      user._id.toString(),
-      TokenType.PASSWORD_RESET
-    );
-
-  const resetLink =
-    `${env.CLIENT_URL}/reset-password/${resetToken}`;
-
-  await sendEmail({
-    to: user.email,
-    subject: "Reset Your Password",
-    html: forgotPasswordTemplate({
-      firstName: user.firstName,
-      resetLink,
-    }),
-  });
-}
-
-async resetPassword(token: string,password: string) {
-
-  const hashedToken = hashToken(token);
-
-  const resetToken =
-    await UserToken.findOne({
-      token: hashedToken,
-      type: TokenType.PASSWORD_RESET,
+    await UserToken.deleteOne({
+      _id:
+        verificationToken._id,
     });
+  }
 
-  if (!resetToken) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      AUTH_MESSAGES.INVALID_TOKEN
+
+  /*
+   * ========================================
+   * Resend Verification Email
+   * ========================================
+   */
+
+  async resendVerificationEmail(
+    email: string,
+  ) {
+
+    const user =
+      await User.findOne({
+        email,
+      });
+
+    if (!user) {
+      throw new ApiError(
+        StatusCodes.NOT_FOUND,
+
+        AUTH_MESSAGES.USER_NOT_FOUND,
+      );
+    }
+
+    if (user.isVerified) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+
+        AUTH_MESSAGES.EMAIL_ALREADY_VERIFIED,
+      );
+    }
+
+    await this.sendVerificationEmail(
+      user,
     );
   }
 
-  const user = await User.findById(
-    resetToken.userId
-  ).select("+refreshToken");
 
-  if (!user) {
-    throw new ApiError(
-      StatusCodes.NOT_FOUND,
-      AUTH_MESSAGES.USER_NOT_FOUND
-    );
+  /*
+   * ========================================
+   * Forgot Password
+   * ========================================
+   */
+
+  async forgotPassword(
+    email: string,
+  ) {
+
+    const user =
+      await User.findOne({
+        email,
+      });
+
+    if (!user) {
+      throw new ApiError(
+        StatusCodes.NOT_FOUND,
+
+        AUTH_MESSAGES.USER_NOT_FOUND,
+      );
+    }
+
+    const resetToken =
+      await this.createUserToken(
+        user._id.toString(),
+
+        TokenType.PASSWORD_RESET,
+      );
+
+    const resetLink =
+      `${env.CLIENT_URL}/reset-password/${resetToken}`;
+
+    await sendEmail({
+      to: user.email,
+
+      subject:
+        "Reset Your Password",
+
+      html:
+        forgotPasswordTemplate({
+          firstName:
+            user.firstName,
+
+          resetLink,
+        }),
+    });
   }
 
-  user.password = await hashPassword(
-    password
-  );
 
-  // Invalidate every previous login
-  user.refreshToken = await hashPassword(
-    crypto.randomUUID()
-  );
+  /*
+   * ========================================
+   * Reset Password
+   * ========================================
+   */
 
-  await user.save();
+  async resetPassword(
+    token: string,
+    password: string,
+  ) {
 
-  await UserToken.deleteOne({
-    _id: resetToken._id,
-  });
+    const hashedToken =
+      hashToken(token);
 
-}
+    const resetToken =
+      await UserToken.findOne({
+        token:
+          hashedToken,
 
-async changePassword( userId: string,currentPassword: string,newPassword: string) {
+        type:
+          TokenType.PASSWORD_RESET,
+      });
 
-  const user = await User.findById(userId)
-    .select("+password +refreshToken");
+    if (!resetToken) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
 
-  if (!user) {
-    throw new ApiError(
-      StatusCodes.NOT_FOUND,
-      AUTH_MESSAGES.USER_NOT_FOUND
-    );
+        AUTH_MESSAGES.INVALID_TOKEN,
+      );
+    }
+
+    const user =
+      await User.findById(
+        resetToken.userId,
+      ).select(
+        "+refreshToken",
+      );
+
+    if (!user) {
+      throw new ApiError(
+        StatusCodes.NOT_FOUND,
+
+        AUTH_MESSAGES.USER_NOT_FOUND,
+      );
+    }
+
+    user.password =
+      await hashPassword(
+        password,
+      );
+
+    user.refreshToken =
+      await hashPassword(
+        crypto.randomUUID(),
+      );
+
+    await user.save();
+
+    await UserToken.deleteOne({
+      _id:
+        resetToken._id,
+    });
   }
 
-  const isPasswordValid =
-    await comparePassword(
-      currentPassword,
-      user.password
-    );
 
-  if (!isPasswordValid) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      AUTH_MESSAGES.INVALID_CREDENTIALS
-    );
+  /*
+   * ========================================
+   * Change Password
+   * ========================================
+   */
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+
+    const user =
+      await User.findById(
+        userId,
+      ).select(
+        "+password +refreshToken",
+      );
+
+    if (!user) {
+      throw new ApiError(
+        StatusCodes.NOT_FOUND,
+
+        AUTH_MESSAGES.USER_NOT_FOUND,
+      );
+    }
+
+    const isPasswordValid =
+      await comparePassword(
+        currentPassword,
+
+        user.password,
+      );
+
+    if (!isPasswordValid) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+
+        AUTH_MESSAGES.INVALID_CREDENTIALS,
+      );
+    }
+
+    if (
+      currentPassword ===
+      newPassword
+    ) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+
+        AUTH_MESSAGES.PASSWORD_MUST_BE_DIFFERENT,
+      );
+    }
+
+    user.password =
+      await hashPassword(
+        newPassword,
+      );
+
+    user.refreshToken =
+      await hashPassword(
+        crypto.randomUUID(),
+      );
+
+    await user.save();
   }
 
- if (currentPassword === newPassword) {
-  throw new ApiError(
-    StatusCodes.BAD_REQUEST,
-    AUTH_MESSAGES.PASSWORD_MUST_BE_DIFFERENT
-  );
-}
 
-  user.password = await hashPassword(
-    newPassword
-  );
+  /*
+   * ========================================
+   * Update Profile
+   * ========================================
+   */
 
-  // Logout from every device
-  user.refreshToken = await hashPassword(
-    crypto.randomUUID()
-  );
+  async updateProfile(
+    userId: string,
+    data: UpdateProfileInput,
+  ) {
 
-  await user.save();
-}
+    const user =
+      await User.findById(
+        userId,
+      );
 
-async updateProfile(userId: string,data: UpdateProfileInput) {
+    if (!user) {
+      throw new ApiError(
+        StatusCodes.NOT_FOUND,
 
-  const user = await User.findById(userId);
+        AUTH_MESSAGES.USER_NOT_FOUND,
+      );
+    }
 
-  if (!user) {
-    throw new ApiError(
-      StatusCodes.NOT_FOUND,
-      AUTH_MESSAGES.USER_NOT_FOUND
-    );
+    if (
+      data.firstName !==
+      undefined
+    ) {
+      user.firstName =
+        data.firstName;
+    }
+
+    if (
+      data.lastName !==
+      undefined
+    ) {
+      user.lastName =
+        data.lastName;
+    }
+
+    if (
+      data.phone !==
+      undefined
+    ) {
+      user.phone =
+        data.phone;
+    }
+
+    await user.save();
+
+    const userObject =
+      user.toObject();
+
+    const {
+      password,
+      refreshToken,
+      ...userData
+    } = userObject;
+
+    return userData;
   }
 
-  if (data.firstName !== undefined) {
-    user.firstName = data.firstName;
-  }
 
-  if (data.lastName !== undefined) {
-    user.lastName = data.lastName;
-  }
+  /*
+   * ========================================
+   * Update Avatar
+   * ========================================
+   */
 
-  if (data.phone !== undefined) {
-    user.phone = data.phone;
-  }
+  async updateAvatar(
+    userId: string,
+    file: Express.Multer.File,
+  ) {
 
-  await user.save();
+    const user =
+      await User.findById(
+        userId,
+      );
 
-  const userObject = user.toObject();
+    if (!user) {
+      throw new ApiError(
+        StatusCodes.NOT_FOUND,
 
-  const {
-    password,
-    refreshToken,
-    ...userData
-  } = userObject;
+        AUTH_MESSAGES.USER_NOT_FOUND,
+      );
+    }
 
-  return userData;
-}
-
-async updateAvatar(
-  userId: string,
-  file: Express.Multer.File
-) {
-
-  const user = await User.findById(userId);
-
-  if (!user) {
-    throw new ApiError(
-      StatusCodes.NOT_FOUND,
-      AUTH_MESSAGES.USER_NOT_FOUND
-    );
-  }
-
-  
-  if (user.avatar.publicId) {
-    await MediaService.deleteImage(
+    if (
       user.avatar.publicId
-    );
+    ) {
+      await MediaService.deleteImage(
+        user.avatar.publicId,
+      );
+    }
+
+    const avatar =
+      await MediaService.uploadAvatar(
+        file,
+      );
+
+    user.avatar = {
+      url:
+        avatar.url,
+
+      publicId:
+        avatar.publicId,
+    };
+
+    await user.save();
+
+    const userObject =
+      user.toObject();
+
+    const {
+      password,
+      refreshToken,
+      ...userData
+    } = userObject;
+
+    return userData;
   }
 
-  const avatar =
-    await MediaService.uploadAvatar(file);
 
-  user.avatar = {
-    url: avatar.url,
-    publicId: avatar.publicId,
-  };
+  /*
+   * ========================================
+   * Delete Avatar
+   * ========================================
+   */
 
-  await user.save();
+  async deleteAvatar(
+    userId: string,
+  ) {
 
-  const userObject = user.toObject();
+    const user =
+      await User.findById(
+        userId,
+      );
 
-  const {
-    password,
-    refreshToken,
-    ...userData
-  } = userObject;
+    if (!user) {
+      throw new ApiError(
+        StatusCodes.NOT_FOUND,
 
-  return userData;
-}
+        AUTH_MESSAGES.USER_NOT_FOUND,
+      );
+    }
 
-async deleteAvatar(
-  userId: string
-) {
+    if (
+      !user.avatar.publicId
+    ) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
 
-  const user = await User.findById(userId);
+        AUTH_MESSAGES.AVATAR_NOT_FOUND,
+      );
+    }
 
-  if (!user) {
-    throw new ApiError(
-      StatusCodes.NOT_FOUND,
-      AUTH_MESSAGES.USER_NOT_FOUND
+    await MediaService.deleteImage(
+      user.avatar.publicId,
     );
+
+    user.avatar = {
+      url: "",
+
+      publicId: "",
+    };
+
+    await user.save();
+
+    const userObject =
+      user.toObject();
+
+    const {
+      password,
+      refreshToken,
+      ...userData
+    } = userObject;
+
+    return userData;
   }
-
-  if (!user.avatar.publicId) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      AUTH_MESSAGES.AVATAR_NOT_FOUND
-    );
-  }
-
-  await MediaService.deleteImage(
-    user.avatar.publicId
-  );
-
-  user.avatar = {
-    url: "",
-    publicId: "",
-  };
-
-  await user.save();
-
-  const userObject = user.toObject();
-
-  const {
-    password,
-    refreshToken,
-    ...userData
-  } = userObject;
-
-  return userData;
 }
-
-}
-
-           
 
 export default new AuthService();
