@@ -40,6 +40,18 @@ const CATEGORY_PARAM_MAP: Record<string, string> = {
   rugs: "Rugs",
 };
 
+const ROOM_PARAM_MAP: Record<string, string> = {
+  "living-room": "living-room",
+  bedroom: "bedroom",
+  kitchen: "kitchen",
+  "dining-room": "dining-room",
+  "home-office": "home-office",
+  "study-library": "study-library",
+  balcony: "balcony",
+  "entertainment-room":
+    "entertainment-room",
+};
+
 const initialFilters: ProductFilterState = {
   category: "All Categories",
   materials: [],
@@ -99,10 +111,14 @@ const getPaginationItems = (
 
 const Products = () => {
   const { addToCart } = useCart();
+
   const [filters, setFilters] =
     useState<ProductFilterState>(
       initialFilters,
     );
+
+  const [roomFilter, setRoomFilter] =
+    useState<string | undefined>();
 
   const [sortBy, setSortBy] =
     useState("Featured");
@@ -143,7 +159,15 @@ const Products = () => {
 
   /*
    * -------------------------------------------------------
-   * Read category from URL
+   * Read filters from URL
+   * -------------------------------------------------------
+   *
+   * Supported:
+   *
+   * /products?category=sofas
+   * /products?room=living-room
+   *
+   * Room and category can also work together.
    * -------------------------------------------------------
    */
 
@@ -155,11 +179,21 @@ const Products = () => {
     const categoryParam =
       params.get("category");
 
+    const roomParam =
+      params.get("room");
+
     const category =
       categoryParam
         ? CATEGORY_PARAM_MAP[
             categoryParam.toLowerCase()
           ]
+        : undefined;
+
+    const room =
+      roomParam
+        ? ROOM_PARAM_MAP[
+            roomParam.toLowerCase()
+          ] || roomParam.toLowerCase()
         : undefined;
 
     if (category) {
@@ -168,17 +202,25 @@ const Products = () => {
         category,
       }));
     }
+
+    if (room) {
+      setRoomFilter(room);
+    }
   }, []);
 
   /*
    * -------------------------------------------------------
-   * Reset page when filters/sort change
+   * Reset page when filters/sort/room change
    * -------------------------------------------------------
    */
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filters, sortBy]);
+  }, [
+    filters,
+    sortBy,
+    roomFilter,
+  ]);
 
   /*
    * -------------------------------------------------------
@@ -196,8 +238,6 @@ const Products = () => {
         return "price_desc";
 
       case "Name":
-        // Until name_asc is added to backend,
-        // use popular as the closest supported option.
         return "popular";
 
       case "Featured":
@@ -235,6 +275,14 @@ const Products = () => {
             page: currentPage,
             limit: PRODUCTS_PER_PAGE,
 
+            /*
+             * Room filter
+             */
+            room: roomFilter,
+
+            /*
+             * Category filter
+             */
             subcategory:
               filters.category !==
               "All Categories"
@@ -318,6 +366,7 @@ const Products = () => {
     currentPage,
     filters,
     sortBy,
+    roomFilter,
   ]);
 
   /*
@@ -434,21 +483,25 @@ const Products = () => {
 
   const clearFilters = () => {
     setFilters(initialFilters);
+    setRoomFilter(undefined);
     setCurrentPage(1);
   };
 
   const handleAddToCart = (
-  product: Product,
-) => {
-  addToCart(product);
-};
+    product: Product,
+  ) => {
+    addToCart(product);
+  };
 
   const handleToolbarPriceChange = (
     value: string,
   ) => {
     switch (value) {
       case "Under ₹10,000":
-        handlePriceChange(0, 10000);
+        handlePriceChange(
+          0,
+          10000,
+        );
         break;
 
       case "₹10,000 – ₹20,000":
@@ -508,9 +561,27 @@ const Products = () => {
 
   /*
    * -------------------------------------------------------
-   * Render
+   * Page title
    * -------------------------------------------------------
    */
+
+  const getRoomDisplayName = () => {
+    if (!roomFilter) {
+      return null;
+    }
+
+    return roomFilter
+      .split("-")
+      .map(
+        (word) =>
+          word.charAt(0).toUpperCase() +
+          word.slice(1),
+      )
+      .join(" ");
+  };
+
+  const roomDisplayName =
+    getRoomDisplayName();
 
   return (
     <main
@@ -700,8 +771,15 @@ const Products = () => {
                     xl:text-[64px]
                   "
                 >
-                  {filters.category ===
-                  "All Categories" ? (
+                  {roomDisplayName ? (
+                    <>
+                      {roomDisplayName}
+                      <span className="text-[#9A7138]">
+                        .
+                      </span>
+                    </>
+                  ) : filters.category ===
+                    "All Categories" ? (
                     <>
                       All{" "}
                       <span className="text-[#9A7138]">
@@ -728,11 +806,9 @@ const Products = () => {
                     sm:text-[13px]
                   "
                 >
-                  Discover premium furniture and
-                  thoughtful home accents, carefully
-                  selected to bring warmth, character
-                  and timeless beauty into everyday
-                  living.
+                  {roomDisplayName
+                    ? `Explore thoughtfully selected furniture and decor for your ${roomDisplayName.toLowerCase()}, designed to bring warmth, comfort and timeless character into your home.`
+                    : "Discover premium furniture and thoughtful home accents, carefully selected to bring warmth, character and timeless beauty into everyday living."}
                 </p>
 
                 <div
@@ -1012,9 +1088,11 @@ const Products = () => {
                     lg:text-[40px]
                   "
                 >
-                  {filters.category ===
-                  "All Categories"
-                    ? "All Products"
+                  {roomDisplayName ||
+                  filters.category ===
+                    "All Categories"
+                    ? roomDisplayName ||
+                      "All Products"
                     : filters.category}
                 </h2>
 
@@ -1040,15 +1118,12 @@ const Products = () => {
                 </p>
               </div>
 
-              {filters.category !==
-                "All Categories" && (
+              {(filters.category !==
+                "All Categories" ||
+                roomFilter) && (
                 <button
                   type="button"
-                  onClick={() =>
-                    handleCategoryChange(
-                      "All Categories",
-                    )
-                  }
+                  onClick={clearFilters}
                   className="
                     hidden
                     items-center
@@ -1061,7 +1136,7 @@ const Products = () => {
                     sm:flex
                   "
                 >
-                  Clear category
+                  Clear filters
 
                   <ArrowRight
                     size={13}

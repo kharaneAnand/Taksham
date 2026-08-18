@@ -5,6 +5,7 @@ import hero4 from "../../assets/images/hero/hero-04.png";
 import hero5 from "../../assets/images/hero/hero-05.png";
 
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import {
   ArrowLeft,
@@ -20,7 +21,7 @@ const heroImages = [
 ];
 
 const Hero = () => {
-
+  const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
 
   useEffect(() => {
@@ -48,7 +49,7 @@ const Hero = () => {
 
   return (
     <>
-      <section className="hidden lg:block relative h-140 overflow-hidden  bg-[#FAF8F5]">
+      <section className="hidden lg:block relative h-150 overflow-hidden  bg-[#FAF8F5]">
 
         {/* Background Image */}
 
@@ -131,7 +132,11 @@ const Hero = () => {
                 animate-[fadeUp_1.1s_ease]
               "
             >
-                      <button
+              <button
+                type="button"
+                onClick={() =>
+                  navigate("/products")
+                }
                 className="
                   rounded-xl
                   bg-[#111]
@@ -150,25 +155,29 @@ const Hero = () => {
                 Shop Products
               </button>
 
-              <button
-                className="
-                  rounded-xl
-                  border
-                  border-[#D7CEC2]
-                  bg-white/90
-                  px-8
-                  py-4
-                  font-semibold
-                  backdrop-blur
-                  transition-all
-                  duration-300
-                  hover:-translate-y-1
-                  hover:bg-white
-                  hover:shadow-lg
-                "
-              >
-                Explore Rooms
-              </button>
+            <button
+              type="button"
+              onClick={() =>
+                navigate("/rooms")
+              }
+              className="
+                rounded-xl
+                border
+                border-[#D7CEC2]
+                bg-white/90
+                px-8
+                py-4
+                font-semibold
+                backdrop-blur
+                transition-all
+                duration-300
+                hover:-translate-y-1
+                hover:bg-white
+                hover:shadow-lg
+              "
+            >
+              Explore Rooms
+            </button>
 
             </div>
 
@@ -514,6 +523,10 @@ const Hero = () => {
         {/* Primary */}
 
         <button
+          type="button"
+          onClick={() =>
+            navigate("/products")
+          }
           className="
             group
             flex
@@ -550,37 +563,40 @@ const Hero = () => {
             "
           />
         </button>
-
       
 
         <button
-          className="
-            flex
-            h-8
-            items-center
-            justify-center
-            rounded-[7px]
-            border
-            border-[#CDBB9F]
-            bg-[#FBF6EE]/90
-            px-3
-            text-[7px]
-            font-semibold
-            text-[#634B30]
-            shadow-[0_5px_14px_rgba(80,60,40,0.06)]
-            backdrop-blur-md
-            transition-all
-            duration-300
-            hover:border-[#B89460]
-            hover:bg-[#F3E7D6]
-            active:scale-95
-            sm:h-9
-            sm:px-3.5
-            sm:text-[8px]
-          "
-        >
-          Explore Rooms
-        </button>
+        type="button"
+        onClick={() =>
+          navigate("/rooms")
+        }
+        className="
+          flex
+          h-8
+          items-center
+          justify-center
+          rounded-[7px]
+          border
+          border-[#CDBB9F]
+          bg-[#FBF6EE]/90
+          px-3
+          text-[7px]
+          font-semibold
+          text-[#634B30]
+          shadow-[0_5px_14px_rgba(80,60,40,0.06)]
+          backdrop-blur-md
+          transition-all
+          duration-300
+          hover:border-[#B89460]
+          hover:bg-[#F3E7D6]
+          active:scale-95
+          sm:h-9
+          sm:px-3.5
+          sm:text-[8px]
+        "
+      >
+        Explore Rooms
+      </button>
 
       </div>
 

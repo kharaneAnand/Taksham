@@ -11,17 +11,35 @@ import {
   Package,
   Settings,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
+
 import Navigation from "./Navigation";
-import { useNavigate } from "react-router-dom";
-import  { useCart } from "../../context/CartContext";
-import { useWishlist } from "../../context/WishlistContext";
+
+import {
+  useNavigate,
+} from "react-router-dom";
+
+import { useCart } from "../../context/CartContext";
+
+import {
+  useWishlist,
+} from "../../context/WishlistContext";
 
 interface AuthUser {
   id?: string | number;
+
   firstName?: string;
+
   lastName?: string;
+
   name?: string;
+
   email?: string;
 
   avatar?: {
@@ -32,96 +50,172 @@ interface AuthUser {
   profileImage?: string;
 }
 
-const API_BASE_URL = "http://localhost:5001";
+interface MobileNavigationLink {
+  label: string;
+  path: string;
+}
+
+const API_BASE_URL =
+  "http://localhost:5001";
+
+const mobileNavigationLinks: MobileNavigationLink[] = [
+  {
+    label: "Shop by Room",
+    path: "/rooms",
+  },
+  {
+    label: "Shop by Product",
+    path: "/products",
+  },
+  {
+    label: "Collections",
+    path: "/collections",
+  },
+  {
+    label: "Ideas & Inspiration",
+    path: "/ideas",
+  },
+  {
+    label: "Interior Services",
+    path: "/interior-services",
+  },
+  {
+    label: "Projects",
+    path: "/projects",
+  },
+  {
+    label: "Offers",
+    path: "/offers",
+  },
+];
 
 const Navbar = () => {
   const navigate = useNavigate();
- const { totalItems } = useCart();
 
-const {totalItems: wishlistCount,} = useWishlist();
+  const { totalItems } =
+    useCart();
 
-  const [mobileMenuOpen, setMobileMenuOpen] =
-    useState(false);
+  const {
+    totalItems: wishlistCount,
+  } =
+    useWishlist();
 
-  const [accountOpen, setAccountOpen] =
-    useState(false);
+  const [
+    mobileMenuOpen,
+    setMobileMenuOpen,
+  ] = useState(false);
 
-  const [user, setUser] =
-    useState<AuthUser | null>(null);
+  const [
+    accountOpen,
+    setAccountOpen,
+  ] = useState(false);
 
-  const [authLoading, setAuthLoading] =
-    useState(true);
+  const [
+    searchQuery,
+    setSearchQuery,
+  ] = useState("");
 
-  const accountRef = useRef<HTMLDivElement | null>(null);
+  const [
+    mobileSearchQuery,
+    setMobileSearchQuery,
+  ] = useState("");
 
+  const [
+    user,
+    setUser,
+  ] = useState<AuthUser | null>(null);
 
+  const [
+    authLoading,
+    setAuthLoading,
+  ] = useState(true);
+
+  const accountRef =
+    useRef<HTMLDivElement | null>(
+      null,
+    );
+
+  /*
+   * ========================================
+   * Fetch Current User
+   * ========================================
+   */
 
   useEffect(() => {
-    const getCurrentUser = async () => {
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/v1/auth/me`,
-          {
-            method: "GET",
-            credentials: "include",
-            headers: {
-              Accept: "application/json",
-            },
-          },
-        );
+    const getCurrentUser =
+      async () => {
+        try {
+          const response =
+            await fetch(
+              `${API_BASE_URL}/api/v1/auth/me`,
+              {
+                method: "GET",
+                credentials: "include",
+                headers: {
+                  Accept:
+                    "application/json",
+                },
+              },
+            );
 
-        if (!response.ok) {
+          if (!response.ok) {
+            setUser(null);
+            return;
+          }
+
+          const data =
+            await response.json();
+
+          const currentUser =
+            data?.user ??
+            data?.data?.user ??
+            data?.data ??
+            data;
+
+          if (
+            currentUser &&
+            typeof currentUser ===
+              "object"
+          ) {
+            setUser(
+              currentUser,
+            );
+          } else {
+            setUser(null);
+          }
+        } catch (error) {
+          console.error(
+            "Failed to fetch authenticated user:",
+            error,
+          );
+
           setUser(null);
-          return;
+        } finally {
+          setAuthLoading(false);
         }
-
-        const data = await response.json();
-       
-
-        const currentUser =
-          data?.user ??
-          data?.data?.user ??
-          data?.data ??
-          data;
-
-        if (
-          currentUser &&
-          typeof currentUser === "object"
-        ) {
-          setUser(currentUser);
-        } else {
-          setUser(null);
-        }
-      } catch (error) {
-        console.error(
-          "Failed to fetch authenticated user:",
-          error,
-        );
-
-        setUser(null);
-      } finally {
-        setAuthLoading(false);
-      }
-    };
+      };
 
     getCurrentUser();
   }, []);
 
-
+  /*
+   * ========================================
+   * Close Account Dropdown
+   * ========================================
+   */
 
   useEffect(() => {
-    const handleClickOutside = (
-      event: MouseEvent,
-    ) => {
-      if (
-        accountRef.current &&
-        !accountRef.current.contains(
-          event.target as Node,
-        )
-      ) {
-        setAccountOpen(false);
-      }
-    };
+    const handleClickOutside =
+      (event: MouseEvent) => {
+        if (
+          accountRef.current &&
+          !accountRef.current.contains(
+            event.target as Node,
+          )
+        ) {
+          setAccountOpen(false);
+        }
+      };
 
     document.addEventListener(
       "mousedown",
@@ -136,12 +230,18 @@ const {totalItems: wishlistCount,} = useWishlist();
     };
   }, []);
 
-
+  /*
+   * ========================================
+   * User Display Data
+   * ========================================
+   */
 
   const displayName =
     user?.firstName ||
     user?.name ||
-    user?.email?.split("@")[0] ||
+    user?.email?.split(
+      "@",
+    )[0] ||
     "Account";
 
   const fullName = [
@@ -163,37 +263,112 @@ const {totalItems: wishlistCount,} = useWishlist();
     user?.profileImage ||
     "";
 
-  const handleLogout = async () => {
-    try {
-      await fetch(
-        `${API_BASE_URL}/api/v1/auth/logout`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            Accept: "application/json",
-          },
-        },
-      );
-    } catch (error) {
-      console.error(
-        "Logout request failed:",
-        error,
-      );
-    } finally {
-      setUser(null);
-      setAccountOpen(false);
-      setMobileMenuOpen(false);
+  /*
+   * ========================================
+   * Search
+   * ========================================
+   */
 
-      window.location.href = "/";
+  const handleSearch = (
+    event: FormEvent,
+  ) => {
+    event.preventDefault();
+
+    const query =
+      searchQuery.trim();
+
+    if (!query) {
+      navigate("/products");
+      return;
     }
+
+    navigate(
+      `/products?search=${encodeURIComponent(
+        query,
+      )}`,
+    );
   };
 
+  const handleMobileSearch = (
+    event: FormEvent,
+  ) => {
+    event.preventDefault();
 
+    const query =
+      mobileSearchQuery.trim();
+
+    setMobileMenuOpen(false);
+
+    if (!query) {
+      navigate("/products");
+      return;
+    }
+
+    navigate(
+      `/products?search=${encodeURIComponent(
+        query,
+      )}`,
+    );
+  };
+
+  /*
+   * ========================================
+   * Logout
+   * ========================================
+   */
+
+  const handleLogout =
+    async () => {
+      try {
+        await fetch(
+          `${API_BASE_URL}/api/v1/auth/logout`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              Accept:
+                "application/json",
+            },
+          },
+        );
+      } catch (error) {
+        console.error(
+          "Logout request failed:",
+          error,
+        );
+      } finally {
+        setUser(null);
+        setAccountOpen(false);
+        setMobileMenuOpen(false);
+
+        navigate("/");
+      }
+    };
+
+  /*
+   * ========================================
+   * Navigation Helpers
+   * ========================================
+   */
+
+  const navigateAndClose =
+    (path: string) => {
+      setMobileMenuOpen(false);
+      setAccountOpen(false);
+      navigate(path);
+    };
+
+  /*
+   * ========================================
+   * Render
+   * ========================================
+   */
 
   return (
     <>
-
+      {/* =====================================================
+          DESKTOP NAVBAR
+      ===================================================== */}
 
       <header
         className="
@@ -217,13 +392,21 @@ const {totalItems: wishlistCount,} = useWishlist();
             2xl:px-10
           "
         >
+          {/* =================================================
+              LOGO
+          ================================================= */}
 
-
-          <div
+          <button
+            type="button"
+            onClick={() =>
+              navigate("/")
+            }
+            aria-label="Go to homepage"
             className="
               shrink-0
               cursor-pointer
               select-none
+              text-left
             "
           >
             <h1
@@ -251,8 +434,11 @@ const {totalItems: wishlistCount,} = useWishlist();
             >
               TAKSHAM
             </p>
-          </div>
+          </button>
 
+          {/* =================================================
+              ACTION AREA
+          ================================================= */}
 
           <div
             className="
@@ -265,9 +451,15 @@ const {totalItems: wishlistCount,} = useWishlist();
               xl:gap-4
             "
           >
-
+            {/* =================================================
+                CATEGORIES
+            ================================================= */}
 
             <button
+              type="button"
+              onClick={() =>
+                navigate("/products")
+              }
               className="
                 group
                 flex
@@ -310,8 +502,19 @@ const {totalItems: wishlistCount,} = useWishlist();
               />
             </button>
 
+            {/* =================================================
+                DESKTOP SEARCH
+            ================================================= */}
 
-            <div className="min-w-0 flex-1">
+            <form
+              onSubmit={
+                handleSearch
+              }
+              className="
+                min-w-0
+                flex-1
+              "
+            >
               <div
                 className="
                   group
@@ -343,6 +546,14 @@ const {totalItems: wishlistCount,} = useWishlist();
 
                 <input
                   type="text"
+                  value={searchQuery}
+                  onChange={(
+                    event,
+                  ) =>
+                    setSearchQuery(
+                      event.target.value,
+                    )
+                  }
                   placeholder="Search for products, rooms and more..."
                   className="
                     ml-3
@@ -356,10 +567,19 @@ const {totalItems: wishlistCount,} = useWishlist();
                   "
                 />
               </div>
-            </div>
+            </form>
 
+            {/* =================================================
+                BOOK CONSULTATION
+            ================================================= */}
 
             <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  "/consultation",
+                )
+              }
               className="
                 flex
                 h-11
@@ -391,12 +611,17 @@ const {totalItems: wishlistCount,} = useWishlist();
               Book Consultation
             </button>
 
+            {/* =================================================
+                WISHLIST
+            ================================================= */}
 
             <button
               type="button"
               aria-label="Wishlist"
               onClick={() =>
-                navigate("/wishlist")
+                navigate(
+                  "/wishlist",
+                )
               }
               className="
                 group
@@ -452,11 +677,16 @@ const {totalItems: wishlistCount,} = useWishlist();
               )}
             </button>
 
+            {/* =================================================
+                CART
+            ================================================= */}
 
             <button
               type="button"
               aria-label="Shopping Cart"
-              onClick={() => navigate("/cart")}
+              onClick={() =>
+                navigate("/cart")
+              }
               className="
                 group
                 relative
@@ -509,6 +739,9 @@ const {totalItems: wishlistCount,} = useWishlist();
               </span>
             </button>
 
+            {/* =================================================
+                ACCOUNT
+            ================================================= */}
 
             <div
               ref={accountRef}
@@ -518,7 +751,6 @@ const {totalItems: wishlistCount,} = useWishlist();
                 shrink-0
               "
             >
-
               {authLoading ? (
                 <div
                   className="
@@ -546,12 +778,13 @@ const {totalItems: wishlistCount,} = useWishlist();
                   />
                 </div>
               ) : user ? (
-
                 <button
                   type="button"
                   onClick={() =>
                     setAccountOpen(
-                      (previous) =>
+                      (
+                        previous,
+                      ) =>
                         !previous,
                     )
                   }
@@ -576,9 +809,6 @@ const {totalItems: wishlistCount,} = useWishlist();
                     active:scale-[0.98]
                   "
                 >
-
-                  {/* Avatar */}
-
                   <div
                     className="
                       flex
@@ -654,11 +884,14 @@ const {totalItems: wishlistCount,} = useWishlist();
                     `}
                   />
                 </button>
-
               ) : (
-
-                <a
-                  href="/login"
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      "/login",
+                    )
+                  }
                   className="
                     flex
                     h-11
@@ -689,380 +922,406 @@ const {totalItems: wishlistCount,} = useWishlist();
                   />
 
                   Sign In
-                </a>
+                </button>
               )}
 
+              {/* =================================================
+                  ACCOUNT DROPDOWN
+              ================================================= */}
 
-              {user && accountOpen && (
-                <div
-                  className="
-                    absolute
-                    right-0
-                    top-[calc(100%+12px)]
-                    z-100
-                    w-73
-                    overflow-hidden
-                    rounded-[20px]
-                    border
-                    border-[#E4D9CB]
-                    bg-[#FEFCF9]
-                    shadow-[0_22px_60px_rgba(58,43,28,0.14)]
-                    animate-[fadeUp_.2s_ease-out]
-                  "
-                >
-
-                  {/* User header */}
-
+              {user &&
+                accountOpen && (
                   <div
                     className="
-                      border-b
-                      border-[#ECE4DA]
-                      bg-[#F8F3EB]
-                      p-4
+                      absolute
+                      right-0
+                      top-[calc(100%+12px)]
+                      z-100
+                      w-73
+                      overflow-hidden
+                      rounded-[20px]
+                      border
+                      border-[#E4D9CB]
+                      bg-[#FEFCF9]
+                      shadow-[0_22px_60px_rgba(58,43,28,0.14)]
+                      animate-[fadeUp_.2s_ease-out]
                     "
                   >
-                    <div className="flex items-center gap-3">
+                    {/* User header */}
 
-                      <div
+                    <div
+                      className="
+                        border-b
+                        border-[#ECE4DA]
+                        bg-[#F8F3EB]
+                        p-4
+                      "
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="
+                            flex
+                            h-11
+                            w-11
+                            shrink-0
+                            items-center
+                            justify-center
+                            overflow-hidden
+                            rounded-full
+                            border-2
+                            border-white
+                            bg-[#D8C1A0]
+                            text-[13px]
+                            font-semibold
+                            text-[#5A452E]
+                            shadow-sm
+                          "
+                        >
+                          {avatar ? (
+                            <img
+                              src={avatar}
+                              alt={displayName}
+                              className="
+                                h-full
+                                w-full
+                                object-cover
+                              "
+                            />
+                          ) : (
+                            initials
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <p
+                            className="
+                              truncate
+                              font-serif
+                              text-[18px]
+                              font-medium
+                              tracking-[-0.02em]
+                              text-[#302A24]
+                            "
+                          >
+                            {fullName ||
+                              displayName}
+                          </p>
+
+                          <p
+                            className="
+                              mt-0.5
+                              truncate
+                              text-[9px]
+                              text-[#91877C]
+                            "
+                          >
+                            {user.email}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Account links */}
+
+                    <div className="p-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigateAndClose(
+                            "/account",
+                          )
+                        }
                         className="
+                          group
                           flex
-                          h-11
-                          w-11
-                          shrink-0
+                          w-full
                           items-center
-                          justify-center
-                          overflow-hidden
-                          rounded-full
-                          border-2
-                          border-white
-                          bg-[#D8C1A0]
-                          text-[13px]
-                          font-semibold
-                          text-[#5A452E]
-                          shadow-sm
+                          gap-3
+                          rounded-xl
+                          px-3
+                          py-3
+                          text-left
+                          transition-all
+                          duration-200
+                          hover:bg-[#F7F1E8]
                         "
                       >
-                        {avatar ? (
-                          <img
-                            src={avatar}
-                            alt={displayName}
-                            className="
-                              h-full
-                              w-full
-                              object-cover
-                            "
+                        <span
+                          className="
+                            flex
+                            h-8
+                            w-8
+                            items-center
+                            justify-center
+                            rounded-full
+                            bg-[#EFE3D3]
+                            text-[#8B693F]
+                          "
+                        >
+                          <User
+                            size={14}
+                            strokeWidth={1.5}
                           />
-                        ) : (
-                          initials
-                        )}
-                      </div>
+                        </span>
 
-                      <div className="min-w-0">
+                        <span className="flex-1">
+                          <span
+                            className="
+                              block
+                              text-[11px]
+                              font-semibold
+                              text-[#40382F]
+                            "
+                          >
+                            My Account
+                          </span>
 
-                        <p
+                          <span
+                            className="
+                              mt-0.5
+                              block
+                              text-[8px]
+                              text-[#9A9187]
+                            "
+                          >
+                            Profile &
+                            preferences
+                          </span>
+                        </span>
+
+                        <ArrowRight
+                          size={13}
                           className="
-                            truncate
-                            font-serif
-                            text-[18px]
-                            font-medium
-                            tracking-[-0.02em]
-                            text-[#302A24]
+                            text-[#B09C84]
+                            transition-transform
+                            duration-200
+                            group-hover:translate-x-0.5
+                          "
+                        />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigateAndClose(
+                            "/orders",
+                          )
+                        }
+                        className="
+                          group
+                          flex
+                          w-full
+                          items-center
+                          gap-3
+                          rounded-xl
+                          px-3
+                          py-3
+                          text-left
+                          transition-all
+                          duration-200
+                          hover:bg-[#F7F1E8]
+                        "
+                      >
+                        <span
+                          className="
+                            flex
+                            h-8
+                            w-8
+                            items-center
+                            justify-center
+                            rounded-full
+                            bg-[#EFE3D3]
+                            text-[#8B693F]
                           "
                         >
-                          {fullName ||
-                            displayName}
-                        </p>
+                          <Package
+                            size={14}
+                            strokeWidth={1.5}
+                          />
+                        </span>
 
-                        <p
+                        <span className="flex-1">
+                          <span
+                            className="
+                              block
+                              text-[11px]
+                              font-semibold
+                              text-[#40382F]
+                            "
+                          >
+                            My Orders
+                          </span>
+
+                          <span
+                            className="
+                              mt-0.5
+                              block
+                              text-[8px]
+                              text-[#9A9187]
+                            "
+                          >
+                            Track your
+                            purchases
+                          </span>
+                        </span>
+
+                        <ArrowRight
+                          size={13}
                           className="
-                            mt-0.5
-                            truncate
-                            text-[9px]
-                            text-[#91877C]
+                            text-[#B09C84]
+                            transition-transform
+                            duration-200
+                            group-hover:translate-x-0.5
+                          "
+                        />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigateAndClose(
+                            "/wishlist",
+                          )
+                        }
+                        className="
+                          group
+                          flex
+                          w-full
+                          items-center
+                          gap-3
+                          rounded-xl
+                          px-3
+                          py-3
+                          text-left
+                          transition-all
+                          duration-200
+                          hover:bg-[#F7F1E8]
+                        "
+                      >
+                        <span
+                          className="
+                            flex
+                            h-8
+                            w-8
+                            items-center
+                            justify-center
+                            rounded-full
+                            bg-[#EFE3D3]
+                            text-[#8B693F]
                           "
                         >
-                          {user.email}
-                        </p>
+                          <Heart
+                            size={14}
+                            strokeWidth={1.5}
+                          />
+                        </span>
 
-                      </div>
+                        <span className="flex-1">
+                          <span
+                            className="
+                              block
+                              text-[11px]
+                              font-semibold
+                              text-[#40382F]
+                            "
+                          >
+                            Wishlist
+                          </span>
 
+                          <span
+                            className="
+                              mt-0.5
+                              block
+                              text-[8px]
+                              text-[#9A9187]
+                            "
+                          >
+                            Your saved
+                            pieces
+                          </span>
+                        </span>
+
+                        <ArrowRight
+                          size={13}
+                          className="
+                            text-[#B09C84]
+                            transition-transform
+                            duration-200
+                            group-hover:translate-x-0.5
+                          "
+                        />
+                      </button>
+                    </div>
+
+                    {/* Logout */}
+
+                    <div
+                      className="
+                        border-t
+                        border-[#ECE4DA]
+                        p-2
+                      "
+                    >
+                      <button
+                        type="button"
+                        onClick={
+                          handleLogout
+                        }
+                        className="
+                          flex
+                          w-full
+                          items-center
+                          gap-3
+                          rounded-xl
+                          px-3
+                          py-3
+                          text-left
+                          transition-all
+                          duration-200
+                          hover:bg-[#F8EDEA]
+                        "
+                      >
+                        <span
+                          className="
+                            flex
+                            h-8
+                            w-8
+                            items-center
+                            justify-center
+                            rounded-full
+                            bg-[#F2E0DB]
+                            text-[#9A6255]
+                          "
+                        >
+                          <LogOut
+                            size={14}
+                            strokeWidth={1.5}
+                          />
+                        </span>
+
+                        <span
+                          className="
+                            text-[11px]
+                            font-semibold
+                            text-[#8C5549]
+                          "
+                        >
+                          Sign Out
+                        </span>
+                      </button>
                     </div>
                   </div>
-
-                  {/* Account links */}
-
-                  <div className="p-2">
-
-                    <a
-                      href="/account"
-                      className="
-                        group
-                        flex
-                        items-center
-                        gap-3
-                        rounded-xl
-                        px-3
-                        py-3
-                        transition-all
-                        duration-200
-                        hover:bg-[#F7F1E8]
-                      "
-                    >
-                      <span
-                        className="
-                          flex
-                          h-8
-                          w-8
-                          items-center
-                          justify-center
-                          rounded-full
-                          bg-[#EFE3D3]
-                          text-[#8B693F]
-                        "
-                      >
-                        <User
-                          size={14}
-                          strokeWidth={1.5}
-                        />
-                      </span>
-
-                      <span className="flex-1">
-                        <span
-                          className="
-                            block
-                            text-[11px]
-                            font-semibold
-                            text-[#40382F]
-                          "
-                        >
-                          My Account
-                        </span>
-
-                        <span
-                          className="
-                            mt-0.5
-                            block
-                            text-[8px]
-                            text-[#9A9187]
-                          "
-                        >
-                          Profile & preferences
-                        </span>
-                      </span>
-
-                      <ArrowRight
-                        size={13}
-                        className="
-                          text-[#B09C84]
-                          transition-transform
-                          duration-200
-                          group-hover:translate-x-0.5
-                        "
-                      />
-                    </a>
-
-                    <a
-                      href="/orders"
-                      className="
-                        group
-                        flex
-                        items-center
-                        gap-3
-                        rounded-xl
-                        px-3
-                        py-3
-                        transition-all
-                        duration-200
-                        hover:bg-[#F7F1E8]
-                      "
-                    >
-                      <span
-                        className="
-                          flex
-                          h-8
-                          w-8
-                          items-center
-                          justify-center
-                          rounded-full
-                          bg-[#EFE3D3]
-                          text-[#8B693F]
-                        "
-                      >
-                        <Package
-                          size={14}
-                          strokeWidth={1.5}
-                        />
-                      </span>
-
-                      <span className="flex-1">
-                        <span
-                          className="
-                            block
-                            text-[11px]
-                            font-semibold
-                            text-[#40382F]
-                          "
-                        >
-                          My Orders
-                        </span>
-
-                        <span
-                          className="
-                            mt-0.5
-                            block
-                            text-[8px]
-                            text-[#9A9187]
-                          "
-                        >
-                          Track your purchases
-                        </span>
-                      </span>
-
-                      <ArrowRight
-                        size={13}
-                        className="
-                          text-[#B09C84]
-                          transition-transform
-                          duration-200
-                          group-hover:translate-x-0.5
-                        "
-                      />
-                    </a>
-
-                    <a
-                      href="/wishlist"
-                      className="
-                        group
-                        flex
-                        items-center
-                        gap-3
-                        rounded-xl
-                        px-3
-                        py-3
-                        transition-all
-                        duration-200
-                        hover:bg-[#F7F1E8]
-                      "
-                    >
-                      <span
-                        className="
-                          flex
-                          h-8
-                          w-8
-                          items-center
-                          justify-center
-                          rounded-full
-                          bg-[#EFE3D3]
-                          text-[#8B693F]
-                        "
-                      >
-                        <Heart
-                          size={14}
-                          strokeWidth={1.5}
-                        />
-                      </span>
-
-                      <span className="flex-1">
-                        <span
-                          className="
-                            block
-                            text-[11px]
-                            font-semibold
-                            text-[#40382F]
-                          "
-                        >
-                          Wishlist
-                        </span>
-
-                        <span
-                          className="
-                            mt-0.5
-                            block
-                            text-[8px]
-                            text-[#9A9187]
-                          "
-                        >
-                          Your saved pieces
-                        </span>
-                      </span>
-
-                      <ArrowRight
-                        size={13}
-                        className="
-                          text-[#B09C84]
-                          transition-transform
-                          duration-200
-                          group-hover:translate-x-0.5
-                        "
-                      />
-                    </a>
-
-                  </div>
-
-                  {/* Logout */}
-
-                  <div
-                    className="
-                      border-t
-                      border-[#ECE4DA]
-                      p-2
-                    "
-                  >
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="
-                        flex
-                        w-full
-                        items-center
-                        gap-3
-                        rounded-xl
-                        px-3
-                        py-3
-                        text-left
-                        transition-all
-                        duration-200
-                        hover:bg-[#F8EDEA]
-                      "
-                    >
-                      <span
-                        className="
-                          flex
-                          h-8
-                          w-8
-                          items-center
-                          justify-center
-                          rounded-full
-                          bg-[#F2E0DB]
-                          text-[#9A6255]
-                        "
-                      >
-                        <LogOut
-                          size={14}
-                          strokeWidth={1.5}
-                        />
-                      </span>
-
-                      <span
-                        className="
-                          text-[11px]
-                          font-semibold
-                          text-[#8C5549]
-                        "
-                      >
-                        Sign Out
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              )}
+                )}
             </div>
           </div>
         </div>
 
+        {/* =====================================================
+            DESKTOP NAVIGATION
+        ===================================================== */}
+
         <Navigation />
       </header>
-
 
       {/* =====================================================
           MOBILE NAVBAR
@@ -1074,9 +1333,6 @@ const {totalItems: wishlistCount,} = useWishlist();
           bg-[#FAF8F5]
         "
       >
-
-
-
         <div
           className="
             relative
@@ -1087,10 +1343,10 @@ const {totalItems: wishlistCount,} = useWishlist();
             px-4
           "
         >
-
           {/* Menu */}
 
           <button
+            type="button"
             onClick={() =>
               setMobileMenuOpen(
                 (previous) =>
@@ -1125,9 +1381,13 @@ const {totalItems: wishlistCount,} = useWishlist();
             )}
           </button>
 
+          {/* Mobile Logo */}
 
-
-          <div
+          <button
+            type="button"
+            onClick={() =>
+              navigate("/")
+            }
             className="
               absolute
               left-1/2
@@ -1135,6 +1395,7 @@ const {totalItems: wishlistCount,} = useWishlist();
               text-center
               select-none
             "
+            aria-label="Go to homepage"
           >
             <h1
               className="
@@ -1160,19 +1421,20 @@ const {totalItems: wishlistCount,} = useWishlist();
             >
               TAKSHAM
             </p>
-          </div>
+          </button>
 
-
+          {/* Right actions */}
 
           <div className="flex items-center gap-0.5">
-
             {/* Wishlist */}
 
             <button
               type="button"
               aria-label="Wishlist"
               onClick={() =>
-                navigate("/wishlist")
+                navigate(
+                  "/wishlist",
+                )
               }
               className="
                 relative
@@ -1221,28 +1483,29 @@ const {totalItems: wishlistCount,} = useWishlist();
               )}
             </button>
 
-
             {/* Cart */}
 
             <button
-                type="button"
-                aria-label="Shopping Cart"
-                onClick={() => navigate("/cart")}
-                className="
-                  relative
-                  flex
-                  h-10
-                  w-10
-                  items-center
-                  justify-center
-                  rounded-xl
-                  text-[#39342E]
-                  transition-all
-                  duration-200
-                  hover:bg-[#F0EAE1]
-                  hover:text-[#9A7138]
-                  active:scale-95
-                "
+              type="button"
+              aria-label="Shopping Cart"
+              onClick={() =>
+                navigate("/cart")
+              }
+              className="
+                relative
+                flex
+                h-10
+                w-10
+                items-center
+                justify-center
+                rounded-xl
+                text-[#39342E]
+                transition-all
+                duration-200
+                hover:bg-[#F0EAE1]
+                hover:text-[#9A7138]
+                active:scale-95
+              "
             >
               <ShoppingCart
                 size={20}
@@ -1273,9 +1536,10 @@ const {totalItems: wishlistCount,} = useWishlist();
               </span>
             </button>
 
+            {/* Account */}
 
-            {!authLoading && (
-              user ? (
+            {!authLoading &&
+              (user ? (
                 <button
                   type="button"
                   onClick={() =>
@@ -1318,8 +1582,13 @@ const {totalItems: wishlistCount,} = useWishlist();
                   )}
                 </button>
               ) : (
-                <a
-                  href="/login"
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      "/login",
+                    )
+                  }
                   aria-label="Sign in"
                   className="
                     ml-1
@@ -1339,18 +1608,21 @@ const {totalItems: wishlistCount,} = useWishlist();
                     size={18}
                     strokeWidth={1.5}
                   />
-                </a>
-              )
-            )}
-
+                </button>
+              ))}
           </div>
         </div>
 
+        {/* =====================================================
+            MOBILE SEARCH
+        ===================================================== */}
 
-
-
-        <div className="px-4 pb-3">
-
+        <form
+          onSubmit={
+            handleMobileSearch
+          }
+          className="px-4 pb-3"
+        >
           <div
             className="
               group
@@ -1381,6 +1653,16 @@ const {totalItems: wishlistCount,} = useWishlist();
 
             <input
               type="text"
+              value={
+                mobileSearchQuery
+              }
+              onChange={(
+                event,
+              ) =>
+                setMobileSearchQuery(
+                  event.target.value,
+                )
+              }
               placeholder="Search for products, rooms and more..."
               className="
                 ml-2.5
@@ -1393,10 +1675,11 @@ const {totalItems: wishlistCount,} = useWishlist();
               "
             />
           </div>
-        </div>
+        </form>
 
-
-
+        {/* =====================================================
+            MOBILE MENU
+        ===================================================== */}
 
         {mobileMenuOpen && (
           <div
@@ -1408,8 +1691,9 @@ const {totalItems: wishlistCount,} = useWishlist();
               pb-6
             "
           >
-
-
+            {/* =================================================
+                USER CARD
+            ================================================= */}
 
             {user && (
               <div
@@ -1423,7 +1707,6 @@ const {totalItems: wishlistCount,} = useWishlist();
                 "
               >
                 <div className="flex items-center gap-3">
-
                   <div
                     className="
                       flex
@@ -1458,7 +1741,6 @@ const {totalItems: wishlistCount,} = useWishlist();
                   </div>
 
                   <div className="min-w-0">
-
                     <p
                       className="
                         font-serif
@@ -1482,9 +1764,7 @@ const {totalItems: wishlistCount,} = useWishlist();
                     >
                       {user.email}
                     </p>
-
                   </div>
-
                 </div>
 
                 <div
@@ -1495,8 +1775,13 @@ const {totalItems: wishlistCount,} = useWishlist();
                     gap-2
                   "
                 >
-                  <a
-                    href="/account"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigateAndClose(
+                        "/account",
+                      )
+                    }
                     className="
                       flex
                       flex-col
@@ -1515,10 +1800,15 @@ const {totalItems: wishlistCount,} = useWishlist();
                       strokeWidth={1.5}
                     />
                     Account
-                  </a>
+                  </button>
 
-                  <a
-                    href="/orders"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigateAndClose(
+                        "/orders",
+                      )
+                    }
                     className="
                       flex
                       flex-col
@@ -1537,10 +1827,15 @@ const {totalItems: wishlistCount,} = useWishlist();
                       strokeWidth={1.5}
                     />
                     Orders
-                  </a>
+                  </button>
 
-                  <a
-                    href="/wishlist"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigateAndClose(
+                        "/wishlist",
+                      )
+                    }
                     className="
                       flex
                       flex-col
@@ -1559,61 +1854,68 @@ const {totalItems: wishlistCount,} = useWishlist();
                       strokeWidth={1.5}
                     />
                     Wishlist
-                  </a>
+                  </button>
                 </div>
               </div>
             )}
 
-
             {/* =================================================
-                NAVIGATION LINKS
+                MOBILE NAVIGATION LINKS
             ================================================= */}
 
-            {[
-              "Shop by Room",
-              "Shop by Product",
-              "Collections",
-              "Ideas & Inspiration",
-              "Interior Services",
-              "Projects",
-              "Offers",
-            ].map((item) => (
-              <button
-                key={item}
-                onClick={() =>
-                  setMobileMenuOpen(false)
-                }
-                className="
-                  flex
-                  w-full
-                  items-center
-                  justify-between
-                  border-b
-                  border-[#EAE4DC]
-                  py-4
-                  text-left
-                  text-[14px]
-                  font-medium
-                  text-[#38342F]
-                  transition-colors
-                  hover:text-[#A4773E]
-                "
-              >
-                {item}
-
-                <ArrowRight
-                  size={15}
-                  strokeWidth={1.5}
+            {mobileNavigationLinks.map(
+              ({
+                label,
+                path,
+              }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() =>
+                    navigateAndClose(
+                      path,
+                    )
+                  }
                   className="
-                    text-[#A4773E]
+                    flex
+                    w-full
+                    items-center
+                    justify-between
+                    border-b
+                    border-[#EAE4DC]
+                    py-4
+                    text-left
+                    text-[14px]
+                    font-medium
+                    text-[#38342F]
+                    transition-colors
+                    hover:text-[#A4773E]
                   "
-                />
-              </button>
-            ))}
+                >
+                  {label}
 
+                  <ArrowRight
+                    size={15}
+                    strokeWidth={1.5}
+                    className="
+                      text-[#A4773E]
+                    "
+                  />
+                </button>
+              ),
+            )}
 
+            {/* =================================================
+                BOOK CONSULTATION
+            ================================================= */}
 
             <button
+              type="button"
+              onClick={() =>
+                navigateAndClose(
+                  "/consultation",
+                )
+              }
               className="
                 mt-5
                 flex
@@ -1644,13 +1946,16 @@ const {totalItems: wishlistCount,} = useWishlist();
               />
             </button>
 
-
-
+            {/* =================================================
+                SIGN OUT
+            ================================================= */}
 
             {user && (
               <button
                 type="button"
-                onClick={handleLogout}
+                onClick={
+                  handleLogout
+                }
                 className="
                   mt-3
                   flex
@@ -1681,7 +1986,6 @@ const {totalItems: wishlistCount,} = useWishlist();
                 Sign Out
               </button>
             )}
-
           </div>
         )}
       </div>

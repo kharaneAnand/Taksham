@@ -8,57 +8,28 @@ import {
   Headphones,
 } from "lucide-react";
 
-import sofa from "../../assets/images/products/sofa.png";
-import diningTable from "../../assets/images/products/dining-table.png";
-import accentChair from "../../assets/images/products/accent-chair.png";
-import tvUnit from "../../assets/images/products/tv-unit.png";
-import floorLamp from "../../assets/images/products/floor-lamp.png";
-import storageCabinet from "../../assets/images/products/storage-cabinet.png";
+import {
+  useEffect,
+  useState,
+} from "react";
 
-const products = [
-  {
-    name: "Luna Sofa",
-    type: "3 Seater Sofa",
-    price: "₹29,990",
-    image: sofa,
-    isNew: true,
-  },
-  {
-    name: "Nova Dining Table",
-    type: "6 Seater Dining Table",
-    price: "₹28,990",
-    image: diningTable,
-    isNew: false,
-  },
-  {
-    name: "Aira Accent Chair",
-    type: "Accent Chair",
-    price: "₹12,990",
-    image: accentChair,
-    isNew: true,
-  },
-  {
-    name: "Thyra TV Unit",
-    type: "TV Unit",
-    price: "₹18,990",
-    image: tvUnit,
-    isNew: false,
-  },
-  {
-    name: "Riva Floor Lamp",
-    type: "Floor Lamp",
-    price: "₹4,990",
-    image: floorLamp,
-    isNew: false,
-  },
-  {
-    name: "Vetra Storage Cabinet",
-    type: "Storage Cabinet",
-    price: "₹19,990",
-    image: storageCabinet,
-    isNew: false,
-  },
-];
+import {
+  useNavigate,
+} from "react-router-dom";
+
+import {
+  getProducts,
+} from "../../api/product.api";
+
+import type {
+  Product,
+} from "../../types/product";
+
+/*
+ * ========================================
+ * Benefits
+ * ========================================
+ */
 
 const benefits = [
   {
@@ -88,20 +59,79 @@ const benefits = [
   },
 ];
 
-type Product = {
-  name: string;
-  type: string;
-  price: string;
-  image: string;
-  isNew: boolean;
-};
-
-type ProductCardProps = {
-  product: Product;
-  mobile?: boolean;
-};
+/*
+ * ========================================
+ * Component
+ * ========================================
+ */
 
 const NewArrivals = () => {
+  const navigate = useNavigate();
+
+  const [products, setProducts] =
+    useState<Product[]>([]);
+
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  /*
+   * ========================================
+   * Fetch New Arrivals
+   * ========================================
+   */
+
+  useEffect(() => {
+    const fetchNewArrivals =
+      async () => {
+        try {
+          setIsLoading(true);
+          setError(null);
+
+          const result =
+            await getProducts({
+              limit: 6,
+              sort: "newest",
+            });
+
+          setProducts(
+            result.products.slice(0, 6),
+          );
+        } catch (error) {
+          console.error(
+            "Failed to fetch new arrivals:",
+            error,
+          );
+
+          setProducts([]);
+
+          setError(
+            error instanceof Error
+              ? error.message
+              : "Failed to load new arrivals",
+          );
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+    fetchNewArrivals();
+  }, []);
+
+  /*
+   * ========================================
+   * View All
+   * ========================================
+   */
+
+  const handleViewAll = () => {
+    navigate(
+      "/products?sort=newest",
+    );
+  };
+
   return (
     <section
       className="
@@ -113,9 +143,6 @@ const NewArrivals = () => {
         lg:py-5
       "
     >
-
-      
-
       <div
         className="
           mx-auto
@@ -126,6 +153,9 @@ const NewArrivals = () => {
           lg:px-8
         "
       >
+        {/* ==========================================
+            HEADER
+        ========================================== */}
 
         <div
           className="
@@ -137,11 +167,15 @@ const NewArrivals = () => {
             lg:mb-9
           "
         >
-
           <div>
-
-            <div className="mb-2 flex items-center gap-2.5">
-
+            <div
+              className="
+                mb-2
+                flex
+                items-center
+                gap-2.5
+              "
+            >
               <span
                 className="
                   text-[8px]
@@ -155,8 +189,13 @@ const NewArrivals = () => {
                 Just In
               </span>
 
-              <span className="h-px w-6 bg-[#D2B27D]" />
-
+              <span
+                className="
+                  h-px
+                  w-6
+                  bg-[#D2B27D]
+                "
+              />
             </div>
 
             <h2
@@ -173,12 +212,11 @@ const NewArrivals = () => {
             >
               New Arrivals
             </h2>
-
           </div>
 
-          
-
           <button
+            type="button"
+            onClick={handleViewAll}
             className="
               group
               hidden
@@ -199,7 +237,9 @@ const NewArrivals = () => {
               lg:text-[12px]
             "
           >
-            <span>View all new arrivals</span>
+            <span>
+              View all new arrivals
+            </span>
 
             <ArrowRight
               size={14}
@@ -211,114 +251,307 @@ const NewArrivals = () => {
               "
             />
           </button>
-
         </div>
 
+        {/* ==========================================
+            LOADING
+        ========================================== */}
 
-        
-
-        <div className="relative sm:hidden">
-
+        {isLoading && (
           <div
             className="
-              -mx-4
-              flex
-              gap-3
-              overflow-x-auto
-              px-4
-              pb-3
-              scrollbar-none
-              snap-x
-              snap-mandatory
+              grid
+              grid-cols-2
+              gap-4
+              sm:grid-cols-2
+              lg:grid-cols-6
             "
           >
+            {Array.from({
+              length: 6,
+            }).map((_, index) => (
+              <div
+                key={index}
+                className="
+                  overflow-hidden
+                  rounded-[14px]
+                  border
+                  border-[#E4DCCF]
+                  bg-white
+                "
+              >
+                <div
+                  className="
+                    h-52.5
+                    animate-pulse
+                    bg-[#F0ECE5]
+                    sm:h-57.5
+                    lg:h-52.5
+                    xl:h-56.25
+                  "
+                />
 
-            {products.map((product) => (
-              <ProductCard
-                key={product.name}
-                product={product}
-                mobile
-              />
+                <div className="p-4">
+                  <div
+                    className="
+                      h-2
+                      w-20
+                      animate-pulse
+                      rounded
+                      bg-[#E8E0D5]
+                    "
+                  />
+
+                  <div
+                    className="
+                      mt-3
+                      h-3
+                      w-32
+                      animate-pulse
+                      rounded
+                      bg-[#E8E0D5]
+                    "
+                  />
+
+                  <div
+                    className="
+                      mt-4
+                      h-3
+                      w-20
+                      animate-pulse
+                      rounded
+                      bg-[#E8E0D5]
+                    "
+                  />
+                </div>
+              </div>
             ))}
-
           </div>
+        )}
 
-          {/* Mobile Swipe Indicator */}
+        {/* ==========================================
+            ERROR
+        ========================================== */}
 
-          <div className="mt-1 flex items-center justify-end gap-1.5">
-
-            <span
+        {!isLoading &&
+          error && (
+            <div
               className="
-                text-[7px]
-                font-medium
-                uppercase
-                tracking-[0.14em]
-                text-[#A0988D]
+                flex
+                min-h-45
+                flex-col
+                items-center
+                justify-center
+                rounded-[14px]
+                border
+                border-[#E4DCCF]
+                bg-white
+                px-5
+                text-center
               "
             >
-              Swipe to explore
-            </span>
+              <p
+                className="
+                  font-serif
+                  text-[22px]
+                  text-[#302B25]
+                "
+              >
+                Unable to load new arrivals
+              </p>
 
-            <ArrowRight
-              size={9}
-              strokeWidth={1.5}
-              className="text-[#B7894A]"
-            />
+              <p
+                className="
+                  mt-2
+                  max-w-md
+                  text-[10px]
+                  leading-5
+                  text-[#81776C]
+                "
+              >
+                {error}
+              </p>
 
-          </div>
+              <button
+                type="button"
+                onClick={() =>
+                  window.location.reload()
+                }
+                className="
+                  mt-4
+                  rounded-lg
+                  bg-[#8F6B3F]
+                  px-5
+                  py-2.5
+                  text-[9px]
+                  font-semibold
+                  uppercase
+                  tracking-[0.14em]
+                  text-white
+                  transition
+                  hover:bg-[#795832]
+                "
+              >
+                Try Again
+              </button>
+            </div>
+          )}
 
-        </div>
+        {/* ==========================================
+            EMPTY
+        ========================================== */}
 
+        {!isLoading &&
+          !error &&
+          products.length === 0 && (
+            <div
+              className="
+                flex
+                min-h-45
+                items-center
+                justify-center
+                rounded-[14px]
+                border
+                border-[#E4DCCF]
+                bg-white
+                text-center
+              "
+            >
+              <p
+                className="
+                  text-[11px]
+                  text-[#81776C]
+                "
+              >
+                No new arrivals available
+                right now.
+              </p>
+            </div>
+          )}
 
-        
+        {/* ==========================================
+            MOBILE
+        ========================================== */}
 
-        <div
-          className="
-            hidden
-            w-full
-            min-w-0
-            grid-cols-2
-            gap-4
-            sm:grid
-            lg:hidden
-          "
-        >
+        {!isLoading &&
+          !error &&
+          products.length > 0 && (
+            <>
+              <div
+                className="
+                  relative
+                  sm:hidden
+                "
+              >
+                <div
+                  className="
+                    -mx-4
+                    flex
+                    gap-3
+                    overflow-x-auto
+                    px-4
+                    pb-3
+                    scrollbar-none
+                    snap-x
+                    snap-mandatory
+                  "
+                >
+                  {products.map(
+                    (product) => (
+                      <ProductCard
+                        key={product._id}
+                        product={product}
+                        mobile
+                      />
+                    ),
+                  )}
+                </div>
 
-          {products.map((product) => (
-            <ProductCard
-              key={product.name}
-              product={product}
-            />
-          ))}
+                <div
+                  className="
+                    mt-1
+                    flex
+                    items-center
+                    justify-end
+                    gap-1.5
+                  "
+                >
+                  <span
+                    className="
+                      text-[7px]
+                      font-medium
+                      uppercase
+                      tracking-[0.14em]
+                      text-[#A0988D]
+                    "
+                  >
+                    Swipe to explore
+                  </span>
 
-        </div>
+                  <ArrowRight
+                    size={9}
+                    strokeWidth={1.5}
+                    className="text-[#B7894A]"
+                  />
+                </div>
+              </div>
 
+              {/* ========================================
+                  TABLET
+              ======================================== */}
 
-        
+              <div
+                className="
+                  hidden
+                  w-full
+                  min-w-0
+                  grid-cols-2
+                  gap-4
+                  sm:grid
+                  lg:hidden
+                "
+              >
+                {products.map(
+                  (product) => (
+                    <ProductCard
+                      key={product._id}
+                      product={product}
+                    />
+                  ),
+                )}
+              </div>
 
-        <div
-          className="
-            hidden
-            w-full
-            min-w-0
-            grid-cols-6
-            gap-4
-            lg:grid
-            xl:gap-5
-          "
-        >
+              {/* ========================================
+                  DESKTOP
+              ======================================== */}
 
-          {products.map((product) => (
-            <ProductCard
-              key={product.name}
-              product={product}
-            />
-          ))}
-
-        </div>
-
+              <div
+                className="
+                  hidden
+                  w-full
+                  min-w-0
+                  grid-cols-6
+                  gap-4
+                  lg:grid
+                  xl:gap-5
+                "
+              >
+                {products.map(
+                  (product) => (
+                    <ProductCard
+                      key={product._id}
+                      product={product}
+                    />
+                  ),
+                )}
+              </div>
+            </>
+          )}
       </div>
 
+      {/* ================================================
+          BENEFITS
+      ================================================ */}
 
       <div
         className="
@@ -333,7 +566,6 @@ const NewArrivals = () => {
           lg:px-8
         "
       >
-
         {/* MOBILE BENEFITS */}
 
         <div
@@ -348,82 +580,76 @@ const NewArrivals = () => {
             sm:hidden
           "
         >
+          {benefits.map(
+            (benefit) => {
+              const Icon =
+                benefit.icon;
 
-          {benefits.map((benefit) => {
-
-            const Icon = benefit.icon;
-
-            return (
-              <div
-                key={benefit.title}
-                className="
-                  flex
-                  min-w-48
-                  items-center
-                  gap-3
-                  rounded-xl
-                  border
-                  border-[#E2D8CB]
-                  bg-[#F4EEE5]
-                  px-3.5
-                  py-3
-                  shadow-[0_3px_12px_rgba(58,46,34,0.035)]
-                "
-              >
-
+              return (
                 <div
+                  key={benefit.title}
                   className="
                     flex
-                    h-9
-                    w-9
-                    shrink-0
+                    min-w-48
                     items-center
-                    justify-center
-                    rounded-full
+                    gap-3
+                    rounded-xl
                     border
-                    border-[#D5C5AF]
-                    bg-[#FBF8F3]
-                    text-[#A4773E]
+                    border-[#E2D8CB]
+                    bg-[#F4EEE5]
+                    px-3.5
+                    py-3
+                    shadow-[0_3px_12px_rgba(58,46,34,0.035)]
                   "
                 >
-                  <Icon
-                    size={17}
-                    strokeWidth={1.5}
-                  />
-                </div>
-
-                <div className="min-w-0">
-
-                  <p
+                  <div
                     className="
-                      text-[9px]
-                      font-semibold
-                      text-[#302C27]
+                      flex
+                      h-9
+                      w-9
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-full
+                      border
+                      border-[#D5C5AF]
+                      bg-[#FBF8F3]
+                      text-[#A4773E]
                     "
                   >
-                    {benefit.title}
-                  </p>
+                    <Icon
+                      size={17}
+                      strokeWidth={1.5}
+                    />
+                  </div>
 
-                  <p
-                    className="
-                      mt-0.5
-                      truncate
-                      text-[7px]
-                      text-[#81776B]
-                    "
-                  >
-                    {benefit.description}
-                  </p>
+                  <div className="min-w-0">
+                    <p
+                      className="
+                        text-[9px]
+                        font-semibold
+                        text-[#302C27]
+                      "
+                    >
+                      {benefit.title}
+                    </p>
 
+                    <p
+                      className="
+                        mt-0.5
+                        truncate
+                        text-[7px]
+                        text-[#81776B]
+                      "
+                    >
+                      {benefit.description}
+                    </p>
+                  </div>
                 </div>
-
-              </div>
-            );
-
-          })}
-
+              );
+            },
+          )}
         </div>
-
 
         {/* DESKTOP BENEFITS */}
 
@@ -440,7 +666,6 @@ const NewArrivals = () => {
             sm:block
           "
         >
-
           <div
             className="
               grid
@@ -454,119 +679,146 @@ const NewArrivals = () => {
               lg:grid-cols-5
             "
           >
+            {benefits.map(
+              (benefit) => {
+                const Icon =
+                  benefit.icon;
 
-            {benefits.map((benefit) => {
-
-              const Icon = benefit.icon;
-
-              return (
-                <div
-                  key={benefit.title}
-                  className="
-                    group
-                    flex
-                    min-w-0
-                    items-center
-                    gap-3
-                    px-5
-                    py-4
-                    transition-colors
-                    duration-300
-                    hover:bg-[#F8F4ED]
-                    sm:px-5
-                    sm:py-5
-                    lg:min-h-21
-                    lg:px-5
-                    xl:px-6
-                  "
-                >
-
+                return (
                   <div
+                    key={benefit.title}
                     className="
+                      group
                       flex
-                      h-10
-                      w-10
-                      shrink-0
+                      min-w-0
                       items-center
-                      justify-center
-                      rounded-full
-                      border
-                      border-[#D7C9B8]
-                      bg-[#FAF8F5]
-                      text-[#62584D]
-                      transition-all
+                      gap-3
+                      px-5
+                      py-4
+                      transition-colors
                       duration-300
-                      group-hover:border-[#C7A46B]
-                      group-hover:bg-white
-                      group-hover:text-[#A47D3C]
+                      hover:bg-[#F8F4ED]
+                      sm:px-5
+                      sm:py-5
+                      lg:min-h-21
+                      lg:px-5
+                      xl:px-6
                     "
                   >
-
-                    <Icon
-                      size={20}
-                      strokeWidth={1.45}
-                    />
-
-                  </div>
-
-                  <div className="min-w-0">
-
-                    <p
+                    <div
                       className="
-                        truncate
-                        text-[10px]
-                        font-semibold
-                        text-[#2C2925]
-                        sm:text-[11px]
+                        flex
+                        h-10
+                        w-10
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-full
+                        border
+                        border-[#D7C9B8]
+                        bg-[#FAF8F5]
+                        text-[#62584D]
+                        transition-all
+                        duration-300
+                        group-hover:border-[#C7A46B]
+                        group-hover:bg-white
+                        group-hover:text-[#A47D3C]
                       "
                     >
-                      {benefit.title}
-                    </p>
+                      <Icon
+                        size={20}
+                        strokeWidth={1.45}
+                      />
+                    </div>
 
-                    <p
-                      className="
-                        mt-1
-                        truncate
-                        text-[8px]
-                        leading-tight
-                        text-[#83786C]
-                        sm:text-[9px]
-                      "
-                    >
-                      {benefit.description}
-                    </p>
+                    <div className="min-w-0">
+                      <p
+                        className="
+                          truncate
+                          text-[10px]
+                          font-semibold
+                          text-[#2C2925]
+                          sm:text-[11px]
+                        "
+                      >
+                        {benefit.title}
+                      </p>
 
+                      <p
+                        className="
+                          mt-1
+                          truncate
+                          text-[8px]
+                          leading-tight
+                          text-[#83786C]
+                          sm:text-[9px]
+                        "
+                      >
+                        {benefit.description}
+                      </p>
+                    </div>
                   </div>
-
-                </div>
-              );
-
-            })}
-
+                );
+              },
+            )}
           </div>
-
         </div>
-
       </div>
-
     </section>
   );
 };
 
+/*
+ * ========================================
+ * Product Card
+ * ========================================
+ */
 
-
+type ProductCardProps = {
+  product: Product;
+  mobile?: boolean;
+};
 
 const ProductCard = ({
   product,
   mobile = false,
 }: ProductCardProps) => {
+  const navigate = useNavigate();
+
+  const productType =
+    product.subcategory ||
+    product.category ||
+    "Furniture";
+
+  const isNew =
+    product.isNewProduct ?? false;
+
+  const handleProductClick =
+    () => {
+      navigate(
+        `/products/${product.slug}`,
+      );
+    };
 
   return (
     <article
+      onClick={handleProductClick}
+      onKeyDown={(event) => {
+        if (
+          event.key === "Enter" ||
+          event.key === " "
+        ) {
+          event.preventDefault();
+          handleProductClick();
+        }
+      }}
+      role="button"
+      tabIndex={0}
       className={`
         group
         relative
         min-w-0
+        cursor-pointer
         overflow-hidden
         rounded-[14px]
         border
@@ -592,8 +844,7 @@ const ProductCard = ({
         }
       `}
     >
-
-     
+      {/* IMAGE */}
 
       <div
         className={`
@@ -609,9 +860,12 @@ const ProductCard = ({
           }
         `}
       >
-
         <img
-          src={product.image}
+          src={
+            product.image ||
+            product.images?.[0] ||
+            ""
+          }
           alt={product.name}
           loading="lazy"
           className="
@@ -642,9 +896,9 @@ const ProductCard = ({
           "
         />
 
-        {/* New */}
+        {/* NEW */}
 
-        {product.isNew && (
+        {isNew && (
           <span
             className="
               absolute
@@ -669,10 +923,14 @@ const ProductCard = ({
           </span>
         )}
 
-        {/* Wishlist */}
+        {/* WISHLIST */}
 
         <button
+          type="button"
           aria-label={`Add ${product.name} to wishlist`}
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
           className="
             absolute
             right-3
@@ -697,18 +955,15 @@ const ProductCard = ({
             hover:text-[#A47D3C]
           "
         >
-
           <Heart
             size={16}
             strokeWidth={1.6}
           />
-
         </button>
-
       </div>
 
+      {/* PRODUCT INFO */}
 
-    
       <div
         className="
           min-w-0
@@ -721,7 +976,6 @@ const ProductCard = ({
           sm:pt-4
         "
       >
-
         <p
           className="
             truncate
@@ -733,7 +987,7 @@ const ProductCard = ({
             sm:text-[9px]
           "
         >
-          {product.type}
+          {productType}
         </p>
 
         <h3
@@ -761,13 +1015,14 @@ const ProductCard = ({
             sm:text-[15px]
           "
         >
-          {product.price}
+          ₹
+          {Number(
+            product.price,
+          ).toLocaleString("en-IN")}
         </p>
-
       </div>
 
-
-      {/* Gold bottom accent */}
+      {/* GOLD ACCENT */}
 
       <span
         className="
@@ -783,7 +1038,6 @@ const ProductCard = ({
           group-hover:opacity-100
         "
       />
-
     </article>
   );
 };
