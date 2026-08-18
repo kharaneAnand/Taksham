@@ -80,8 +80,8 @@ const mobileNavigationLinks: MobileNavigationLink[] = [
     path: "/interior-services",
   },
   {
-    label: "Projects",
-    path: "/projects",
+    label: "About Us",
+    path: "/about",
   },
   {
     label: "Offers",

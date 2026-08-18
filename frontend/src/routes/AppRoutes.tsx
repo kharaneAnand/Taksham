@@ -26,7 +26,7 @@ import RoomDetails from "../pages/rooms/RoomDetails";
 import Collections from "../pages/collections/Collections";
 import Ideas from "../pages/ideas/Ideas";
 import InteriorServices from "../pages/interiorServices/InteriorServices";
-import Projects from "../pages/projects/Projects";
+import About from "../pages/About/About";
 import Offers from "../pages/offers/Offers";
 import Consultation from "../pages/consultation/Consultation";
 import Cart from "../pages/cart/Cart";
@@ -96,11 +96,11 @@ const AppRoutes = () => {
             element={<InteriorServices />}
           />
 
-          {/* Projects */}
+          {/* About */}
 
           <Route
-            path="/projects"
-            element={<Projects />}
+            path="/about"
+            element={<About />}
           />
 
           {/* Offers */}
