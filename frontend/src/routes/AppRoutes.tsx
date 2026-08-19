@@ -35,7 +35,7 @@ import Checkout from "../pages/checkout/Checkout";
 import Orders from "../pages/orders/Orders";
 import OrderDetails from "../pages/orders/OrderDetails";
 import Account from "../pages/account/Account";
-
+import AdminProducts from "../pages/admin/Products";
 
 
 const AppRoutes = () => {
@@ -193,6 +193,11 @@ const AppRoutes = () => {
             <Route
               path="/admin"
               element={<Dashboard />}
+            />
+
+            <Route
+              path="/admin/products"
+              element={<AdminProducts />}
             />
 
           </Route>

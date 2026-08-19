@@ -1,9 +1,13 @@
-import { Navigate, Outlet } from "react-router-dom";
+import {
+  Navigate,
+  Outlet,
+} from "react-router-dom";
+
 import { useAuth } from "../context/AuthContext";
 
 const PublicRoute = () => {
-
   const {
+    user,
     isAuthenticated,
     loading,
   } = useAuth();
@@ -17,7 +21,21 @@ const PublicRoute = () => {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    if (user?.role === "admin") {
+      return (
+        <Navigate
+          to="/admin"
+          replace
+        />
+      );
+    }
+
+    return (
+      <Navigate
+        to="/"
+        replace
+      />
+    );
   }
 
   return <Outlet />;

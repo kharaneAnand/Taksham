@@ -1,11 +1,18 @@
 import type {
   Product,
   ProductListResponse,
+  ProductVariant,
 } from "../types/product";
 
 const PRODUCT_API_URL =
   import.meta.env.VITE_PRODUCT_SERVICE_URL ||
   "http://localhost:5002/api/v1/products";
+
+/*
+ * =====================================================
+ * TYPES
+ * =====================================================
+ */
 
 export type ProductSort =
   | "price_asc"
@@ -33,10 +40,93 @@ export interface ProductQueryParams {
   sort?: ProductSort;
 }
 
+export interface CreateProductPayload {
+  name: string;
+  slug: string;
+  price: number;
+
+  image: string;
+  images?: string[];
+
+  category: string;
+  subcategory?: string;
+
+  room: string;
+
+  material?: string;
+  colors?: string[];
+
+  description?: string;
+
+  rating?: number;
+  reviews?: number;
+
+  isNewProduct?: boolean;
+
+  stock: number;
+
+  variants?: ProductVariant[];
+}
+
+export type UpdateProductPayload =
+  Partial<CreateProductPayload>;
+
+/*
+ * =====================================================
+ * REQUEST HELPER
+ * =====================================================
+ */
+
+const request = async <T>(
+  url: string,
+  options?: RequestInit,
+): Promise<T> => {
+  const response = await fetch(
+    url,
+    {
+      ...options,
+
+      credentials: "include",
+
+      headers: {
+        Accept: "application/json",
+        "Content-Type":
+          "application/json",
+
+        ...(options?.headers || {}),
+      },
+    },
+  );
+
+  const result =
+    (await response.json()) as {
+      success?: boolean;
+      message?: string;
+      data?: T;
+      errors?: unknown;
+    };
+
+  if (!response.ok) {
+    throw new Error(
+      result.message ||
+        "Product request failed",
+    );
+  }
+
+  return result.data as T;
+};
+
+/*
+ * =====================================================
+ * GET PRODUCTS
+ * =====================================================
+ */
+
 export const getProducts = async (
   params: ProductQueryParams = {},
 ): Promise<ProductListResponse> => {
-  const searchParams = new URLSearchParams();
+  const searchParams =
+    new URLSearchParams();
 
   if (params.page !== undefined) {
     searchParams.set(
@@ -122,71 +212,106 @@ export const getProducts = async (
     ? `${PRODUCT_API_URL}?${queryString}`
     : PRODUCT_API_URL;
 
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
+  return request<ProductListResponse>(
+    url,
+    {
+      method: "GET",
     },
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      result?.message ||
-        "Failed to fetch products",
-    );
-  }
-
-  return result.data as ProductListResponse;
+  );
 };
+
+/*
+ * =====================================================
+ * GET PRODUCT BY SLUG
+ * =====================================================
+ */
 
 export const getProductBySlug = async (
   slug: string,
 ): Promise<Product> => {
-  const response = await fetch(
-    `${PRODUCT_API_URL}/${encodeURIComponent(slug)}`,
+  return request<Product>(
+    `${PRODUCT_API_URL}/${encodeURIComponent(
+      slug,
+    )}`,
     {
       method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
     },
   );
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      result?.message ||
-        "Failed to fetch product",
-    );
-  }
-
-  return result.data as Product;
 };
+
+/*
+ * =====================================================
+ * GET PRODUCT BY ID
+ * =====================================================
+ */
 
 export const getProductById = async (
   id: string,
 ): Promise<Product> => {
-  const response = await fetch(
-    `${PRODUCT_API_URL}/id/${encodeURIComponent(id)}`,
+  return request<Product>(
+    `${PRODUCT_API_URL}/id/${encodeURIComponent(
+      id,
+    )}`,
     {
       method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
     },
   );
+};
 
-  const result = await response.json();
+/*
+ * =====================================================
+ * CREATE PRODUCT
+ * =====================================================
+ */
 
-  if (!response.ok) {
-    throw new Error(
-      result?.message ||
-        "Failed to fetch product",
-    );
-  }
+export const createProduct = async (
+  payload: CreateProductPayload,
+): Promise<Product> => {
+  return request<Product>(
+    PRODUCT_API_URL,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+};
 
-  return result.data as Product;
+/*
+ * =====================================================
+ * UPDATE PRODUCT
+ * =====================================================
+ */
+
+export const updateProduct = async (
+  id: string,
+  payload: UpdateProductPayload,
+): Promise<Product> => {
+  return request<Product>(
+    `${PRODUCT_API_URL}/${encodeURIComponent(
+      id,
+    )}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+  );
+};
+
+/*
+ * =====================================================
+ * DELETE PRODUCT
+ * =====================================================
+ */
+
+export const deleteProduct = async (
+  id: string,
+): Promise<void> => {
+  await request<unknown>(
+    `${PRODUCT_API_URL}/${encodeURIComponent(
+      id,
+    )}`,
+    {
+      method: "DELETE",
+    },
+  );
 };
