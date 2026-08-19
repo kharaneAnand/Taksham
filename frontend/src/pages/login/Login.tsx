@@ -29,14 +29,22 @@ const Login = () => {
     try {
       setLoading(true);
 
-      await login({
+      const loggedInUser = await login({
         email: email.trim(),
         password,
       });
 
       toast.success("Welcome back!");
 
-      navigate("/", { replace: true });
+      if (loggedInUser.role === "admin") {
+        navigate("/admin", {
+          replace: true,
+        });
+      } else {
+        navigate("/", {
+          replace: true,
+        });
+      }
     } catch (error: any) {
       const message =
         error?.response?.data?.message ||

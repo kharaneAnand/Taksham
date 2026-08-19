@@ -6,6 +6,7 @@ import {
 } from "react";
 
 import type { ReactNode } from "react";
+
 import type {
   LoginInput,
   User,
@@ -22,7 +23,7 @@ interface AuthContextType {
 
   login: (
     data: LoginInput
-  ) => Promise<void>;
+  ) => Promise<User>;
 
   logout: () => Promise<void>;
 
@@ -41,79 +42,82 @@ export const AuthProvider = ({
 }: {
   children: ReactNode;
 }) => {
-
   const [user, setUser] =
     useState<User | null>(null);
 
   const [loading, setLoading] =
     useState(true);
 
+ 
+
   const login = async (
     data: LoginInput
-  ) => {
-
-    const user =
+  ): Promise<User> => {
+    const loggedInUser =
       await AuthService.login(data);
 
-    setUser(user);
+    setUser(loggedInUser);
 
+    return loggedInUser;
   };
 
-  const logout = async () => {
 
+
+  const logout = async () => {
     await AuthService.logout();
 
     setUser(null);
-
   };
+
+ 
 
   const checkAuth = async () => {
-
     try {
-
-      const user =
+      const authenticatedUser =
         await AuthService.me();
 
-      setUser(user);
-
+      setUser(authenticatedUser);
     } catch {
-
       setUser(null);
-
     } finally {
-
       setLoading(false);
-
     }
-
   };
 
+
   useEffect(() => {
-
     checkAuth();
-
   }, []);
+
+  
 
   return (
     <AuthContext.Provider
       value={{
         user,
+
         loading,
-        isAuthenticated: !!user,
+
+        isAuthenticated:
+          !!user,
+
         login,
+
         logout,
+
         checkAuth,
+
         setUser,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
-
 };
 
-export const useAuth = () => {
 
+
+export const useAuth = () => {
   const context =
     useContext(AuthContext);
 
@@ -124,5 +128,4 @@ export const useAuth = () => {
   }
 
   return context;
-
 };
