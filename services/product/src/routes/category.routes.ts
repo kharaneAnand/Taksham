@@ -12,6 +12,7 @@ import {
   createCategorySchema,
   updateCategorySchema,
   createSubcategorySchema,
+  updateSubcategorySchema,
 } from "../validators/category.validator.js";
 
 const router = Router();
@@ -114,6 +115,20 @@ router.delete(
   authenticate,
   authorize("admin"),
   CategoryController.deleteSubcategory,
+);
+
+
+/* 
+ * PATCH
+ * /api/v1/categories/:id/subcategories/:subcategoryId
+ */
+
+router.patch(
+  "/:id/subcategories/:subcategoryId",
+  authenticate,
+  authorize("admin"),
+  validate(updateSubcategorySchema),
+  CategoryController.updateSubcategory,
 );
 
 export default router;

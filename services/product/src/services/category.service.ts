@@ -8,6 +8,7 @@ import type {
   CreateCategoryInput,
   UpdateCategoryInput,
   CreateSubcategoryInput,
+  UpdateSubcategoryInput,
 } from "../validators/category.validator.js";
 
 class CategoryService {
@@ -231,6 +232,76 @@ class CategoryService {
 
     return category;
   }
+
+  /* 
+ * ========================================
+ * Update Subcategory
+ * ========================================
+ */
+
+async updateSubcategory(
+  categoryId: string,
+  subcategoryId: string,
+  data: UpdateSubcategoryInput,
+) {
+  const category =
+    await Category.findById(categoryId);
+
+  if (!category) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      "Category not found",
+    );
+  }
+
+  const subcategory =
+    category.subcategories.find(
+      (item) =>
+        item._id?.toString() ===
+        subcategoryId,
+    );
+
+  if (!subcategory) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      "Subcategory not found",
+    );
+  }
+
+  const duplicate =
+    category.subcategories.some(
+      (item) =>
+        item._id?.toString() !==
+          subcategoryId &&
+        (
+          (data.name &&
+            item.name.toLowerCase() ===
+              data.name.toLowerCase()) ||
+          (data.slug &&
+            item.slug.toLowerCase() ===
+              data.slug.toLowerCase())
+        ),
+    );
+
+  if (duplicate) {
+    throw new ApiError(
+      StatusCodes.CONFLICT,
+      "Another subcategory already uses this name or slug",
+    );
+  }
+
+  if (data.name !== undefined) {
+    subcategory.name = data.name;
+  }
+
+  if (data.slug !== undefined) {
+    subcategory.slug = data.slug;
+  }
+
+  await category.save();
+
+  return category;
+}
 
   /*
    * ========================================

@@ -2,6 +2,8 @@ import type {
   Category,
   CreateCategoryPayload,
   CreateSubcategoryPayload,
+  UpdateCategoryPayload,
+  UpdateSubcategoryPayload,
 } from "../types/category";
 
 const CATEGORY_API_URL =
@@ -76,6 +78,25 @@ export const getCategories = async (): Promise<
 
 /*
  * ========================================
+ * GET CATEGORY BY ID
+ * ========================================
+ */
+
+export const getCategoryById = async (
+  id: string,
+): Promise<Category> => {
+  return request<Category>(
+    `${CATEGORY_API_URL}/id/${encodeURIComponent(
+      id,
+    )}`,
+    {
+      method: "GET",
+    },
+  );
+};
+
+/*
+ * ========================================
  * GET CATEGORY BY SLUG
  * ========================================
  */
@@ -116,6 +137,49 @@ export const createCategory = async (
 
 /*
  * ========================================
+ * UPDATE CATEGORY
+ * ========================================
+ */
+
+export const updateCategory = async (
+  id: string,
+  payload: UpdateCategoryPayload,
+): Promise<Category> => {
+  return request<Category>(
+    `${CATEGORY_API_URL}/${encodeURIComponent(
+      id,
+    )}`,
+    {
+      method: "PATCH",
+
+      body: JSON.stringify(
+        payload,
+      ),
+    },
+  );
+};
+
+/*
+ * ========================================
+ * DELETE CATEGORY
+ * ========================================
+ */
+
+export const deleteCategory = async (
+  id: string,
+): Promise<void> => {
+  await request<unknown>(
+    `${CATEGORY_API_URL}/${encodeURIComponent(
+      id,
+    )}`,
+    {
+      method: "DELETE",
+    },
+  );
+};
+
+/*
+ * ========================================
  * ADD SUBCATEGORY
  * ========================================
  */
@@ -140,19 +204,27 @@ export const createSubcategory = async (
 
 /*
  * ========================================
- * DELETE CATEGORY
+ * UPDATE SUBCATEGORY
  * ========================================
  */
 
-export const deleteCategory = async (
-  id: string,
-): Promise<void> => {
-  await request<unknown>(
+export const updateSubcategory = async (
+  categoryId: string,
+  subcategoryId: string,
+  payload: UpdateSubcategoryPayload,
+): Promise<Category> => {
+  return request<Category>(
     `${CATEGORY_API_URL}/${encodeURIComponent(
-      id,
+      categoryId,
+    )}/subcategories/${encodeURIComponent(
+      subcategoryId,
     )}`,
     {
-      method: "DELETE",
+      method: "PATCH",
+
+      body: JSON.stringify(
+        payload,
+      ),
     },
   );
 };

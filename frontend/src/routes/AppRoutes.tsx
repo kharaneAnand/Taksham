@@ -38,6 +38,7 @@ import Account from "../pages/account/Account";
 import AdminProducts from "../pages/admin/Products";
 import AddProduct from "../pages/admin/AddProduct" ;
 import EditProduct from "../pages/admin/EditProduct" ;
+import AdminCategories from "../pages/admin/Categories";
 
 const AppRoutes = () => {
   return (
@@ -200,13 +201,20 @@ const AppRoutes = () => {
               path="/admin/products"
               element={<AdminProducts />}
             />
+            
             <Route
               path="/admin/products/new"
               element={<AddProduct />}
             />
+
             <Route
               path="/admin/products/:id/edit"
               element={<EditProduct />}
+            />
+
+            <Route
+              path="/admin/categories"
+              element={<AdminCategories />}
             />
 
           </Route>

@@ -75,6 +75,15 @@ export const createSubcategorySchema =
       ),
   });
 
+  /* 
+ * ========================================
+ * Update Subcategory
+ * ========================================
+ */
+
+export const updateSubcategorySchema =
+  createSubcategorySchema.partial();
+
 /*
  * ========================================
  * Category ID Params
@@ -123,3 +132,8 @@ export type UpdateCategoryInput =
 
 export type CreateSubcategoryInput =
   z.infer<typeof createSubcategorySchema>;
+
+export type UpdateSubcategoryInput =
+  z.infer<
+    typeof updateSubcategorySchema
+  >;

@@ -192,6 +192,36 @@ class CategoryController {
   );
 
   /*
+ * ========================================
+ * UPDATE SUBCATEGORY
+ * ========================================
+ */
+
+updateSubcategory = asyncHandler(
+  async (req: Request, res: Response) => {
+    const id = getParam(req.params.id);
+
+    const subcategoryId = getParam(
+      req.params.subcategoryId,
+    );
+
+    const category =
+      await CategoryService.updateSubcategory(
+        id,
+        subcategoryId,
+        req.body,
+      );
+
+    successResponse(
+      res,
+      StatusCodes.OK,
+      "Subcategory updated successfully",
+      category,
+    );
+  },
+);
+
+  /*
    * ========================================
    * DELETE SUBCATEGORY
    * ========================================
