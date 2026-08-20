@@ -24,8 +24,14 @@ import {
 
 import Breadcrumbs from "../../components/product/Breadcrumbs";
 import ProductGrid from "../../components/product/ProductGrid";
-import { useWishlist } from "../../context/WishlistContext";
-import { useCart } from "../../context/CartContext";
+
+import {
+  useWishlist,
+} from "../../context/WishlistContext";
+
+import {
+  useCart,
+} from "../../context/CartContext";
 
 import {
   getProductBySlug,
@@ -51,30 +57,43 @@ const ProductDetails = () => {
   const [product, setProduct] =
     useState<Product | null>(null);
 
-  const [relatedProducts, setRelatedProducts] =
-    useState<Product[]>([]);
+  const [
+    relatedProducts,
+    setRelatedProducts,
+  ] = useState<Product[]>([]);
 
-  const [isLoading, setIsLoading] =
-    useState(true);
+  const [
+    isLoading,
+    setIsLoading,
+  ] = useState(true);
 
   const [error, setError] =
     useState<string | null>(null);
 
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] =
+    useState(1);
 
-  const [selectedColor, setSelectedColor] =
-    useState("");
+  const [
+    selectedColor,
+    setSelectedColor,
+  ] = useState("");
 
   const [
     selectedImageIndex,
     setSelectedImageIndex,
   ] = useState(0);
 
+  /*
+   * ========================================
+   * Fetch Product
+   * ========================================
+   */
   useEffect(() => {
     if (!slug) {
       setProduct(null);
       setError("Product not found");
       setIsLoading(false);
+
       return;
     }
 
@@ -87,11 +106,24 @@ const ProductDetails = () => {
           await getProductBySlug(slug);
 
         setProduct(data);
+
+        /*
+         * Select first available variant color.
+         *
+         * Prefer variant color because variants
+         * control images, price and stock.
+         */
         setSelectedColor(
           data.colors?.[0] ||
             data.variants?.[0]?.color ||
             "",
         );
+
+        /*
+         * Always start with main cover image.
+         */
+        setSelectedImageIndex(0);
+        setQuantity(1);
       } catch (error) {
         console.error(
           "Failed to fetch product:",
@@ -113,9 +145,15 @@ const ProductDetails = () => {
     void fetchProduct();
   }, [slug]);
 
+  /*
+   * ========================================
+   * Fetch Related Products
+   * ========================================
+   */
   useEffect(() => {
     if (!product?.category) {
       setRelatedProducts([]);
+
       return;
     }
 
@@ -148,72 +186,132 @@ const ProductDetails = () => {
       };
 
     void fetchRelatedProducts();
-  }, [product?.category, product?.slug]);
+  }, [
+    product?.category,
+    product?.slug,
+  ]);
 
-  const availableColors = useMemo(() => {
-    if (!product) {
-      return [];
-    }
-
-    const colors = new Set<string>();
-
-    product.colors?.forEach((color) => {
-      if (color) {
-        colors.add(color);
-      }
-    });
-
-    product.variants?.forEach((variant) => {
-      if (variant.color) {
-        colors.add(variant.color);
-      }
-    });
-
-    return Array.from(colors);
-  }, [product]);
-
-  const activeVariant = useMemo(() => {
-    if (!product?.variants?.length) {
-      return undefined;
-    }
-
-    if (!selectedColor) {
-      return product.variants[0];
-    }
-
-    return (
-      product.variants.find(
-        (variant) =>
-          variant.color?.toLowerCase() ===
-          selectedColor.toLowerCase(),
-      ) || product.variants[0]
-    );
-  }, [product, selectedColor]);
-
-  const activeImages = useMemo<ProductImage[]>(() => {
-    if (activeVariant?.images?.length) {
-      return activeVariant.images;
-    }
-
-    if (product?.images?.length) {
-      return product.images;
-    }
-
-    if (product?.image) {
-      return [product.image];
-    }
-
+  /*
+   * ========================================
+   * Available Colors
+   *
+   * Colors are primarily taken from variants.
+   * product.colors is used as fallback/addition.
+   * ========================================
+   */
+const availableColors = useMemo(() => {
+  if (!product) {
     return [];
-  }, [activeVariant, product]);
+  }
 
+  const colors = new Set<string>();
+
+  product.colors?.forEach((color) => {
+    if (color?.trim()) {
+      colors.add(color.trim());
+    }
+  });
+
+  product.variants?.forEach((variant) => {
+    if (variant.color?.trim()) {
+      colors.add(variant.color.trim());
+    }
+  });
+
+  return Array.from(colors);
+}, [product]);
+
+  /*
+   * ========================================
+   * Active Variant
+   *
+   * Find ONLY the variant for the currently
+   * selected color.
+   * ========================================
+   */
+  const activeVariant = useMemo(() => {
+  if (!product?.variants?.length || !selectedColor) {
+    return undefined;
+  }
+
+  return product.variants.find(
+    (variant) =>
+      variant.color?.toLowerCase() ===
+      selectedColor.toLowerCase(),
+  );
+}, [product, selectedColor]);
+
+  
+ const activeImages = useMemo<ProductImage[]>(() => {
+  if (!product) {
+    return [];
+  }
+
+  const normalizedSelectedColor =
+    selectedColor.trim().toLowerCase();
+
+  /*
+   * Find the selected variant.
+   */
+  const selectedVariant =
+    product.variants?.find(
+      (variant) =>
+        variant.color?.trim().toLowerCase() ===
+        normalizedSelectedColor,
+    );
+
+  /*
+   * If a real variant is selected,
+   * show ONLY that variant's images.
+   */
+  if (selectedVariant?.images?.length) {
+    return selectedVariant.images;
+  }
+
+  /*
+   * Otherwise this is the main/default
+   * product color.
+   *
+   * Show its cover image + its other images.
+   */
+  const mainImages: ProductImage[] = [];
+
+  if (product.image?.url) {
+    mainImages.push(product.image);
+  }
+
+  if (product.images?.length) {
+    mainImages.push(...product.images);
+  }
+
+  return mainImages.filter(
+    (image, index, array) =>
+      array.findIndex(
+        (item) =>
+          item.publicId === image.publicId ||
+          item.url === image.url,
+      ) === index,
+  );
+}, [product, selectedColor]);
+
+  /*
+   * ========================================
+   * Active Main Display Image
+   * ========================================
+   */
   const activeImage =
     activeImages[selectedImageIndex] ||
     activeImages[0] ||
     product?.image;
 
+  /*
+   * ========================================
+   * Active Product Values
+   * ========================================
+   */
   const activeColor =
-    activeVariant?.color ||
     selectedColor ||
+    activeVariant?.color ||
     availableColors[0] ||
     "";
 
@@ -232,11 +330,26 @@ const ProductDetails = () => {
     product?.material ||
     "Premium finish";
 
+  /*
+   * ========================================
+   * Reset Image When Color Changes
+   *
+   * Index 0 = Main Cover Image
+   * ========================================
+   */
   useEffect(() => {
     setSelectedImageIndex(0);
     setQuantity(1);
-  }, [selectedColor, slug]);
+  }, [
+    selectedColor,
+    slug,
+  ]);
 
+  /*
+   * ========================================
+   * Loading State
+   * ========================================
+   */
   if (isLoading) {
     return (
       <main className="min-h-screen bg-[#FAF8F5]">
@@ -282,6 +395,11 @@ const ProductDetails = () => {
     );
   }
 
+  /*
+   * ========================================
+   * Product Not Found
+   * ========================================
+   */
   if (!product) {
     return (
       <main className="min-h-screen bg-[#FAF8F5]">
@@ -377,6 +495,11 @@ const ProductDetails = () => {
   const reviews =
     product.reviews ?? 0;
 
+  /*
+   * ========================================
+   * Quantity Handlers
+   * ========================================
+   */
   const decreaseQuantity = () => {
     setQuantity((current) =>
       Math.max(1, current - 1),
@@ -392,20 +515,39 @@ const ProductDetails = () => {
     );
   };
 
+  /*
+   * ========================================
+   * Color Change
+   * ========================================
+   */
   const handleColorChange = (
     color: string,
   ) => {
     setSelectedColor(color);
+
+    /*
+     * Return to main cover image.
+     */
     setSelectedImageIndex(0);
     setQuantity(1);
   };
 
+  /*
+   * ========================================
+   * Thumbnail Change
+   * ========================================
+   */
   const handleThumbnailChange = (
     index: number,
   ) => {
     setSelectedImageIndex(index);
   };
 
+  /*
+   * ========================================
+   * Add To Cart
+   * ========================================
+   */
   const handleAddToCart = () => {
     if (activeStock <= 0) {
       return;
@@ -422,6 +564,11 @@ const ProductDetails = () => {
     }
   };
 
+  /*
+   * ========================================
+   * Buy Now
+   * ========================================
+   */
   const handleBuyNow = () => {
     if (activeStock <= 0) {
       return;
@@ -484,6 +631,9 @@ const ProductDetails = () => {
             xl:px-16
           "
         >
+          {/* ========================================
+              PRODUCT IMAGES
+          ======================================== */}
           <div>
             <div
               className="
@@ -650,6 +800,9 @@ const ProductDetails = () => {
               </button>
             </div>
 
+            {/* ========================================
+                THUMBNAILS
+            ======================================== */}
             {activeImages.length > 0 && (
               <div
                 className="
@@ -731,6 +884,9 @@ const ProductDetails = () => {
             )}
           </div>
 
+          {/* ========================================
+              PRODUCT INFORMATION
+          ======================================== */}
           <div
             className="
               lg:sticky
@@ -895,6 +1051,9 @@ const ProductDetails = () => {
               </span>
             </div>
 
+            {/* ========================================
+                COLOR SELECTION
+            ======================================== */}
             {availableColors.length > 0 && (
               <div className="mt-6">
                 <div
@@ -939,7 +1098,8 @@ const ProductDetails = () => {
                   {availableColors.map(
                     (color) => {
                       const isSelected =
-                        activeColor.toLowerCase() ===
+                        activeColor
+                          .toLowerCase() ===
                         color.toLowerCase();
 
                       return (
@@ -947,7 +1107,9 @@ const ProductDetails = () => {
                           key={color}
                           type="button"
                           onClick={() =>
-                            handleColorChange(color)
+                            handleColorChange(
+                              color,
+                            )
                           }
                           className={`
                             flex
@@ -993,6 +1155,9 @@ const ProductDetails = () => {
               </div>
             )}
 
+            {/* ========================================
+                STOCK
+            ======================================== */}
             <div
               className="
                 mt-5
@@ -1043,6 +1208,9 @@ const ProductDetails = () => {
               )}
             </div>
 
+            {/* ========================================
+                QUANTITY + ADD TO CART
+            ======================================== */}
             <div
               className="
                 mt-6
@@ -1157,6 +1325,9 @@ const ProductDetails = () => {
               </button>
             </div>
 
+            {/* ========================================
+                BUY NOW
+            ======================================== */}
             <button
               type="button"
               disabled={activeStock === 0}
@@ -1186,6 +1357,9 @@ const ProductDetails = () => {
               Buy Now
             </button>
 
+            {/* ========================================
+                FEATURES
+            ======================================== */}
             <div
               className="
                 mt-6
@@ -1316,6 +1490,9 @@ const ProductDetails = () => {
         </div>
       </section>
 
+      {/* ========================================
+          RELATED PRODUCTS
+      ======================================== */}
       {relatedProducts.length > 0 && (
         <section
           className="

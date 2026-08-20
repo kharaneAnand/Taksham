@@ -60,12 +60,8 @@ const ProductCard = ({
 }: ProductCardProps) => {
   const navigate = useNavigate();
 
-  const [selectedColor, setSelectedColor] =
-    useState<string | null>(
-      product.variants?.find(
-        (variant) => variant.color,
-      )?.color ?? null,
-    );
+ const [selectedColor, setSelectedColor] =
+  useState<string | null>(null);
 
   const rating =
     product.rating ?? 0;
@@ -161,36 +157,46 @@ const ProductCard = ({
    */
 
   const productImage = useMemo(() => {
-    const variantImage =
-      selectedVariant?.images?.[0];
+  /*
+   * When user explicitly selects a color,
+   * show that variant's image.
+   */
+  if (
+    selectedColor &&
+    selectedVariant?.images?.[0]
+  ) {
+    return getImageUrl(
+      selectedVariant.images[0],
+    );
+  }
 
-    if (variantImage) {
-      return getImageUrl(
-        variantImage,
-      );
-    }
+  /*
+   * Default card image must always be
+   * the main product cover image.
+   */
+  if (product.image) {
+    return getImageUrl(product.image);
+  }
 
-    if (product.image) {
-      return getImageUrl(
-        product.image,
-      );
-    }
+  /*
+   * Fallback to gallery image.
+   */
+  if (product.images?.[0]) {
+    return getImageUrl(
+      product.images[0],
+    );
+  }
 
-    const galleryImage =
-      product.images?.[0];
-
-    if (galleryImage) {
-      return getImageUrl(
-        galleryImage,
-      );
-    }
-
-    return "/placeholder-product.png";
-  }, [
-    product.image,
-    product.images,
-    selectedVariant,
-  ]);
+  /*
+   * Final fallback.
+   */
+  return "/placeholder-product.png";
+}, [
+  selectedColor,
+  selectedVariant,
+  product.image,
+  product.images,
+]);
 
   /*
    * ========================================
