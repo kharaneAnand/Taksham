@@ -7,8 +7,12 @@ import {
 
 interface ProductToolbarProps {
   productCount: number;
+
   sortBy: string;
-  onSortChange: (value: string) => void;
+  onSortChange: (
+    value: string,
+  ) => void;
+
   onFilterClick: () => void;
 
   viewMode: "grid" | "list";
@@ -35,35 +39,26 @@ interface ProductToolbarProps {
   onPriceChange: (
     value: string,
   ) => void;
+
+  /*
+   * Dynamic filter options
+   *
+   * These will come from backend /
+   * available products instead of
+   * being hardcoded here.
+   */
+
+  categories: string[];
+
+  materials: string[];
+
+  colors: string[];
 }
 
-const categories = [
-  "All Categories",
-  "Sofas",
-  "Chairs",
-  "Tables",
-  "Beds",
-  "Storage",
-  "Lighting",
-  "Decor",
-  "Rugs",
-];
-
-const materials = [
-  "All Materials",
-  "Wood",
-  "Fabric",
-  "Metal",
-  "Glass",
-];
-
-const colors = [
-  "All Colors",
-  "Beige",
-  "Brown",
-  "Black",
-  "White",
-];
+/*
+ * Price options are UI ranges,
+ * so these can remain static.
+ */
 
 const prices = [
   "All Prices",
@@ -82,8 +77,13 @@ const sortOptions = [
 
 interface SelectButtonProps {
   value: string;
+
   options: string[];
-  onChange: (value: string) => void;
+
+  onChange: (
+    value: string,
+  ) => void;
+
   ariaLabel: string;
 }
 
@@ -103,7 +103,7 @@ const SelectButton = ({
         aria-label={ariaLabel}
         className="
           h-10
-          min-w-37
+          min-w-35
           cursor-pointer
           appearance-none
           rounded-[9px]
@@ -123,7 +123,6 @@ const SelectButton = ({
           focus:ring-2
           focus:ring-[#A4773E]/10
           sm:h-11
-          sm:min-w-39
         "
       >
         {options.map((option) => (
@@ -154,20 +153,70 @@ const SelectButton = ({
 
 const ProductToolbar = ({
   productCount,
+
   sortBy,
   onSortChange,
+
   onFilterClick,
+
   viewMode,
   onViewModeChange,
+
   category,
   onCategoryChange,
+
   material,
   onMaterialChange,
+
   color,
   onColorChange,
+
   price,
   onPriceChange,
+
+  categories,
+  materials,
+  colors,
 }: ProductToolbarProps) => {
+  /*
+   * Add default "All" options.
+   *
+   * Also remove duplicates.
+   */
+
+  const categoryOptions = [
+    "All Categories",
+    ...Array.from(
+      new Set(
+        categories.filter(
+          Boolean,
+        ),
+      ),
+    ),
+  ];
+
+  const materialOptions = [
+    "All Materials",
+    ...Array.from(
+      new Set(
+        materials.filter(
+          Boolean,
+        ),
+      ),
+    ),
+  ];
+
+  const colorOptions = [
+    "All Colors",
+    ...Array.from(
+      new Set(
+        colors.filter(
+          Boolean,
+        ),
+      ),
+    ),
+  ];
+
   return (
     <div
       className="
@@ -187,7 +236,7 @@ const ProductToolbar = ({
           lg:gap-4
         "
       >
-
+        {/* LEFT SIDE */}
 
         <div
           className="
@@ -200,7 +249,7 @@ const ProductToolbar = ({
             sm:gap-2.5
           "
         >
-          {/* Filter button */}
+          {/* FILTER BUTTON */}
 
           <button
             type="button"
@@ -234,45 +283,47 @@ const ProductToolbar = ({
             <span>Filter</span>
           </button>
 
-          {/* Desktop dropdowns */}
+          {/* DESKTOP FILTERS */}
 
-          <div className="hidden items-center gap-2 sm:flex">
+          <div
+            className="
+              hidden
+              items-center
+              gap-2
+              sm:flex
+            "
+          >
             <SelectButton
               value={category}
-              options={categories}
-              onChange={
-                onCategoryChange
-              }
+              options={categoryOptions}
+              onChange={onCategoryChange}
               ariaLabel="Category"
             />
 
             <SelectButton
               value={material}
-              options={materials}
-              onChange={
-                onMaterialChange
-              }
+              options={materialOptions}
+              onChange={onMaterialChange}
               ariaLabel="Material"
             />
 
             <SelectButton
               value={price}
               options={prices}
-              onChange={
-                onPriceChange
-              }
+              onChange={onPriceChange}
               ariaLabel="Price"
             />
 
             <SelectButton
               value={color}
-              options={colors}
+              options={colorOptions}
               onChange={onColorChange}
               ariaLabel="Color"
             />
           </div>
         </div>
 
+        {/* RIGHT SIDE */}
 
         <div
           className="
@@ -282,7 +333,7 @@ const ProductToolbar = ({
             gap-3
           "
         >
-          {/* Product count */}
+          {/* PRODUCT COUNT */}
 
           <span
             className="
@@ -309,9 +360,15 @@ const ProductToolbar = ({
             "
           />
 
-          {/* Sort */}
+          {/* SORT */}
 
-          <div className="flex items-center gap-2">
+          <div
+            className="
+              flex
+              items-center
+              gap-2
+            "
+          >
             <span
               className="
                 hidden
@@ -334,7 +391,7 @@ const ProductToolbar = ({
             />
           </div>
 
-          {/* View toggle */}
+          {/* VIEW TOGGLE */}
 
           <div
             className="
@@ -411,7 +468,7 @@ const ProductToolbar = ({
         </div>
       </div>
 
-
+      {/* MOBILE INFO */}
 
       <div
         className="

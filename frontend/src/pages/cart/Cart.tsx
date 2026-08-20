@@ -27,19 +27,34 @@ const Cart = () => {
     clearCart,
   } = useCart();
 
-  const shipping = subtotal >= 50000 ? 0 : 999;
+  const shipping =
+    subtotal >= 50000 ? 0 : 999;
 
-  const total = subtotal + shipping;
+  const total =
+    subtotal + shipping;
 
- 
+  const getImageUrl = (
+    image?:
+      | string
+      | {
+          url: string;
+          publicId?: string;
+        },
+  ) => {
+    if (!image) {
+      return "";
+    }
+
+    return typeof image === "string"
+      ? image
+      : image.url;
+  };
 
   if (items.length === 0) {
     return (
       <main className="min-h-screen bg-[#FAF8F5] text-[#302B25]">
         <div className="mx-auto flex min-h-[calc(100vh-80px)] max-w-7xl items-center px-5 py-12 sm:px-8 lg:px-10">
           <div className="relative mx-auto w-full max-w-180 overflow-hidden rounded-[28px] border border-[#E3D9CC] bg-[#F5EEE4] px-6 py-14 text-center shadow-[0_20px_70px_rgba(73,56,38,0.06)] sm:px-12 sm:py-20">
-            {/* Decorative number */}
-
             <span
               className="
                 pointer-events-none
@@ -55,8 +70,6 @@ const Cart = () => {
             >
               00
             </span>
-
-            {/* Small emblem */}
 
             <div className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[#CDBB9F] bg-[#FAF8F5] shadow-[0_8px_30px_rgba(80,60,40,0.08)]">
               <ShoppingBag
@@ -113,7 +126,9 @@ const Cart = () => {
 
             <button
               type="button"
-              onClick={() => navigate("/products")}
+              onClick={() =>
+                navigate("/products")
+              }
               className="
                 group
                 relative
@@ -148,8 +163,6 @@ const Cart = () => {
               />
             </button>
 
-            {/* Bottom reassurance */}
-
             <div className="relative mt-9 flex items-center justify-center gap-5 text-[8px] uppercase tracking-[0.14em] text-[#968A7D]">
               <span className="flex items-center gap-1.5">
                 <Check size={11} />
@@ -169,8 +182,6 @@ const Cart = () => {
     );
   }
 
-
-
   return (
     <main className="min-h-screen bg-[#FAF8F5] text-[#302B25]">
       <div
@@ -187,8 +198,6 @@ const Cart = () => {
           lg:pt-14
         "
       >
-
-
         <header
           className="
             relative
@@ -199,8 +208,6 @@ const Cart = () => {
             sm:pb-9
           "
         >
-          {/* Decorative background number */}
-
           <span
             className="
               pointer-events-none
@@ -221,8 +228,6 @@ const Cart = () => {
 
           <div className="relative flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              {/* Eyebrow */}
-
               <div className="flex items-center gap-2">
                 <span className="h-px w-6 bg-[#B7894A]" />
 
@@ -264,12 +269,10 @@ const Cart = () => {
                   sm:text-[12px]
                 "
               >
-                A collection of pieces you've chosen for
-                your space.
+                A collection of pieces you've chosen
+                for your space.
               </p>
             </div>
-
-            {/* Cart count + clear */}
 
             <div className="flex items-center justify-between gap-5 sm:justify-end">
               <div
@@ -293,7 +296,9 @@ const Cart = () => {
 
                 <span className="text-[9px] font-medium uppercase tracking-[0.12em] text-[#675B4F]">
                   {totalItems}{" "}
-                  {totalItems === 1 ? "Item" : "Items"}
+                  {totalItems === 1
+                    ? "Item"
+                    : "Items"}
                 </span>
               </div>
 
@@ -316,10 +321,6 @@ const Cart = () => {
           </div>
         </header>
 
-        {/* =================================================
-            MAIN CONTENT
-        ================================================= */}
-
         <div
           className="
             mt-7
@@ -330,13 +331,7 @@ const Cart = () => {
             lg:gap-10
           "
         >
-          {/* =================================================
-              ITEMS
-          ================================================= */}
-
           <section className="min-w-0">
-            {/* Section heading */}
-
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="h-px w-5 bg-[#B7894A]" />
@@ -361,14 +356,19 @@ const Cart = () => {
 
             <div className="space-y-3.5 sm:space-y-4">
               {items.map((item) => {
-                const variant = item.variant;
+                const variant =
+                  item.variant;
 
                 const maxStock =
-                  variant?.stock ?? item.product.stock;
+                  variant?.stock ??
+                  item.product.stock;
 
                 const image =
                   variant?.images?.[0] ??
                   item.product.image;
+
+                const imageUrl =
+                  getImageUrl(image);
 
                 return (
                   <article
@@ -391,8 +391,6 @@ const Cart = () => {
                       sm:p-3.5
                     "
                   >
-                    {/* Tiny accent */}
-
                     <div className="absolute left-0 top-5 h-10 w-0.5 rounded-r-full bg-[#B7894A]/60 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
                     <div
@@ -406,10 +404,6 @@ const Cart = () => {
                         lg:gap-6
                       "
                     >
-                      {/* =================================================
-                          IMAGE
-                      ================================================= */}
-
                       <div
                         className="
                           relative
@@ -424,7 +418,7 @@ const Cart = () => {
                         "
                       >
                         <img
-                          src={image}
+                          src={imageUrl}
                           alt={item.product.name}
                           className="
                             h-full
@@ -437,8 +431,6 @@ const Cart = () => {
                             sm:p-3
                           "
                         />
-
-                        {/* Image label */}
 
                         <div
                           className="
@@ -465,10 +457,6 @@ const Cart = () => {
                           </span>
                         </div>
                       </div>
-
-                      {/* =================================================
-                          DETAILS
-                      ================================================= */}
 
                       <div className="flex min-w-0 flex-col py-0.5 sm:py-1">
                         <div className="flex items-start justify-between gap-2">
@@ -505,7 +493,9 @@ const Cart = () => {
                           <button
                             type="button"
                             onClick={() =>
-                              removeFromCart(item.id)
+                              removeFromCart(
+                                item.id,
+                              )
                             }
                             aria-label={`Remove ${item.product.name}`}
                             className="
@@ -535,8 +525,6 @@ const Cart = () => {
                             />
                           </button>
                         </div>
-
-                        {/* Meta */}
 
                         <div className="mt-2.5 flex flex-wrap items-center gap-2 sm:mt-3">
                           {variant?.color && (
@@ -571,8 +559,6 @@ const Cart = () => {
                           )}
                         </div>
 
-                        {/* Bottom row */}
-
                         <div
                           className="
                             mt-auto
@@ -585,8 +571,6 @@ const Cart = () => {
                             sm:pt-6
                           "
                         >
-                          {/* Quantity */}
-
                           <div>
                             <p
                               className="
@@ -620,10 +604,13 @@ const Cart = () => {
                                 onClick={() =>
                                   updateQuantity(
                                     item.id,
-                                    item.quantity - 1,
+                                    item.quantity -
+                                      1,
                                   )
                                 }
-                                disabled={item.quantity <= 1}
+                                disabled={
+                                  item.quantity <= 1
+                                }
                                 className="
                                   flex
                                   h-full
@@ -662,13 +649,15 @@ const Cart = () => {
                                   updateQuantity(
                                     item.id,
                                     Math.min(
-                                      item.quantity + 1,
+                                      item.quantity +
+                                        1,
                                       maxStock,
                                     ),
                                   )
                                 }
                                 disabled={
-                                  item.quantity >= maxStock
+                                  item.quantity >=
+                                  maxStock
                                 }
                                 className="
                                   flex
@@ -691,8 +680,6 @@ const Cart = () => {
                               </button>
                             </div>
                           </div>
-
-                          {/* Price */}
 
                           <div className="text-right">
                             <p
@@ -720,8 +707,11 @@ const Cart = () => {
                             >
                               ₹
                               {(
-                                item.price * item.quantity
-                              ).toLocaleString("en-IN")}
+                                item.price *
+                                item.quantity
+                              ).toLocaleString(
+                                "en-IN",
+                              )}
                             </p>
 
                             {item.quantity > 1 && (
@@ -742,11 +732,11 @@ const Cart = () => {
               })}
             </div>
 
-            {/* Continue shopping */}
-
             <button
               type="button"
-              onClick={() => navigate("/products")}
+              onClick={() =>
+                navigate("/products")
+              }
               className="
                 group
                 mt-6
@@ -772,10 +762,6 @@ const Cart = () => {
             </button>
           </section>
 
-          {/* =================================================
-              ORDER SUMMARY
-          ================================================= */}
-
           <aside
             className="
               relative
@@ -791,8 +777,6 @@ const Cart = () => {
               lg:top-24
             "
           >
-            {/* Decorative number */}
-
             <span
               className="
                 pointer-events-none
@@ -839,8 +823,6 @@ const Cart = () => {
                 Your Selection
               </h2>
 
-              {/* Price breakdown */}
-
               <div
                 className="
                   mt-6
@@ -857,7 +839,9 @@ const Cart = () => {
 
                   <span className="font-medium text-[#302B25]">
                     ₹
-                    {subtotal.toLocaleString("en-IN")}
+                    {subtotal.toLocaleString(
+                      "en-IN",
+                    )}
                   </span>
                 </div>
 
@@ -875,8 +859,6 @@ const Cart = () => {
                   </span>
                 </div>
               </div>
-
-              {/* Free delivery message */}
 
               {shipping > 0 && (
                 <div
@@ -905,7 +887,10 @@ const Cart = () => {
                       "
                     >
                       Add ₹
-                      {(50000 - subtotal).toLocaleString(
+                      {(
+                        50000 -
+                        subtotal
+                      ).toLocaleString(
                         "en-IN",
                       )}{" "}
                       more to unlock{" "}
@@ -916,8 +901,6 @@ const Cart = () => {
                   </div>
                 </div>
               )}
-
-              {/* Total */}
 
               <div className="mt-5 flex items-end justify-between">
                 <div>
@@ -940,15 +923,17 @@ const Cart = () => {
                   "
                 >
                   ₹
-                  {total.toLocaleString("en-IN")}
+                  {total.toLocaleString(
+                    "en-IN",
+                  )}
                 </span>
               </div>
 
-              {/* Checkout */}
-
               <button
                 type="button"
-                onClick={() => navigate("/checkout")}
+                onClick={() =>
+                  navigate("/checkout")
+                }
                 className="
                   group
                   mt-6
@@ -981,8 +966,6 @@ const Cart = () => {
                   className="transition-transform duration-300 group-hover:translate-x-1"
                 />
               </button>
-
-              {/* Trust row */}
 
               <div className="mt-5 grid grid-cols-3 divide-x divide-[#D8CCBE] border-t border-[#D8CCBE] pt-5">
                 <div className="flex flex-col items-center gap-1.5 px-2 text-center">
@@ -1033,8 +1016,6 @@ const Cart = () => {
                   </span>
                 </div>
               </div>
-
-              {/* Bottom note */}
 
               <div className="mt-5 flex items-center justify-center gap-2 text-[7px] uppercase tracking-[0.13em] text-[#95897C]">
                 <span className="h-1 w-1 rounded-full bg-[#B7894A]" />

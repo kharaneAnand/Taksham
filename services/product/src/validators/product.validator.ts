@@ -1,157 +1,248 @@
 import { z } from "zod";
 
+/*
+ * ========================================
+ * Product Image Schema
+ * ========================================
+ */
 
+export const productImageSchema =
+  z.object({
+    url: z
+      .string()
+      .trim()
+      .min(1, "Image URL is required"),
 
-export const productVariantSchema = z.object({
-  color: z
-    .string()
-    .trim()
-    .min(1, "Variant color is required")
-    .optional(),
+    publicId: z
+      .string()
+      .trim()
+      .min(1, "Image public ID is required"),
+  });
 
-  images: z
-    .array(
-      z
-        .string()
-        .trim()
-        .min(1, "Image URL cannot be empty"),
-    )
-    .min(1, "At least one variant image is required"),
+/*
+ * ========================================
+ * Product Variant Schema
+ * ========================================
+ */
 
-  price: z
-    .number()
-    .min(0, "Variant price cannot be negative")
-    .optional(),
+export const productVariantSchema =
+  z.object({
+    color: z
+      .string()
+      .trim()
+      .min(1, "Variant color is required")
+      .optional(),
 
-  stock: z
-    .number()
-    .int("Variant stock must be an integer")
-    .min(0, "Variant stock cannot be negative")
-    .optional(),
+    images: z
+      .array(productImageSchema)
+      .min(
+        1,
+        "At least one variant image is required",
+      ),
 
-  material: z
-    .string()
-    .trim()
-    .min(1, "Variant material cannot be empty")
-    .optional(),
-});
+    price: z
+      .number()
+      .min(
+        0,
+        "Variant price cannot be negative",
+      )
+      .optional(),
 
+    stock: z
+      .number()
+      .int(
+        "Variant stock must be an integer",
+      )
+      .min(
+        0,
+        "Variant stock cannot be negative",
+      )
+      .optional(),
 
+    material: z
+      .string()
+      .trim()
+      .min(
+        1,
+        "Variant material cannot be empty",
+      )
+      .optional(),
+  });
 
-export const createProductSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(2, "Product name must contain at least 2 characters")
-    .max(150, "Product name cannot exceed 150 characters"),
+/*
+ * ========================================
+ * Create Product Schema
+ * ========================================
+ */
 
-  slug: z
-    .string()
-    .trim()
-    .min(2, "Product slug is required")
-    .regex(
-      /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
-      "Slug must contain only lowercase letters, numbers and hyphens",
-    ),
+export const createProductSchema =
+  z.object({
+    name: z
+      .string()
+      .trim()
+      .min(
+        2,
+        "Product name must contain at least 2 characters",
+      )
+      .max(
+        150,
+        "Product name cannot exceed 150 characters",
+      ),
 
-  price: z
-    .number()
-    .min(0, "Price cannot be negative"),
+    slug: z
+      .string()
+      .trim()
+      .min(
+        2,
+        "Product slug is required",
+      )
+      .regex(
+        /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+        "Slug must contain only lowercase letters, numbers and hyphens",
+      ),
 
-  image: z
-    .string()
-    .trim()
-    .min(1, "Product image is required"),
+    price: z
+      .number()
+      .min(
+        0,
+        "Price cannot be negative",
+      ),
 
-  category: z
-    .string()
-    .trim()
-    .min(1, "Category is required"),
+    /*
+     * Main / Cover Image
+     */
+    image: productImageSchema,
 
-  subcategory: z
-    .string()
-    .trim()
-    .optional(),
+    /*
+     * Additional Common Product Images
+     */
+    images: z
+      .array(productImageSchema)
+      .optional(),
 
-  room: z
-    .string()
-    .trim()
-    .min(1, "Room is required"),
+    category: z
+      .string()
+      .trim()
+      .min(
+        1,
+        "Category is required",
+      ),
 
-  material: z
-    .string()
-    .trim()
-    .optional(),
+    subcategory: z
+      .string()
+      .trim()
+      .optional(),
 
-  colors: z
-    .array(
-      z
-        .string()
-        .trim()
-        .min(1),
-    )
-    .optional(),
+    room: z
+      .string()
+      .trim()
+      .min(
+        1,
+        "Room is required",
+      ),
 
-  description: z
-    .string()
-    .trim()
-    .max(
-      2000,
-      "Description cannot exceed 2000 characters",
-    )
-    .optional(),
+    material: z
+      .string()
+      .trim()
+      .optional(),
 
-  rating: z
-    .number()
-    .min(0)
-    .max(5)
-    .optional(),
+    colors: z
+      .array(
+        z
+          .string()
+          .trim()
+          .min(1),
+      )
+      .optional(),
 
-  reviews: z
-    .number()
-    .int()
-    .min(0)
-    .optional(),
+    description: z
+      .string()
+      .trim()
+      .max(
+        2000,
+        "Description cannot exceed 2000 characters",
+      )
+      .optional(),
 
-  isNewProduct: z
-    .boolean()
-    .optional(),
+    rating: z
+      .number()
+      .min(0)
+      .max(5)
+      .optional(),
 
-  stock: z
-    .number()
-    .int("Stock must be an integer")
-    .min(0, "Stock cannot be negative"),
+    reviews: z
+      .number()
+      .int()
+      .min(0)
+      .optional(),
 
-  variants: z
-    .array(productVariantSchema)
-    .optional(),
-});
+    isNewProduct: z
+      .boolean()
+      .optional(),
 
+    stock: z
+      .number()
+      .int(
+        "Stock must be an integer",
+      )
+      .min(
+        0,
+        "Stock cannot be negative",
+      ),
 
+    variants: z
+      .array(productVariantSchema)
+      .optional(),
+  });
 
+/*
+ * ========================================
+ * Update Product Schema
+ * ========================================
+ */
 
 export const updateProductSchema =
   createProductSchema.partial();
 
+/*
+ * ========================================
+ * Product ID Schema
+ * ========================================
+ */
 
+export const productIdSchema =
+  z.object({
+    id: z
+      .string()
+      .trim()
+      .min(
+        1,
+        "Product ID is required",
+      ),
+  });
 
+/*
+ * ========================================
+ * Product Slug Schema
+ * ========================================
+ */
 
-export const productIdSchema = z.object({
-  id: z
-    .string()
-    .trim()
-    .min(1, "Product ID is required"),
-});
+export const productSlugSchema =
+  z.object({
+    slug: z
+      .string()
+      .trim()
+      .min(
+        1,
+        "Product slug is required",
+      ),
+  });
 
-
-export const productSlugSchema = z.object({
-  slug: z
-    .string()
-    .trim()
-    .min(1, "Product slug is required"),
-});
-
-
+/*
+ * ========================================
+ * Types
+ * ========================================
+ */
 
 export type CreateProductInput =
   z.infer<typeof createProductSchema>;
@@ -161,3 +252,6 @@ export type UpdateProductInput =
 
 export type ProductVariantInput =
   z.infer<typeof productVariantSchema>;
+
+export type ProductImageInput =
+  z.infer<typeof productImageSchema>;

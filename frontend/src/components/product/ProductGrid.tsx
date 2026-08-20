@@ -9,6 +9,49 @@ interface ProductGridProps {
   ) => void;
 }
 
+
+const getProductImage = (
+  product: Product,
+): string => {
+  if (typeof product.image === "string") {
+    return product.image;
+  }
+
+  if (product.image?.url) {
+    return product.image.url;
+  }
+
+  /*
+   * Fallback to common gallery image.
+   */
+  const firstGalleryImage =
+    product.images?.[0];
+
+  if (typeof firstGalleryImage === "string") {
+    return firstGalleryImage;
+  }
+
+  if (firstGalleryImage?.url) {
+    return firstGalleryImage.url;
+  }
+
+  /*
+   * Final fallback to first variant image.
+   */
+  const firstVariantImage =
+    product.variants?.[0]?.images?.[0];
+
+  if (typeof firstVariantImage === "string") {
+    return firstVariantImage;
+  }
+
+  if (firstVariantImage?.url) {
+    return firstVariantImage.url;
+  }
+
+  return "/placeholder-product.png";
+};
+
 const ProductGrid = ({
   products,
   viewMode,
@@ -69,165 +112,177 @@ const ProductGrid = ({
     );
   }
 
-
-
+  /*
+   * ========================================
+   * LIST VIEW
+   * ========================================
+   */
   if (viewMode === "list") {
     return (
       <div className="space-y-4 sm:space-y-5">
-        {products.map((product) => (
-          <div
-            key={product._id}
-            className="
-              grid
-              grid-cols-[105px_1fr]
-              gap-4
-              rounded-2xl
-              border
-              border-[#E5DED4]
-              bg-white/65
-              p-3
-              transition-all
-              duration-300
-              hover:border-[#D3C0A5]
-              hover:shadow-[0_12px_30px_rgba(55,43,31,0.06)]
-              sm:grid-cols-[160px_1fr]
-              sm:gap-6
-              sm:p-4
-              lg:grid-cols-[180px_1fr]
-            "
-          >
+        {products.map((product) => {
+          const productImage =
+            getProductImage(product);
+
+          return (
             <div
+              key={product._id}
               className="
-                aspect-square
-                overflow-hidden
-                rounded-xl
-                bg-[#F1ECE4]
+                grid
+                grid-cols-[105px_1fr]
+                gap-4
+                rounded-2xl
+                border
+                border-[#E5DED4]
+                bg-white/65
+                p-3
+                transition-all
+                duration-300
+                hover:border-[#D3C0A5]
+                hover:shadow-[0_12px_30px_rgba(55,43,31,0.06)]
+                sm:grid-cols-[160px_1fr]
+                sm:gap-6
+                sm:p-4
+                lg:grid-cols-[180px_1fr]
               "
             >
-              <img
-                src={product.image}
-                alt={product.name}
-                loading="lazy"
+              <div
                 className="
-                  h-full
-                  w-full
-                  object-contain
-                  p-2
-                  transition-transform
-                  duration-500
-                  hover:scale-[1.025]
-                "
-              />
-            </div>
-
-            <div
-              className="
-                flex
-                min-w-0
-                flex-col
-                justify-center
-              "
-            >
-              <p
-                className="
-                  text-[9px]
-                  font-semibold
-                  uppercase
-                  tracking-widest
-                  text-[#A4773E]
+                  aspect-square
+                  overflow-hidden
+                  rounded-xl
+                  bg-[#F1ECE4]
                 "
               >
-                {product.category}
-              </p>
-
-              <h3
-                className="
-                  mt-1.5
-                  truncate
-                  font-serif
-                  text-[20px]
-                  text-[#302B25]
-                  sm:text-[24px]
-                "
-              >
-                {product.name}
-              </h3>
-
-              {product.description && (
-                <p
+                <img
+                  src={productImage}
+                  alt={product.name}
+                  loading="lazy"
                   className="
-                    mt-2
-                    hidden
-                    max-w-163
-                    text-[12px]
-                    leading-5
-                    text-[#81776C]
-                    sm:block
-                    lg:text-[13px]
+                    h-full
+                    w-full
+                    object-contain
+                    p-2
+                    transition-transform
+                    duration-500
+                    hover:scale-[1.025]
                   "
-                >
-                  {product.description}
-                </p>
-              )}
-
-              <div className="mt-3 flex items-center gap-3">
-                <p
-                  className="
-                    text-[14px]
-                    font-semibold
-                    text-[#302B25]
-                    sm:text-[15px]
-                  "
-                >
-                  ₹
-                  {product.price.toLocaleString(
-                    "en-IN",
-                  )}
-                </p>
-
-                <span className="text-[#D1C7BC]">
-                  •
-                </span>
-
-                <span className="text-[11px] text-[#8D8378]">
-                  {product.material ??
-                    "Premium finish"}
-                </span>
+                />
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  onAddToCart?.(product)
-                }
+              <div
                 className="
-                  mt-4
-                  w-fit
-                  rounded-lg
-                  bg-[#27231E]
-                  px-5
-                  py-2.5
-                  text-[10px]
-                  font-semibold
-                  uppercase
-                  tracking-[0.08em]
-                  text-white
-                  transition-all
-                  hover:bg-[#3A342D]
-                  active:scale-[0.98]
+                  flex
+                  min-w-0
+                  flex-col
+                  justify-center
                 "
               >
-                Add to Cart
-              </button>
+                <p
+                  className="
+                    text-[9px]
+                    font-semibold
+                    uppercase
+                    tracking-widest
+                    text-[#A4773E]
+                  "
+                >
+                  {product.category}
+                </p>
+
+                <h3
+                  className="
+                    mt-1.5
+                    truncate
+                    font-serif
+                    text-[20px]
+                    text-[#302B25]
+                    sm:text-[24px]
+                  "
+                >
+                  {product.name}
+                </h3>
+
+                {product.description && (
+                  <p
+                    className="
+                      mt-2
+                      hidden
+                      max-w-41
+                      text-[12px]
+                      leading-5
+                      text-[#81776C]
+                      sm:block
+                      sm:max-w-125
+                      lg:text-[13px]
+                    "
+                  >
+                    {product.description}
+                  </p>
+                )}
+
+                <div className="mt-3 flex items-center gap-3">
+                  <p
+                    className="
+                      text-[14px]
+                      font-semibold
+                      text-[#302B25]
+                      sm:text-[15px]
+                    "
+                  >
+                    ₹
+                    {product.price.toLocaleString(
+                      "en-IN",
+                    )}
+                  </p>
+
+                  <span className="text-[#D1C7BC]">
+                    •
+                  </span>
+
+                  <span className="text-[11px] text-[#8D8378]">
+                    {product.material ??
+                      "Premium finish"}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    onAddToCart?.(product)
+                  }
+                  className="
+                    mt-4
+                    w-fit
+                    rounded-lg
+                    bg-[#27231E]
+                    px-5
+                    py-2.5
+                    text-[10px]
+                    font-semibold
+                    uppercase
+                    tracking-[0.08em]
+                    text-white
+                    transition-all
+                    hover:bg-[#3A342D]
+                    active:scale-[0.98]
+                  "
+                >
+                  Add to Cart
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   }
 
-
-
+  /*
+   * ========================================
+   * GRID VIEW
+   * ========================================
+   */
   return (
     <div
       className="

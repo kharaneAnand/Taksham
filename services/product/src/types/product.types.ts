@@ -1,17 +1,21 @@
 import { Types } from "mongoose";
 
 
+export interface IProductImage {
+  url: string;
+
+  publicId: string;
+}
+
 
 export interface IProductVariant {
-  /*
-   * Mongoose automatically generates this
-   * ID for every variant.
-   */
+ 
   _id: Types.ObjectId;
 
   color?: string;
 
-  images: string[];
+ 
+  images: IProductImage[];
 
   price?: number;
 
@@ -19,8 +23,6 @@ export interface IProductVariant {
 
   material?: string;
 }
-
-
 
 export interface IProduct {
   _id?: Types.ObjectId;
@@ -31,9 +33,10 @@ export interface IProduct {
 
   price: number;
 
-  image: string;
+  
+  image: IProductImage;
 
-  images: string[];
+  images: IProductImage[];
 
   category: string;
 
@@ -55,6 +58,7 @@ export interface IProduct {
 
   stock: number;
 
+  
   variants?: IProductVariant[];
 
   createdAt?: Date;

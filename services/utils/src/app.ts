@@ -1,17 +1,27 @@
 import express from "express";
+
 import cors from "cors";
+
 import helmet from "helmet";
+
 import compression from "compression";
+
 import morgan from "morgan";
 
 import mediaRoutes from "./routes/media.routes.js";
 
 import notFound from "./middleware/notFound.middleware.js";
+
 import errorHandler from "./middleware/error.middleware.js";
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  }),
+);
 
 app.use(helmet());
 
@@ -26,7 +36,7 @@ app.use(morgan("dev"));
 app.get("/", (_req, res) => {
   res.status(200).json({
     success: true,
-    message: "Utils Service is running ",
+    message: "Media Service is running",
   });
 });
 

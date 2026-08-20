@@ -36,6 +36,7 @@ import Orders from "../pages/orders/Orders";
 import OrderDetails from "../pages/orders/OrderDetails";
 import Account from "../pages/account/Account";
 import AdminProducts from "../pages/admin/Products";
+import AddProduct from "../pages/admin/AddProduct" ;
 
 
 const AppRoutes = () => {
@@ -198,6 +199,10 @@ const AppRoutes = () => {
             <Route
               path="/admin/products"
               element={<AdminProducts />}
+            />
+            <Route
+              path="/admin/products/new"
+              element={<AddProduct />}
             />
 
           </Route>

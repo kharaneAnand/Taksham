@@ -23,6 +23,7 @@ import {
 
 import type {
   Product,
+
 } from "../../types/product";
 
 /*
@@ -58,6 +59,42 @@ const benefits = [
     icon: UserRound,
   },
 ];
+
+const getProductImage = (
+  product: Product,
+): string => {
+  if (typeof product.image === "string") {
+    return product.image;
+  }
+
+  if (product.image?.url) {
+    return product.image.url;
+  }
+
+  const firstGalleryImage =
+    product.images?.[0];
+
+  if (typeof firstGalleryImage === "string") {
+    return firstGalleryImage;
+  }
+
+  if (firstGalleryImage?.url) {
+    return firstGalleryImage.url;
+  }
+
+  const firstVariantImage =
+    product.variants?.[0]?.images?.[0];
+
+  if (typeof firstVariantImage === "string") {
+    return firstVariantImage;
+  }
+
+  if (firstVariantImage?.url) {
+    return firstVariantImage.url;
+  }
+
+  return "/placeholder-product.png";
+};
 
 /*
  * ========================================
@@ -117,7 +154,7 @@ const NewArrivals = () => {
         }
       };
 
-    fetchNewArrivals();
+    void fetchNewArrivals();
   }, []);
 
   /*
@@ -153,10 +190,6 @@ const NewArrivals = () => {
           lg:px-8
         "
       >
-        {/* ==========================================
-            HEADER
-        ========================================== */}
-
         <div
           className="
             mb-6
@@ -253,10 +286,6 @@ const NewArrivals = () => {
           </button>
         </div>
 
-        {/* ==========================================
-            LOADING
-        ========================================== */}
-
         {isLoading && (
           <div
             className="
@@ -329,10 +358,6 @@ const NewArrivals = () => {
           </div>
         )}
 
-        {/* ==========================================
-            ERROR
-        ========================================== */}
-
         {!isLoading &&
           error && (
             <div
@@ -397,10 +422,6 @@ const NewArrivals = () => {
             </div>
           )}
 
-        {/* ==========================================
-            EMPTY
-        ========================================== */}
-
         {!isLoading &&
           !error &&
           products.length === 0 && (
@@ -428,10 +449,6 @@ const NewArrivals = () => {
               </p>
             </div>
           )}
-
-        {/* ==========================================
-            MOBILE
-        ========================================== */}
 
         {!isLoading &&
           !error &&
@@ -496,10 +513,6 @@ const NewArrivals = () => {
                 </div>
               </div>
 
-              {/* ========================================
-                  TABLET
-              ======================================== */}
-
               <div
                 className="
                   hidden
@@ -520,10 +533,6 @@ const NewArrivals = () => {
                   ),
                 )}
               </div>
-
-              {/* ========================================
-                  DESKTOP
-              ======================================== */}
 
               <div
                 className="
@@ -549,10 +558,6 @@ const NewArrivals = () => {
           )}
       </div>
 
-      {/* ================================================
-          BENEFITS
-      ================================================ */}
-
       <div
         className="
           mx-auto
@@ -566,8 +571,6 @@ const NewArrivals = () => {
           lg:px-8
         "
       >
-        {/* MOBILE BENEFITS */}
-
         <div
           className="
             -mx-4
@@ -650,8 +653,6 @@ const NewArrivals = () => {
             },
           )}
         </div>
-
-        {/* DESKTOP BENEFITS */}
 
         <div
           className="
@@ -768,12 +769,6 @@ const NewArrivals = () => {
   );
 };
 
-/*
- * ========================================
- * Product Card
- * ========================================
- */
-
 type ProductCardProps = {
   product: Product;
   mobile?: boolean;
@@ -792,6 +787,9 @@ const ProductCard = ({
 
   const isNew =
     product.isNewProduct ?? false;
+
+  const productImage =
+    getProductImage(product);
 
   const handleProductClick =
     () => {
@@ -844,8 +842,6 @@ const ProductCard = ({
         }
       `}
     >
-      {/* IMAGE */}
-
       <div
         className={`
           relative
@@ -861,11 +857,7 @@ const ProductCard = ({
         `}
       >
         <img
-          src={
-            product.image ||
-            product.images?.[0] ||
-            ""
-          }
+          src={productImage}
           alt={product.name}
           loading="lazy"
           className="
@@ -882,8 +874,6 @@ const ProductCard = ({
           "
         />
 
-        {/* Warm Image Finish */}
-
         <div
           className="
             pointer-events-none
@@ -895,8 +885,6 @@ const ProductCard = ({
             to-white/8
           "
         />
-
-        {/* NEW */}
 
         {isNew && (
           <span
@@ -922,8 +910,6 @@ const ProductCard = ({
             New
           </span>
         )}
-
-        {/* WISHLIST */}
 
         <button
           type="button"
@@ -961,8 +947,6 @@ const ProductCard = ({
           />
         </button>
       </div>
-
-      {/* PRODUCT INFO */}
 
       <div
         className="
@@ -1021,8 +1005,6 @@ const ProductCard = ({
           ).toLocaleString("en-IN")}
         </p>
       </div>
-
-      {/* GOLD ACCENT */}
 
       <span
         className="

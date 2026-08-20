@@ -1,19 +1,58 @@
 import {
+  useMemo,
+  useState,
+} from "react";
+
+import {
   ArrowUpRight,
   Heart,
   ShoppingBag,
   Star,
 } from "lucide-react";
 
-import { useNavigate } from "react-router-dom";
+import {
+  useNavigate,
+} from "react-router-dom";
 
-import type { Product } from "../../types/product";
-import { useWishlist } from "../../context/WishlistContext";
+import type {
+  Product,
+  ProductImage,
+} from "../../types/product";
+
+import {
+  useWishlist,
+} from "../../context/WishlistContext";
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart?: (product: Product) => void;
+
+  onAddToCart?: (
+    product: Product,
+  ) => void;
 }
+
+/*
+ * ========================================
+ * IMAGE HELPER
+ * ========================================
+ */
+
+const getImageUrl = (
+  image?: ProductImage | string,
+): string => {
+  if (!image) {
+    return "/placeholder-product.png";
+  }
+
+  if (typeof image === "string") {
+    return image;
+  }
+
+  return (
+    image.url ||
+    "/placeholder-product.png"
+  );
+};
 
 const ProductCard = ({
   product,
@@ -21,25 +60,148 @@ const ProductCard = ({
 }: ProductCardProps) => {
   const navigate = useNavigate();
 
-  const rating = product.rating ?? 0;
-  const reviews = product.reviews ?? 0;
+  const [selectedColor, setSelectedColor] =
+    useState<string | null>(
+      product.variants?.find(
+        (variant) => variant.color,
+      )?.color ?? null,
+    );
+
+  const rating =
+    product.rating ?? 0;
+
+  const reviews =
+    product.reviews ?? 0;
 
   const {
-  isWishlisted,
-  toggleWishlist,
-} = useWishlist();
+    isWishlisted,
+    toggleWishlist,
+  } = useWishlist();
 
-const wishlisted = isWishlisted(
-  product._id,
-); 
+  const wishlisted = isWishlisted(
+    product._id,
+  );
+
+  /*
+   * ========================================
+   * CATEGORY
+   * ========================================
+   */
 
   const category =
     product.subcategory ||
     product.category ||
     "Furniture";
 
+  /*
+   * ========================================
+   * AVAILABLE COLORS
+   * ========================================
+   *
+   * Prefer variant colors.
+   * Fall back to product.colors.
+   */
+
+  const availableColors = useMemo(() => {
+    const variantColors =
+      product.variants
+        ?.map(
+          (variant) =>
+            variant.color?.trim(),
+        )
+        .filter(
+          (
+            color,
+          ): color is string =>
+            Boolean(color),
+        ) ?? [];
+
+    const productColors =
+      product.colors
+        ?.map((color) =>
+          color.trim(),
+        )
+        .filter(Boolean) ?? [];
+
+    return Array.from(
+      new Set([
+        ...variantColors,
+        ...productColors,
+      ]),
+    );
+  }, [
+    product.colors,
+    product.variants,
+  ]);
+
+  /*
+   * ========================================
+   * SELECTED VARIANT
+   * ========================================
+   */
+
+  const selectedVariant =
+    product.variants?.find(
+      (variant) =>
+        variant.color?.toLowerCase() ===
+        selectedColor?.toLowerCase(),
+    );
+
+  /*
+   * ========================================
+   * DISPLAY IMAGE
+   * ========================================
+   *
+   * Priority:
+   *
+   * 1. Selected color variant image
+   * 2. Main product image
+   * 3. First common gallery image
+   * 4. Placeholder
+   */
+
+  const productImage = useMemo(() => {
+    const variantImage =
+      selectedVariant?.images?.[0];
+
+    if (variantImage) {
+      return getImageUrl(
+        variantImage,
+      );
+    }
+
+    if (product.image) {
+      return getImageUrl(
+        product.image,
+      );
+    }
+
+    const galleryImage =
+      product.images?.[0];
+
+    if (galleryImage) {
+      return getImageUrl(
+        galleryImage,
+      );
+    }
+
+    return "/placeholder-product.png";
+  }, [
+    product.image,
+    product.images,
+    selectedVariant,
+  ]);
+
+  /*
+   * ========================================
+   * NAVIGATION
+   * ========================================
+   */
+
   const handleProductClick = () => {
-    navigate(`/products/${product.slug}`);
+    navigate(
+      `/products/${product.slug}`,
+    );
   };
 
   return (
@@ -65,6 +227,7 @@ const wishlisted = isWishlisted(
             event.key === " "
           ) {
             event.preventDefault();
+
             handleProductClick();
           }
         }}
@@ -133,8 +296,9 @@ const wishlisted = isWishlisted(
             "
           >
             <img
-              src={product.image}
-              alt=""
+              key={productImage}
+              src={productImage}
+              alt={product.name}
               loading="lazy"
               draggable={false}
               className="
@@ -214,61 +378,60 @@ const wishlisted = isWishlisted(
         ===================================================== */}
 
         <button
-            type="button"
-            aria-label={
-              wishlisted
-                ? `Remove ${product.name} from wishlist`
-                : `Add ${product.name} to wishlist`
-            }
-            onClick={async (event) => {
-              event.stopPropagation();
+          type="button"
+          aria-label={
+            wishlisted
+              ? `Remove ${product.name} from wishlist`
+              : `Add ${product.name} to wishlist`
+          }
+          onClick={async (event) => {
+            event.stopPropagation();
 
-              await toggleWishlist(product);
-            }}
-            className="
-              absolute
-              right-2.5
-              top-2.5
-              z-30
-              flex
-              h-8
-              w-8
-              items-center
-              justify-center
-              rounded-full
-              border
-              border-white/70
-              bg-white/80
-              text-[#403A33]
-              shadow-[0_5px_18px_rgba(45,35,25,0.08)]
-              backdrop-blur-md
-              transition-all
-              duration-300
-              hover:scale-105
-              hover:bg-white
-              active:scale-95
-              sm:right-3
-              sm:top-3
-              sm:h-9
-              sm:w-9
-            "
-          >
-            <Heart
-              size={14}
-              strokeWidth={1.45}
-              fill={
-                wishlisted
-                  ? "currentColor"
-                  : "none"
-              }
-              className={
-                wishlisted
-                  ? "text-[#9A7138]"
-                  : "text-[#403A33]"
-              }
-            />
-          </button>
-          
+            await toggleWishlist(product);
+          }}
+          className="
+            absolute
+            right-2.5
+            top-2.5
+            z-30
+            flex
+            h-8
+            w-8
+            items-center
+            justify-center
+            rounded-full
+            border
+            border-white/70
+            bg-white/80
+            text-[#403A33]
+            shadow-[0_5px_18px_rgba(45,35,25,0.08)]
+            backdrop-blur-md
+            transition-all
+            duration-300
+            hover:scale-105
+            hover:bg-white
+            active:scale-95
+            sm:right-3
+            sm:top-3
+            sm:h-9
+            sm:w-9
+          "
+        >
+          <Heart
+            size={14}
+            strokeWidth={1.45}
+            fill={
+              wishlisted
+                ? "currentColor"
+                : "none"
+            }
+            className={
+              wishlisted
+                ? "text-[#9A7138]"
+                : "text-[#403A33]"
+            }
+          />
+        </button>
 
         {/* =====================================================
             VIEW PRODUCT
@@ -279,6 +442,7 @@ const wishlisted = isWishlisted(
           aria-label={`View ${product.name}`}
           onClick={(event) => {
             event.stopPropagation();
+
             handleProductClick();
           }}
           className="
@@ -337,8 +501,6 @@ const wishlisted = isWishlisted(
             gap-3
           "
         >
-          {/* Product name + category */}
-
           <button
             type="button"
             onClick={handleProductClick}
@@ -383,8 +545,6 @@ const wishlisted = isWishlisted(
             </p>
           </button>
 
-          {/* Price */}
-
           <span
             className="
               shrink-0
@@ -398,11 +558,67 @@ const wishlisted = isWishlisted(
             "
           >
             ₹
-            {product.price.toLocaleString(
+            {(
+              selectedVariant?.price ??
+              product.price
+            ).toLocaleString(
               "en-IN",
             )}
           </span>
         </div>
+
+        {/* =====================================================
+            COLOR OPTIONS
+        ===================================================== */}
+
+        {availableColors.length > 0 && (
+          <div
+            className="
+              mt-2
+              flex
+              flex-wrap
+              items-center
+              gap-1.5
+            "
+          >
+            {availableColors.map(
+              (color) => {
+                const isSelected =
+                  selectedColor?.toLowerCase() ===
+                  color.toLowerCase();
+
+                return (
+                  <button
+                    key={color}
+                    type="button"
+                    aria-label={`Select ${color}`}
+                    title={color}
+                    onClick={() =>
+                      setSelectedColor(color)
+                    }
+                    className={`
+                      h-3
+                      w-3
+                      rounded-full
+                      border
+                      transition-all
+                      duration-200
+                      ${
+                        isSelected
+                          ? "scale-125 border-[#6A5134] ring-1 ring-[#D7C1A0]"
+                          : "border-[#CFC4B7] hover:scale-110"
+                      }
+                    `}
+                    style={{
+                      backgroundColor:
+                        color.toLowerCase(),
+                    }}
+                  />
+                );
+              },
+            )}
+          </div>
+        )}
 
         {/* =====================================================
             RATING

@@ -4,8 +4,30 @@ import mongoose, {
 
 import type {
   IProduct,
+  IProductImage,
   IProductVariant,
 } from "../types/product.types.js";
+
+
+const productImageSchema =
+  new Schema<IProductImage>(
+    {
+      url: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+
+      publicId: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+    },
+    {
+      _id: false,
+    },
+  );
 
 const productVariantSchema =
   new Schema<IProductVariant>(
@@ -15,8 +37,9 @@ const productVariantSchema =
         trim: true,
       },
 
+
       images: {
-        type: [String],
+        type: [productImageSchema],
         default: [],
       },
 
@@ -39,6 +62,7 @@ const productVariantSchema =
       _id: true,
     },
   );
+
 
 const productSchema =
   new Schema<IProduct>(
@@ -63,14 +87,16 @@ const productSchema =
         min: 0,
       },
 
+      /*
+       * Main / Cover Image
+       */
       image: {
-        type: String,
+        type: productImageSchema,
         required: true,
-        trim: true,
       },
 
       images: {
-        type: [String],
+        type: [productImageSchema],
         default: [],
       },
 
@@ -140,6 +166,8 @@ const productSchema =
       timestamps: true,
     },
   );
+
+
 
 productSchema.index({
   category: 1,

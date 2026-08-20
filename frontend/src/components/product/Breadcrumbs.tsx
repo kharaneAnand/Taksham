@@ -1,10 +1,31 @@
-import { ChevronRight, Home } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import {
+  useEffect,
+  useState,
+} from "react";
 
-import { products } from "../../data/products";
+import {
+  ChevronRight,
+  Home,
+} from "lucide-react";
+
+import {
+  Link,
+  useLocation,
+} from "react-router-dom";
+
+import type {
+  Product,
+} from "../../types/product";
+
+import {
+  getProductBySlug,
+} from "../../api/product.api";
 
 const Breadcrumbs = () => {
   const location = useLocation();
+
+  const [product, setProduct] =
+    useState<Product | null>(null);
 
   const pathname = location.pathname;
 
@@ -16,11 +37,40 @@ const Breadcrumbs = () => {
     ? pathname.split("/")[2]
     : undefined;
 
-  const product = slug
-    ? products.find(
-        (item) => item.slug === slug,
-      )
-    : undefined;
+  useEffect(() => {
+    if (!slug) {
+      setProduct(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchProduct = async () => {
+      try {
+        const data =
+          await getProductBySlug(slug);
+
+        if (!cancelled) {
+          setProduct(data);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error(
+            "Failed to fetch breadcrumb product:",
+            error,
+          );
+
+          setProduct(null);
+        }
+      }
+    };
+
+    void fetchProduct();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
 
   return (
     <nav
@@ -36,9 +86,6 @@ const Breadcrumbs = () => {
         sm:text-[10px]
       "
     >
-
-      {/* Home */}
-
       <Link
         to="/"
         className="
@@ -59,15 +106,11 @@ const Breadcrumbs = () => {
         <span>Home</span>
       </Link>
 
-
       <ChevronRight
         size={11}
         strokeWidth={1.4}
         className="shrink-0 text-[#C3B8AA]"
       />
-
-
-      {/* Products */}
 
       <Link
         to="/products"
@@ -81,27 +124,28 @@ const Breadcrumbs = () => {
         Collections
       </Link>
 
-
-      <ChevronRight
-        size={11}
-        strokeWidth={1.4}
-        className="shrink-0 text-[#C3B8AA]"
-      />
-
-
-      {/* Product listing */}
-
       {!isProductDetails && (
-        <span className="shrink-0 font-medium text-[#403A33]">
-          All Products
-        </span>
+        <>
+          <ChevronRight
+            size={11}
+            strokeWidth={1.4}
+            className="shrink-0 text-[#C3B8AA]"
+          />
+
+          <span className="shrink-0 font-medium text-[#403A33]">
+            All Products
+          </span>
+        </>
       )}
-
-
-      {/* Product detail */}
 
       {isProductDetails && (
         <>
+          <ChevronRight
+            size={11}
+            strokeWidth={1.4}
+            className="shrink-0 text-[#C3B8AA]"
+          />
+
           <Link
             to="/products"
             className="
@@ -125,7 +169,6 @@ const Breadcrumbs = () => {
           </span>
         </>
       )}
-
     </nav>
   );
 };

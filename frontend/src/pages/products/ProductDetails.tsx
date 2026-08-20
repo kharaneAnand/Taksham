@@ -17,12 +17,14 @@ import {
   Truck,
 } from "lucide-react";
 
-import { useNavigate, useParams } from "react-router-dom";
+import {
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 
 import Breadcrumbs from "../../components/product/Breadcrumbs";
-import ProductGrid from "../../components/product/ProductGrid" ;
+import ProductGrid from "../../components/product/ProductGrid";
 import { useWishlist } from "../../context/WishlistContext";
-
 import { useCart } from "../../context/CartContext";
 
 import {
@@ -30,18 +32,21 @@ import {
   getProducts,
 } from "../../api/product.api";
 
-import type { Product } from "../../types/product";
+import type {
+  Product,
+  ProductImage,
+} from "../../types/product";
 
 const ProductDetails = () => {
   const { addToCart } = useCart();
 
-  const {isWishlisted, toggleWishlist,} = useWishlist();
+  const {
+    isWishlisted,
+    toggleWishlist,
+  } = useWishlist();
+
   const { slug } = useParams();
   const navigate = useNavigate();
-
-  /* =====================================================
-     PRODUCT
-  ===================================================== */
 
   const [product, setProduct] =
     useState<Product | null>(null);
@@ -55,10 +60,6 @@ const ProductDetails = () => {
   const [error, setError] =
     useState<string | null>(null);
 
-  /* =====================================================
-     STATE
-  ===================================================== */
-
   const [quantity, setQuantity] = useState(1);
 
   const [selectedColor, setSelectedColor] =
@@ -68,11 +69,6 @@ const ProductDetails = () => {
     selectedImageIndex,
     setSelectedImageIndex,
   ] = useState(0);
-
-
-  /* =====================================================
-     FETCH PRODUCT
-  ===================================================== */
 
   useEffect(() => {
     if (!slug) {
@@ -91,6 +87,11 @@ const ProductDetails = () => {
           await getProductBySlug(slug);
 
         setProduct(data);
+        setSelectedColor(
+          data.colors?.[0] ||
+            data.variants?.[0]?.color ||
+            "",
+        );
       } catch (error) {
         console.error(
           "Failed to fetch product:",
@@ -109,12 +110,8 @@ const ProductDetails = () => {
       }
     };
 
-    fetchProduct();
+    void fetchProduct();
   }, [slug]);
-
-  /* =====================================================
-     FETCH RELATED PRODUCTS
-  ===================================================== */
 
   useEffect(() => {
     if (!product?.category) {
@@ -135,8 +132,7 @@ const ProductDetails = () => {
             result.products
               .filter(
                 (item) =>
-                  item.slug !==
-                  product.slug,
+                  item.slug !== product.slug,
               )
               .slice(0, 4);
 
@@ -151,65 +147,74 @@ const ProductDetails = () => {
         }
       };
 
-    fetchRelatedProducts();
+    void fetchRelatedProducts();
+  }, [product?.category, product?.slug]);
+
+  const availableColors = useMemo(() => {
+    if (!product) {
+      return [];
+    }
+
+    const colors = new Set<string>();
+
+    product.colors?.forEach((color) => {
+      if (color) {
+        colors.add(color);
+      }
+    });
+
+    product.variants?.forEach((variant) => {
+      if (variant.color) {
+        colors.add(variant.color);
+      }
+    });
+
+    return Array.from(colors);
   }, [product]);
 
-  /* =====================================================
-     ACTIVE VARIANT
-  ===================================================== */
-
   const activeVariant = useMemo(() => {
-  if (!product?.variants?.length) {
-    return undefined;
-  }
+    if (!product?.variants?.length) {
+      return undefined;
+    }
 
-  const colorToUse =
-    selectedColor ||
-    product.colors?.[0];
+    if (!selectedColor) {
+      return product.variants[0];
+    }
 
-  if (!colorToUse) {
-    return product.variants[0];
-  }
+    return (
+      product.variants.find(
+        (variant) =>
+          variant.color?.toLowerCase() ===
+          selectedColor.toLowerCase(),
+      ) || product.variants[0]
+    );
+  }, [product, selectedColor]);
 
-  return (
-    product.variants.find(
-      (variant) =>
-        variant.color?.toLowerCase() ===
-        colorToUse.toLowerCase(),
-    ) || product.variants[0]
-  );
-}, [product, selectedColor]);
+  const activeImages = useMemo<ProductImage[]>(() => {
+    if (activeVariant?.images?.length) {
+      return activeVariant.images;
+    }
 
-  /* =====================================================
-     ACTIVE PRODUCT DATA
-  ===================================================== */
+    if (product?.images?.length) {
+      return product.images;
+    }
 
-  const activeImages = useMemo(() => {
-  if (activeVariant?.images?.length) {
-    return activeVariant.images;
-  }
+    if (product?.image) {
+      return [product.image];
+    }
 
-  if (product?.images?.length) {
-    return product.images;
-  }
-
-  if (product?.image) {
-    return [product.image];
-  }
-
-  return [];
-}, [activeVariant, product]);
+    return [];
+  }, [activeVariant, product]);
 
   const activeImage =
     activeImages[selectedImageIndex] ||
     activeImages[0] ||
-    product?.image ||
-    "";
+    product?.image;
 
   const activeColor =
     activeVariant?.color ||
     selectedColor ||
-    product?.colors?.[0] ||
+    availableColors[0] ||
     "";
 
   const activePrice =
@@ -227,18 +232,10 @@ const ProductDetails = () => {
     product?.material ||
     "Premium finish";
 
-  /* =====================================================
-     RESET IMAGE WHEN COLOR / VARIANT CHANGES
-  ===================================================== */
-
   useEffect(() => {
     setSelectedImageIndex(0);
     setQuantity(1);
   }, [selectedColor, slug]);
-
-  /* =====================================================
-     LOADING
-  ===================================================== */
 
   if (isLoading) {
     return (
@@ -284,10 +281,6 @@ const ProductDetails = () => {
       </main>
     );
   }
-
-  /* =====================================================
-     PRODUCT NOT FOUND
-  ===================================================== */
 
   if (!product) {
     return (
@@ -374,13 +367,15 @@ const ProductDetails = () => {
       </main>
     );
   }
-  const wishlisted = isWishlisted(product._id);
-  const rating = product.rating ?? 0;
-  const reviews = product.reviews ?? 0;
 
-  /* =====================================================
-     HANDLERS
-  ===================================================== */
+  const wishlisted =
+    isWishlisted(product._id);
+
+  const rating =
+    product.rating ?? 0;
+
+  const reviews =
+    product.reviews ?? 0;
 
   const decreaseQuantity = () => {
     setQuantity((current) =>
@@ -411,40 +406,42 @@ const ProductDetails = () => {
     setSelectedImageIndex(index);
   };
 
- const handleAddToCart = () => {
-  if (!product || activeStock <= 0) {
-    return;
-  }
+  const handleAddToCart = () => {
+    if (activeStock <= 0) {
+      return;
+    }
 
-  for (let i = 0; i < quantity; i++) {
-    addToCart(product, {
-      variantId: activeVariant?._id,
-    });
-  }
-};
-
-  const handleBuyNow = () => {
-    console.log("Buy now:", {
-      product,
-      variant: activeVariant,
-      color: activeColor,
-      image: activeImage,
-      quantity,
-      price: activePrice,
-    });
+    for (
+      let i = 0;
+      i < quantity;
+      i++
+    ) {
+      addToCart(product, {
+        variantId: activeVariant?._id,
+      });
+    }
   };
 
-  /* =====================================================
-     PAGE
-  ===================================================== */
+  const handleBuyNow = () => {
+    if (activeStock <= 0) {
+      return;
+    }
+
+    for (
+      let i = 0;
+      i < quantity;
+      i++
+    ) {
+      addToCart(product, {
+        variantId: activeVariant?._id,
+      });
+    }
+
+    navigate("/checkout");
+  };
 
   return (
     <main className="min-h-screen bg-[#FAF8F5]">
-
-      {/* =================================================
-          BREADCRUMB
-      ================================================= */}
-
       <section>
         <div
           className="
@@ -464,10 +461,6 @@ const ProductDetails = () => {
           <Breadcrumbs />
         </div>
       </section>
-
-      {/* =================================================
-          PRODUCT SECTION
-      ================================================= */}
 
       <section
         className="
@@ -491,15 +484,7 @@ const ProductDetails = () => {
             xl:px-16
           "
         >
-
-          {/* =================================================
-              LEFT — PRODUCT GALLERY
-          ================================================= */}
-
           <div>
-
-            {/* MAIN IMAGE */}
-
             <div
               className="
                 group
@@ -515,9 +500,6 @@ const ProductDetails = () => {
                 lg:aspect-[1/0.93]
               "
             >
-
-              {/* Warm background glow */}
-
               <div
                 className="
                   pointer-events-none
@@ -534,8 +516,6 @@ const ProductDetails = () => {
                 "
               />
 
-              {/* Image */}
-
               <div
                 className="
                   absolute
@@ -549,10 +529,13 @@ const ProductDetails = () => {
                   xl:p-14
                 "
               >
-                {activeImage ? (
+                {activeImage?.url ? (
                   <img
-                    key={activeImage}
-                    src={activeImage}
+                    key={
+                      activeImage.publicId ||
+                      activeImage.url
+                    }
+                    src={activeImage.url}
                     alt={product.name}
                     className="
                       h-full
@@ -584,8 +567,6 @@ const ProductDetails = () => {
                   </div>
                 )}
               </div>
-
-              {/* New Arrival */}
 
               {product.isNewProduct && (
                 <div
@@ -620,12 +601,9 @@ const ProductDetails = () => {
                 </div>
               )}
 
-              {/* Wishlist */}
-
               <button
                 type="button"
                 onClick={async () => {
-                  if (!product) return;
                   await toggleWishlist(product);
                 }}
                 aria-label="Add to wishlist"
@@ -670,84 +648,7 @@ const ProductDetails = () => {
                   }
                 />
               </button>
-
-              {/* Taksham Edit */}
-
-              <div
-                className="
-                  absolute
-                  bottom-4
-                  left-4
-                  hidden
-                  items-center
-                  gap-2
-                  rounded-full
-                  border
-                  border-white/40
-                  bg-black/10
-                  px-3
-                  py-1.5
-                  backdrop-blur-md
-                  sm:flex
-                "
-              >
-                <span
-                  className="
-                    h-1.5
-                    w-1.5
-                    rounded-full
-                    bg-[#E6C995]
-                  "
-                />
-
-                <span
-                  className="
-                    text-[7px]
-                    font-medium
-                    uppercase
-                    tracking-[0.18em]
-                    text-white/85
-                  "
-                >
-                  Taksham Edit
-                </span>
-              </div>
-
-              {/* Image counter */}
-
-              {activeImages.length > 1 && (
-                <div
-                  className="
-                    absolute
-                    bottom-4
-                    right-4
-                    rounded-full
-                    border
-                    border-white/50
-                    bg-white/75
-                    px-3
-                    py-1.5
-                    text-[8px]
-                    font-medium
-                    text-[#665A4D]
-                    shadow-sm
-                    backdrop-blur-md
-                  "
-                >
-                  {String(
-                    selectedImageIndex + 1,
-                  ).padStart(2, "0")}{" "}
-                  /{" "}
-                  {String(
-                    activeImages.length,
-                  ).padStart(2, "0")}
-                </div>
-              )}
             </div>
-
-            {/* =================================================
-                THUMBNAILS
-            ================================================= */}
 
             {activeImages.length > 0 && (
               <div
@@ -758,7 +659,6 @@ const ProductDetails = () => {
                   gap-2.5
                   sm:grid-cols-4
                   sm:gap-3
-                  lg:grid-cols-4
                 "
               >
                 {activeImages.map(
@@ -769,20 +669,16 @@ const ProductDetails = () => {
 
                     return (
                       <button
-                        key={`${image}-${index}`}
+                        key={
+                          image.publicId ||
+                          image.url ||
+                          index
+                        }
                         type="button"
                         onClick={() =>
                           handleThumbnailChange(
                             index,
                           )
-                        }
-                        aria-label={`View ${product.name} image ${
-                          index + 1
-                        }`}
-                        aria-current={
-                          isActive
-                            ? "true"
-                            : undefined
                         }
                         className={`
                           group
@@ -812,92 +708,28 @@ const ProductDetails = () => {
                         `}
                       >
                         <img
-                          src={image}
+                          src={image.url}
                           alt={`${product.name} preview ${
                             index + 1
                           }`}
                           loading="lazy"
-                          className={`
+                          className="
                             h-full
                             w-full
                             object-contain
                             p-2.5
                             transition-transform
                             duration-500
-                            ${
-                              isActive
-                                ? "scale-[1.025]"
-                                : "group-hover:scale-[1.045]"
-                            }
-                          `}
+                            group-hover:scale-[1.045]
+                          "
                         />
-
-                        {isActive && (
-                          <span
-                            className="
-                              absolute
-                              bottom-2
-                              left-1/2
-                              h-1.5
-                              w-1.5
-                              -translate-x-1/2
-                              rounded-full
-                              bg-[#A4773E]
-                              shadow-[0_0_0_3px_rgba(164,119,62,0.12)]
-                            "
-                          />
-                        )}
-
-                        <span
-                          className={`
-                            absolute
-                            right-2
-                            top-2
-                            flex
-                            h-5
-                            min-w-5
-                            items-center
-                            justify-center
-                            rounded-full
-                            px-1
-                            text-[7px]
-                            font-medium
-                            ${
-                              isActive
-                                ? "bg-[#A4773E] text-white"
-                                : "bg-white/80 text-[#746A5E]"
-                            }
-                          `}
-                        >
-                          {index + 1}
-                        </span>
                       </button>
                     );
                   },
                 )}
               </div>
             )}
-
-            <p
-              className="
-                mt-2.5
-                text-center
-                text-[7px]
-                font-medium
-                uppercase
-                tracking-[0.14em]
-                text-[#A0988E]
-              "
-            >
-              {activeImages.length > 1
-                ? "Tap an image to explore the product"
-                : "Product imagery shown for representation"}
-            </p>
           </div>
-
-          {/* =================================================
-              RIGHT — PRODUCT INFORMATION
-          ================================================= */}
 
           <div
             className="
@@ -906,9 +738,6 @@ const ProductDetails = () => {
               lg:self-start
             "
           >
-
-            {/* Category */}
-
             <p
               className="
                 text-[8px]
@@ -922,8 +751,6 @@ const ProductDetails = () => {
               {product.subcategory ||
                 product.category}
             </p>
-
-            {/* Product Name */}
 
             <h1
               className="
@@ -943,8 +770,6 @@ const ProductDetails = () => {
               {product.name}
             </h1>
 
-            {/* Rating */}
-
             <div
               className="
                 mt-4
@@ -953,13 +778,7 @@ const ProductDetails = () => {
                 gap-3
               "
             >
-              <div
-                className="
-                  flex
-                  items-center
-                  gap-1
-                "
-              >
+              <div className="flex items-center gap-1">
                 <Star
                   size={14}
                   strokeWidth={1.1}
@@ -996,8 +815,6 @@ const ProductDetails = () => {
               </span>
             </div>
 
-            {/* Price */}
-
             <div
               className="
                 mt-5
@@ -1032,17 +849,7 @@ const ProductDetails = () => {
               </span>
             </div>
 
-            {/* Divider */}
-
-            <div
-              className="
-                my-5
-                h-px
-                bg-[#E3DBD1]
-              "
-            />
-
-            {/* Description */}
+            <div className="my-5 h-px bg-[#E3DBD1]" />
 
             <p
               className="
@@ -1056,8 +863,6 @@ const ProductDetails = () => {
             >
               {product.description}
             </p>
-
-            {/* Material */}
 
             <div
               className="
@@ -1090,116 +895,103 @@ const ProductDetails = () => {
               </span>
             </div>
 
-            {/* =================================================
-                COLORS
-            ================================================= */}
-
-            {product.colors &&
-              product.colors.length > 0 && (
-                <div className="mt-6">
-                  <div
+            {availableColors.length > 0 && (
+              <div className="mt-6">
+                <div
+                  className="
+                    flex
+                    items-center
+                    justify-between
+                  "
+                >
+                  <span
                     className="
-                      flex
-                      items-center
-                      justify-between
+                      text-[8px]
+                      font-semibold
+                      uppercase
+                      tracking-[0.18em]
+                      text-[#403A33]
+                      sm:text-[9px]
                     "
                   >
-                    <span
-                      className="
-                        text-[8px]
-                        font-semibold
-                        uppercase
-                        tracking-[0.18em]
-                        text-[#403A33]
-                        sm:text-[9px]
-                      "
-                    >
-                      Choose colour
-                    </span>
+                    Choose colour
+                  </span>
 
-                    <span
-                      className="
-                        text-[9px]
-                        font-medium
-                        text-[#8D8378]
-                      "
-                    >
-                      {activeColor}
-                    </span>
-                  </div>
-
-                  <div
+                  <span
                     className="
-                      mt-3
-                      flex
-                      flex-wrap
-                      gap-2
+                      text-[9px]
+                      font-medium
+                      text-[#8D8378]
                     "
                   >
-                    {product.colors.map(
-                      (color) => {
-                        const isSelected =
-                          activeColor.toLowerCase() ===
-                          color.toLowerCase();
-
-                        return (
-                          <button
-                            key={color}
-                            type="button"
-                            onClick={() =>
-                              handleColorChange(
-                                color,
-                              )
-                            }
-                            className={`
-                              flex
-                              items-center
-                              gap-1.5
-                              rounded-full
-                              border
-                              px-3.5
-                              py-2
-                              text-[9px]
-                              font-medium
-                              transition-all
-                              duration-300
-                              ${
-                                isSelected
-                                  ? `
-                                    border-[#A4773E]
-                                    bg-[#F0E5D6]
-                                    text-[#76562F]
-                                    shadow-[0_4px_12px_rgba(164,119,62,0.10)]
-                                  `
-                                  : `
-                                    border-[#DDD4C9]
-                                    bg-white
-                                    text-[#62594F]
-                                    hover:border-[#BDA47F]
-                                    hover:bg-[#F9F5EF]
-                                  `
-                              }
-                            `}
-                          >
-                            {isSelected && (
-                              <Check
-                                size={10}
-                                strokeWidth={2}
-                              />
-                            )}
-
-                            {color}
-                          </button>
-                        );
-                      },
-                    )}
-                  </div>
+                    {activeColor}
+                  </span>
                 </div>
-              )}
 
-            {/* =================================================
-                STOCK
-            ================================================= */}
+                <div
+                  className="
+                    mt-3
+                    flex
+                    flex-wrap
+                    gap-2
+                  "
+                >
+                  {availableColors.map(
+                    (color) => {
+                      const isSelected =
+                        activeColor.toLowerCase() ===
+                        color.toLowerCase();
+
+                      return (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() =>
+                            handleColorChange(color)
+                          }
+                          className={`
+                            flex
+                            items-center
+                            gap-1.5
+                            rounded-full
+                            border
+                            px-3.5
+                            py-2
+                            text-[9px]
+                            font-medium
+                            transition-all
+                            duration-300
+                            ${
+                              isSelected
+                                ? `
+                                  border-[#A4773E]
+                                  bg-[#F0E5D6]
+                                  text-[#76562F]
+                                `
+                                : `
+                                  border-[#DDD4C9]
+                                  bg-white
+                                  text-[#62594F]
+                                  hover:border-[#BDA47F]
+                                `
+                            }
+                          `}
+                        >
+                          {isSelected && (
+                            <Check
+                              size={10}
+                              strokeWidth={2}
+                            />
+                          )}
+
+                          {color}
+                        </button>
+                      );
+                    },
+                  )}
+                </div>
+              </div>
+            )}
 
             <div
               className="
@@ -1240,31 +1032,16 @@ const ProductDetails = () => {
                   </span>
                 </>
               ) : (
-                <>
-                  <span
-                    className="
-                      h-1.5
-                      w-1.5
-                      rounded-full
-                      bg-red-500
-                    "
-                  />
-
-                  <span
-                    className="
-                      text-[9px]
-                      text-red-700
-                    "
-                  >
-                    Currently unavailable
-                  </span>
-                </>
+                <span
+                  className="
+                    text-[9px]
+                    text-red-700
+                  "
+                >
+                  Currently unavailable
+                </span>
               )}
             </div>
-
-            {/* =================================================
-                PURCHASE CONTROLS
-            ================================================= */}
 
             <div
               className="
@@ -1273,8 +1050,6 @@ const ProductDetails = () => {
                 gap-2.5
               "
             >
-              {/* Quantity */}
-
               <div
                 className="
                   flex
@@ -1298,8 +1073,6 @@ const ProductDetails = () => {
                     items-center
                     justify-center
                     text-[#71675D]
-                    transition
-                    hover:text-[#302B25]
                     disabled:opacity-30
                   "
                 >
@@ -1332,16 +1105,12 @@ const ProductDetails = () => {
                     items-center
                     justify-center
                     text-[#71675D]
-                    transition
-                    hover:text-[#302B25]
                     disabled:opacity-30
                   "
                 >
                   <Plus size={13} />
                 </button>
               </div>
-
-              {/* Add To Cart */}
 
               <button
                 type="button"
@@ -1363,13 +1132,8 @@ const ProductDetails = () => {
                   uppercase
                   tracking-[0.14em]
                   text-white
-                  shadow-[0_10px_24px_rgba(143,107,63,0.18)]
                   transition-all
-                  duration-300
-                  hover:-translate-y-0.5
                   hover:bg-[#795832]
-                  hover:shadow-[0_14px_30px_rgba(143,107,63,0.22)]
-                  active:scale-[0.99]
                   disabled:cursor-not-allowed
                   disabled:opacity-40
                 "
@@ -1393,8 +1157,6 @@ const ProductDetails = () => {
               </button>
             </div>
 
-            {/* Buy Now */}
-
             <button
               type="button"
               disabled={activeStock === 0}
@@ -1416,8 +1178,6 @@ const ProductDetails = () => {
                 tracking-[0.14em]
                 text-[#654A2C]
                 transition-all
-                duration-300
-                hover:-translate-y-0.5
                 hover:bg-[#EFE0CC]
                 disabled:cursor-not-allowed
                 disabled:opacity-40
@@ -1425,10 +1185,6 @@ const ProductDetails = () => {
             >
               Buy Now
             </button>
-
-            {/* =================================================
-                SERVICE STRIP
-            ================================================= */}
 
             <div
               className="
@@ -1533,8 +1289,6 @@ const ProductDetails = () => {
               </div>
             </div>
 
-            {/* Continue Shopping */}
-
             <button
               type="button"
               onClick={() =>
@@ -1561,10 +1315,6 @@ const ProductDetails = () => {
           </div>
         </div>
       </section>
-
-      {/* =====================================================
-          RELATED PRODUCTS
-      ===================================================== */}
 
       {relatedProducts.length > 0 && (
         <section

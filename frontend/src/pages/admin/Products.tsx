@@ -608,14 +608,10 @@ const Products = () => {
                         bg-[#F4EFE8]
                       "
                     >
-                      {product.image ? (
+                      {product.image?.url ? (
                         <img
-                          src={
-                            product.image
-                          }
-                          alt={
-                            product.name
-                          }
+                          src={product.image.url}
+                          alt={product.name}
                           className="
                             h-full
                             w-full

@@ -1,7 +1,7 @@
 import type {
   Product,
+  ProductImage,
   ProductListResponse,
-  ProductVariant,
 } from "../types/product";
 
 const PRODUCT_API_URL =
@@ -40,33 +40,92 @@ export interface ProductQueryParams {
   sort?: ProductSort;
 }
 
+/*
+ * =====================================================
+ * PRODUCT VARIANT PAYLOAD
+ * =====================================================
+ */
+
+export interface CreateProductVariantPayload {
+  color?: string;
+
+  /*
+   * Images uploaded to Cloudinary.
+   */
+  images: ProductImage[];
+
+  price?: number;
+
+  stock?: number;
+
+  material?: string;
+}
+
+/*
+ * =====================================================
+ * CREATE PRODUCT PAYLOAD
+ * =====================================================
+ */
+
 export interface CreateProductPayload {
   name: string;
+
   slug: string;
+
   price: number;
 
-  image: string;
-  images?: string[];
+  /*
+   * Main / cover image.
+   *
+   * {
+   *   url: "...",
+   *   publicId: "..."
+   * }
+   */
+  image: ProductImage;
+
+  /*
+   * Common product gallery.
+   *
+   * Example:
+   * Front view
+   * Side view
+   * Back view
+   * Detail view
+   */
+  images?: ProductImage[];
 
   category: string;
+
   subcategory?: string;
 
   room: string;
 
   material?: string;
+
   colors?: string[];
 
   description?: string;
 
   rating?: number;
+
   reviews?: number;
 
   isNewProduct?: boolean;
 
   stock: number;
 
-  variants?: ProductVariant[];
+  /*
+   * Color-wise / variant-wise images.
+   */
+  variants?: CreateProductVariantPayload[];
 }
+
+/*
+ * =====================================================
+ * UPDATE PRODUCT PAYLOAD
+ * =====================================================
+ */
 
 export type UpdateProductPayload =
   Partial<CreateProductPayload>;
@@ -90,6 +149,7 @@ const request = async <T>(
 
       headers: {
         Accept: "application/json",
+
         "Content-Type":
           "application/json",
 
@@ -271,7 +331,10 @@ export const createProduct = async (
     PRODUCT_API_URL,
     {
       method: "POST",
-      body: JSON.stringify(payload),
+
+      body: JSON.stringify(
+        payload,
+      ),
     },
   );
 };
@@ -292,7 +355,10 @@ export const updateProduct = async (
     )}`,
     {
       method: "PATCH",
-      body: JSON.stringify(payload),
+
+      body: JSON.stringify(
+        payload,
+      ),
     },
   );
 };

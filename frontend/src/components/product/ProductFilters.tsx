@@ -23,43 +23,35 @@ interface ProductFiltersProps {
   onClear: () => void;
 }
 
-const categories = [
-  "All Categories",
-  "Sofas",
-  "Chairs",
-  "Tables",
-  "Beds",
-  "Storage",
-  "Lighting",
-  "Decor",
-  "Rugs",
-];
+const colorMap: Record<string, string> = {
+  Beige: "#C9B9A3",
+  Brown: "#9B754C",
+  Black: "#37342F",
+  White: "#EEEAE3",
+  Grey: "#9CA3AF",
+  Gray: "#9CA3AF",
+  Red: "#C85A54",
+  Blue: "#5B7DB1",
+  Green: "#718A68",
+  Yellow: "#D4AE4A",
+  Gold: "#C9A24D",
+  Silver: "#B8B8B8",
+  Cream: "#E8DDC8",
+  Orange: "#D98745",
+  Pink: "#D9A0AE",
+  Purple: "#9173B2",
+};
 
-const materials = [
-  "Wood",
-  "Fabric",
-  "Metal",
-  "Glass",
-];
-
-const colors = [
-  {
-    name: "Beige",
-    value: "#C9B9A3",
-  },
-  {
-    name: "Brown",
-    value: "#9B754C",
-  },
-  {
-    name: "Black",
-    value: "#37342F",
-  },
-  {
-    name: "White",
-    value: "#EEEAE3",
-  },
-];
+const getColorValue = (
+  color: string,
+): string => {
+  return (
+    colorMap[
+      color.charAt(0).toUpperCase() +
+        color.slice(1).toLowerCase()
+    ] ?? "#C9B9A3"
+  );
+};
 
 const getCategoryCount = (
   products: Product[],
@@ -69,11 +61,17 @@ const getCategoryCount = (
     return products.length;
   }
 
-  return products.filter(
-    (product) =>
-      product.subcategory === category ||
-      product.category === category,
-  ).length;
+  const normalizedCategory =
+    category.toLowerCase();
+
+  return products.filter((product) => {
+    return (
+      product.category?.toLowerCase() ===
+        normalizedCategory ||
+      product.subcategory?.toLowerCase() ===
+        normalizedCategory
+    );
+  }).length;
 };
 
 const ProductFilters = ({
@@ -86,12 +84,117 @@ const ProductFilters = ({
   onRatingChange,
   onClear,
 }: ProductFiltersProps) => {
+  /*
+   * ========================================
+   * DYNAMIC FILTER OPTIONS FROM BACKEND DATA
+   * ========================================
+   */
+
+  const categories = [
+    "All Categories",
+    ...Array.from(
+      new Set(
+        products.flatMap((product) =>
+          [
+            product.category,
+            product.subcategory,
+          ].filter(
+            (value): value is string =>
+              Boolean(value),
+          ),
+        ),
+      ),
+    ).sort((a, b) =>
+      a.localeCompare(b),
+    ),
+  ];
+
+  const materials = Array.from(
+    new Set(
+      products.flatMap((product) => {
+        const values: string[] = [];
+
+        if (product.material) {
+          values.push(product.material);
+        }
+
+        product.variants?.forEach(
+          (variant) => {
+            if (variant.material) {
+              values.push(
+                variant.material,
+              );
+            }
+          },
+        );
+
+        return values;
+      }),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+
+  const colorNames = Array.from(
+    new Set(
+      products.flatMap((product) => {
+        const values: string[] = [];
+
+        product.colors?.forEach((color) => {
+          if (typeof color === "string") {
+            values.push(color);
+          }
+        });
+
+        product.variants?.forEach(
+          (variant) => {
+            if (variant.color) {
+              values.push(
+                variant.color,
+              );
+            }
+          },
+        );
+
+        return values;
+      }),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+
+  const colors = colorNames.map((name) => ({
+    name,
+    value: getColorValue(name),
+  }));
+
+  /*
+   * ========================================
+   * DYNAMIC PRICE RANGE
+   * ========================================
+   */
+
+  const highestProductPrice =
+    products.length > 0
+      ? Math.max(
+          ...products.flatMap((product) => [
+            product.price,
+            ...(product.variants ?? [])
+              .map((variant) =>
+                variant.price ?? 0,
+              ),
+          ]),
+        )
+      : 100000;
+
+  const maxPriceLimit = Math.max(
+    100000,
+    Math.ceil(highestProductPrice / 1000) *
+      1000,
+  );
+
   const hasActiveFilters =
     filters.category !== "All Categories" ||
     filters.materials.length > 0 ||
     filters.colors.length > 0 ||
     filters.minPrice > 0 ||
-    filters.maxPrice < 100000 ||
+    filters.maxPrice < maxPriceLimit ||
     filters.minRating > 0;
 
   return (
@@ -104,8 +207,6 @@ const ProductFilters = ({
         xl:w-63
       "
     >
- 
-
       <div className="flex items-center justify-between">
         <h2
           className="
@@ -139,6 +240,10 @@ const ProductFilters = ({
           Clear All
         </button>
       </div>
+
+      {/* ========================================
+          CATEGORIES
+      ======================================== */}
 
       <div className="mt-8">
         <h3
@@ -221,12 +326,11 @@ const ProductFilters = ({
         </div>
       </div>
 
-
-
       <div className="my-8 h-px bg-[#E5DED4]" />
 
-
-
+      {/* ========================================
+          PRICE RANGE
+      ======================================== */}
 
       <div>
         <div className="flex items-center justify-between">
@@ -243,15 +347,16 @@ const ProductFilters = ({
           </h3>
 
           <span className="text-[10px] text-[#9A9186]">
-            ₹1L+
+            ₹
+            {maxPriceLimit.toLocaleString(
+              "en-IN",
+            )}
+            +
           </span>
         </div>
 
         <div className="mt-6">
-
           <div className="relative h-6">
-            {/* Track */}
-
             <div
               className="
                 absolute
@@ -265,8 +370,6 @@ const ProductFilters = ({
               "
             />
 
-            {/* Active range */}
-
             <div
               className="
                 pointer-events-none
@@ -279,25 +382,28 @@ const ProductFilters = ({
               "
               style={{
                 left: `${
-                  (filters.minPrice / 100000) * 100
+                  (filters.minPrice /
+                    maxPriceLimit) *
+                  100
                 }%`,
                 right: `${
                   100 -
-                  (filters.maxPrice / 100000) * 100
+                  (filters.maxPrice /
+                    maxPriceLimit) *
+                    100
                 }%`,
               }}
             />
 
-            {/* =================================================
-                MIN PRICE RANGE
-            ================================================= */}
-
             <input
               type="range"
               min={0}
-              max={100000}
+              max={maxPriceLimit}
               step={1000}
-              value={filters.minPrice}
+              value={Math.min(
+                filters.minPrice,
+                maxPriceLimit,
+              )}
               onChange={(event) => {
                 const value = Number(
                   event.target.value,
@@ -325,16 +431,15 @@ const ProductFilters = ({
               aria-label="Minimum price"
             />
 
-            {/* =================================================
-                MAX PRICE RANGE
-            ================================================= */}
-
             <input
               type="range"
               min={0}
-              max={100000}
+              max={maxPriceLimit}
               step={1000}
-              value={filters.maxPrice}
+              value={Math.min(
+                filters.maxPrice,
+                maxPriceLimit,
+              )}
               onChange={(event) => {
                 const value = Number(
                   event.target.value,
@@ -362,10 +467,6 @@ const ProductFilters = ({
               aria-label="Maximum price"
             />
           </div>
-
-          {/* =================================================
-              PRICE VALUES
-          ================================================= */}
 
           <div className="mt-4 flex items-center justify-between">
             <span
@@ -396,10 +497,6 @@ const ProductFilters = ({
               )}
             </span>
           </div>
-
-          {/* =================================================
-              QUICK PRICE CONTROLS
-          ================================================= */}
 
           <div className="mt-4 grid grid-cols-2 gap-2">
             <button
@@ -436,7 +533,7 @@ const ProductFilters = ({
                 onPriceChange(
                   filters.minPrice,
                   Math.min(
-                    100000,
+                    maxPriceLimit,
                     filters.maxPrice + 5000,
                   ),
                 )
@@ -461,11 +558,11 @@ const ProductFilters = ({
         </div>
       </div>
 
-
-
       <div className="my-8 h-px bg-[#E5DED4]" />
 
-
+      {/* ========================================
+          MATERIAL
+      ======================================== */}
 
       <div>
         <h3
@@ -531,10 +628,11 @@ const ProductFilters = ({
         </div>
       </div>
 
-    
-
       <div className="my-8 h-px bg-[#E5DED4]" />
 
+      {/* ========================================
+          COLOR
+      ======================================== */}
 
       <div>
         <h3
@@ -549,7 +647,7 @@ const ProductFilters = ({
           Color
         </h3>
 
-        <div className="mt-5 flex items-center gap-3">
+        <div className="mt-5 flex flex-wrap items-center gap-3">
           {colors.map((color) => {
             const active =
               filters.colors.includes(
@@ -595,7 +693,7 @@ const ProductFilters = ({
           })}
         </div>
 
-        <div className="mt-3 flex gap-3">
+        <div className="mt-3 flex flex-wrap gap-3">
           {colors.map((color) => (
             <span
               key={color.name}
@@ -612,10 +710,11 @@ const ProductFilters = ({
         </div>
       </div>
 
-
-
       <div className="my-8 h-px bg-[#E5DED4]" />
 
+      {/* ========================================
+          RATING
+      ======================================== */}
 
       <div>
         <h3

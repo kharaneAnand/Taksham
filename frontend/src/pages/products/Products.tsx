@@ -67,9 +67,7 @@ const getPaginationItems = (
 ): (number | "...")[] => {
   if (totalPages <= 7) {
     return Array.from(
-      {
-        length: totalPages,
-      },
+      { length: totalPages },
       (_, index) => index + 1,
     );
   }
@@ -157,20 +155,6 @@ const Products = () => {
   const [error, setError] =
     useState<string | null>(null);
 
-  /*
-   * -------------------------------------------------------
-   * Read filters from URL
-   * -------------------------------------------------------
-   *
-   * Supported:
-   *
-   * /products?category=sofas
-   * /products?room=living-room
-   *
-   * Room and category can also work together.
-   * -------------------------------------------------------
-   */
-
   useEffect(() => {
     const params = new URLSearchParams(
       window.location.search,
@@ -208,12 +192,6 @@ const Products = () => {
     }
   }, []);
 
-  /*
-   * -------------------------------------------------------
-   * Reset page when filters/sort/room change
-   * -------------------------------------------------------
-   */
-
   useEffect(() => {
     setCurrentPage(1);
   }, [
@@ -221,13 +199,6 @@ const Products = () => {
     sortBy,
     roomFilter,
   ]);
-
-  /*
-   * -------------------------------------------------------
-   * Convert frontend sort labels
-   * to backend sort values
-   * -------------------------------------------------------
-   */
 
   const getBackendSort = (): ProductSort => {
     switch (sortBy) {
@@ -245,12 +216,6 @@ const Products = () => {
         return "newest";
     }
   };
-
-  /*
-   * -------------------------------------------------------
-   * Fetch products from backend
-   * -------------------------------------------------------
-   */
 
   useEffect(() => {
     let cancelled = false;
@@ -274,34 +239,22 @@ const Products = () => {
           await getProducts({
             page: currentPage,
             limit: PRODUCTS_PER_PAGE,
-
-            /*
-             * Room filter
-             */
             room: roomFilter,
-
-            /*
-             * Category filter
-             */
             subcategory:
               filters.category !==
               "All Categories"
                 ? filters.category
                 : undefined,
-
             material,
             color,
-
             minPrice:
               filters.minPrice > 0
                 ? filters.minPrice
                 : undefined,
-
             maxPrice:
               filters.maxPrice < 100000
                 ? filters.maxPrice
                 : undefined,
-
             sort: getBackendSort(),
           });
 
@@ -357,7 +310,7 @@ const Products = () => {
       }
     };
 
-    fetchProducts();
+    void fetchProducts();
 
     return () => {
       cancelled = true;
@@ -369,11 +322,51 @@ const Products = () => {
     roomFilter,
   ]);
 
-  /*
-   * -------------------------------------------------------
-   * Toolbar values
-   * -------------------------------------------------------
-   */
+  const categories = Array.from(
+    new Set(
+      products
+        .map((product) => product.category)
+        .filter(
+          (category): category is string =>
+            Boolean(category),
+        ),
+    ),
+  );
+
+  const materials = Array.from(
+    new Set(
+      products.flatMap((product) => {
+        const productMaterials = [
+          product.material,
+          ...(
+            product.variants?.map(
+              (variant) => variant.material,
+            ) ?? []
+          ),
+        ];
+
+        return productMaterials.filter(
+          (material): material is string =>
+            Boolean(material),
+        );
+      }),
+    ),
+  );
+
+  const colors = Array.from(
+    new Set(
+      products.flatMap((product) =>
+        (
+          product.variants?.map(
+            (variant) => variant.color,
+          ) ?? []
+        ).filter(
+          (color): color is string =>
+            Boolean(color),
+        ),
+      ),
+    ),
+  );
 
   const toolbarMaterial =
     filters.materials.length === 1
@@ -398,12 +391,6 @@ const Products = () => {
             ? "₹10,000 – ₹20,000"
             : "₹20,000 – ₹30,000";
 
-  /*
-   * -------------------------------------------------------
-   * Filter handlers
-   * -------------------------------------------------------
-   */
-
   const handleCategoryChange = (
     category: string,
   ) => {
@@ -421,12 +408,9 @@ const Products = () => {
     setFilters((current) => ({
       ...current,
       materials:
-        current.materials.includes(
-          material,
-        )
+        current.materials.includes(material)
           ? current.materials.filter(
-              (item) =>
-                item !== material,
+              (item) => item !== material,
             )
           : [
               ...current.materials,
@@ -442,16 +426,14 @@ const Products = () => {
   ) => {
     setFilters((current) => ({
       ...current,
-      colors:
-        current.colors.includes(color)
-          ? current.colors.filter(
-              (item) =>
-                item !== color,
-            )
-          : [
-              ...current.colors,
-              color,
-            ],
+      colors: current.colors.includes(color)
+        ? current.colors.filter(
+            (item) => item !== color,
+          )
+        : [
+            ...current.colors,
+            color,
+          ],
     }));
 
     setCurrentPage(1);
@@ -498,46 +480,25 @@ const Products = () => {
   ) => {
     switch (value) {
       case "Under ₹10,000":
-        handlePriceChange(
-          0,
-          10000,
-        );
+        handlePriceChange(0, 10000);
         break;
 
       case "₹10,000 – ₹20,000":
-        handlePriceChange(
-          10000,
-          20000,
-        );
+        handlePriceChange(10000, 20000);
         break;
 
       case "₹20,000 – ₹30,000":
-        handlePriceChange(
-          20000,
-          30000,
-        );
+        handlePriceChange(20000, 30000);
         break;
 
       case "Above ₹30,000":
-        handlePriceChange(
-          30000,
-          100000,
-        );
+        handlePriceChange(30000, 100000);
         break;
 
       default:
-        handlePriceChange(
-          0,
-          100000,
-        );
+        handlePriceChange(0, 100000);
     }
   };
-
-  /*
-   * -------------------------------------------------------
-   * Result numbers
-   * -------------------------------------------------------
-   */
 
   const firstResult =
     totalProducts === 0
@@ -548,8 +509,7 @@ const Products = () => {
 
   const lastResult =
     Math.min(
-      currentPage *
-        PRODUCTS_PER_PAGE,
+      currentPage * PRODUCTS_PER_PAGE,
       totalProducts,
     );
 
@@ -558,12 +518,6 @@ const Products = () => {
       currentPage,
       totalPages,
     );
-
-  /*
-   * -------------------------------------------------------
-   * Page title
-   * -------------------------------------------------------
-   */
 
   const getRoomDisplayName = () => {
     if (!roomFilter) {
@@ -611,8 +565,6 @@ const Products = () => {
           <div className="relative z-20">
             <Breadcrumbs />
           </div>
-
-          {/* HERO CARD */}
 
           <div
             className="
@@ -919,8 +871,6 @@ const Products = () => {
         </div>
       </section>
 
-      {/* TOOLBAR */}
-
       <section>
         <div
           className="
@@ -943,46 +893,35 @@ const Products = () => {
               setMobileFiltersOpen(true)
             }
             viewMode={viewMode}
-            onViewModeChange={
-              setViewMode
-            }
-            category={
-              filters.category
-            }
+            onViewModeChange={setViewMode}
+            categories={categories}
+            materials={materials}
+            colors={colors}
+            category={filters.category}
             onCategoryChange={
               handleCategoryChange
             }
-            material={
-              toolbarMaterial
-            }
-            onMaterialChange={(
-              value,
-            ) => {
-              setFilters(
-                (current) => ({
-                  ...current,
-                  materials:
-                    value ===
-                    "All Materials"
-                      ? []
-                      : [value],
-                }),
-              );
+            material={toolbarMaterial}
+            onMaterialChange={(value) => {
+              setFilters((current) => ({
+                ...current,
+                materials:
+                  value === "All Materials"
+                    ? []
+                    : [value],
+              }));
 
               setCurrentPage(1);
             }}
             color={toolbarColor}
             onColorChange={(value) => {
-              setFilters(
-                (current) => ({
-                  ...current,
-                  colors:
-                    value ===
-                    "All Colors"
-                      ? []
-                      : [value],
-                }),
-              );
+              setFilters((current) => ({
+                ...current,
+                colors:
+                  value === "All Colors"
+                    ? []
+                    : [value],
+              }));
 
               setCurrentPage(1);
             }}
@@ -1018,8 +957,6 @@ const Products = () => {
             xl:px-14
           "
         >
-          {/* Desktop filters */}
-
           <ProductFilters
             products={products}
             filters={filters}
@@ -1040,8 +977,6 @@ const Products = () => {
             }
             onClear={clearFilters}
           />
-
-          {/* Product area */}
 
           <div className="min-w-0 flex-1">
             <div
@@ -1107,8 +1042,7 @@ const Products = () => {
                 >
                   Showing{" "}
                   <span className="font-semibold text-[#4B433A]">
-                    {firstResult}–
-                    {lastResult}
+                    {firstResult}–{lastResult}
                   </span>{" "}
                   of{" "}
                   <span className="font-semibold text-[#4B433A]">
@@ -1145,8 +1079,6 @@ const Products = () => {
                 </button>
               )}
             </div>
-
-            {/* Loading */}
 
             {loading && (
               <div
@@ -1185,8 +1117,6 @@ const Products = () => {
                 </p>
               </div>
             )}
-
-            {/* Error */}
 
             {!loading && error && (
               <div
@@ -1265,8 +1195,6 @@ const Products = () => {
               </div>
             )}
 
-            {/* Products */}
-
             {!loading &&
               !error &&
               products.length > 0 && (
@@ -1278,8 +1206,6 @@ const Products = () => {
                   }
                 />
               )}
-
-            {/* Empty */}
 
             {!loading &&
               !error &&
@@ -1360,8 +1286,6 @@ const Products = () => {
                 </div>
               )}
 
-            {/* Pagination */}
-
             {!loading &&
               !error &&
               totalPages > 1 && (
@@ -1426,9 +1350,7 @@ const Products = () => {
 
                     {paginationItems.map(
                       (item, index) => {
-                        if (
-                          item === "..."
-                        ) {
+                        if (item === "...") {
                           return (
                             <span
                               key={`dots-${index}`}
@@ -1448,17 +1370,14 @@ const Products = () => {
                         }
 
                         const isActive =
-                          item ===
-                          currentPage;
+                          item === currentPage;
 
                         return (
                           <button
                             key={item}
                             type="button"
                             onClick={() =>
-                              setCurrentPage(
-                                item,
-                              )
+                              setCurrentPage(item)
                             }
                             aria-current={
                               isActive
@@ -1492,9 +1411,7 @@ const Products = () => {
 
                     <button
                       type="button"
-                      disabled={
-                        !hasNextPage
-                      }
+                      disabled={!hasNextPage}
                       onClick={() =>
                         setCurrentPage(
                           (page) =>
@@ -1538,8 +1455,12 @@ const Products = () => {
 
       <MobileFilterSheet
         open={mobileFiltersOpen}
+        products={products}
         filters={filters}
-        onApply={setFilters}
+        onApply={(newFilters) => {
+          setFilters(newFilters);
+          setCurrentPage(1);
+        }}
         onClose={() =>
           setMobileFiltersOpen(false)
         }

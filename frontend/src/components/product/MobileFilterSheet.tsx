@@ -4,68 +4,145 @@ import {
   X,
 } from "lucide-react";
 
+import type { Product } from "../../types/product";
 import type { ProductFilterState } from "./ProductFilters";
 
 interface MobileFilterSheetProps {
   open: boolean;
+
+  products: Product[];
+
   filters: ProductFilterState;
+
   onApply: (
     filters: ProductFilterState,
   ) => void;
+
   onClose: () => void;
 }
 
-const categories = [
-  "All Categories",
-  "Sofas",
-  "Chairs",
-  "Tables",
-  "Beds",
-  "Storage",
-  "Lighting",
-  "Decor",
-  "Rugs",
-];
+const COLOR_VALUES: Record<string, string> = {
+  beige: "#C9B9A3",
+  brown: "#9B754C",
+  black: "#37342F",
+  white: "#EEEAE3",
+  grey: "#8B8B8B",
+  gray: "#8B8B8B",
+  cream: "#E8DDC8",
+  blue: "#567A9E",
+  green: "#6F8068",
+  red: "#A84A42",
+  yellow: "#D4AE43",
+  gold: "#C9A35C",
+  silver: "#B9B9B9",
+};
 
-const materials = [
-  "Wood",
-  "Fabric",
-  "Metal",
-  "Glass",
-];
+const getUniqueValues = (
+  values: Array<string | undefined | null>,
+): string[] => {
+  return [
+    ...new Set(
+      values
+        .filter(
+          (
+            value,
+          ): value is string =>
+            typeof value === "string" &&
+            value.trim().length > 0,
+        )
+        .map((value) => value.trim()),
+    ),
+  ].sort((a, b) =>
+    a.localeCompare(b),
+  );
+};
 
-const colors = [
-  {
-    name: "Beige",
-    value: "#C9B9A3",
-  },
-  {
-    name: "Brown",
-    value: "#9B754C",
-  },
-  {
-    name: "Black",
-    value: "#37342F",
-  },
-  {
-    name: "White",
-    value: "#EEEAE3",
-  },
-];
+const getColorName = (
+  color:
+    | string
+    | {
+        name?: string;
+      }
+    | undefined
+    | null,
+): string | undefined => {
+  if (typeof color === "string") {
+    return color;
+  }
+
+  if (
+    color &&
+    typeof color.name === "string"
+  ) {
+    return color.name;
+  }
+
+  return undefined;
+};
 
 const MobileFilterSheet = ({
   open,
+  products,
   filters,
   onApply,
   onClose,
 }: MobileFilterSheetProps) => {
   if (!open) return null;
 
+  /*
+   * ========================================
+   * BUILD FILTER OPTIONS FROM BACKEND PRODUCTS
+   * ========================================
+   */
+
+  const categories = getUniqueValues([
+    ...products.map(
+      (product) => product.category,
+    ),
+
+    ...products.map(
+      (product) => product.subcategory,
+    ),
+  ]);
+
+  const materials = getUniqueValues([
+    ...products.map(
+      (product) => product.material,
+    ),
+
+    ...products.flatMap((product) =>
+      (product.variants ?? []).map(
+        (variant) => variant.material,
+      ),
+    ),
+  ]);
+
+  const colors = getUniqueValues([
+    ...products.flatMap((product) =>
+      (product.colors ?? []).map(
+        (color) => getColorName(color),
+      ),
+    ),
+
+    ...products.flatMap((product) =>
+      (product.variants ?? []).map(
+        (variant) => variant.color,
+      ),
+    ),
+  ]);
+
+  /*
+   * ========================================
+   * LOCAL FILTER ACTIONS
+   * ========================================
+   */
+
   const toggleMaterial = (
     material: string,
   ) => {
     onApply({
       ...filters,
+
       materials:
         filters.materials.includes(
           material,
@@ -86,6 +163,7 @@ const MobileFilterSheet = ({
   ) => {
     onApply({
       ...filters,
+
       colors:
         filters.colors.includes(color)
           ? filters.colors.filter(
@@ -112,8 +190,17 @@ const MobileFilterSheet = ({
     onClose();
   };
 
+  const maxPrice = 100000;
+
+  const minPercentage =
+    (filters.minPrice / maxPrice) * 100;
+
+  const maxPercentage =
+    (filters.maxPrice / maxPrice) * 100;
+
   return (
     <div className="fixed inset-0 z-100 sm:hidden">
+      {/* Overlay */}
 
       <button
         type="button"
@@ -155,6 +242,8 @@ const MobileFilterSheet = ({
             bg-[#D3C7B8]
           "
         />
+
+        {/* Header */}
 
         <div
           className="
@@ -214,7 +303,7 @@ const MobileFilterSheet = ({
           </button>
         </div>
 
-
+        {/* CATEGORY */}
 
         <div className="mt-8">
           <div className="flex items-center justify-between">
@@ -236,66 +325,67 @@ const MobileFilterSheet = ({
           </div>
 
           <div className="mt-4 space-y-1">
-            {categories.map(
-              (category) => {
-                const active =
-                  filters.category ===
-                  category;
+            {[
+              "All Categories",
+              ...categories,
+            ].map((category) => {
+              const active =
+                filters.category === category;
 
-                return (
-                  <button
-                    key={category}
-                    type="button"
-                    onClick={() =>
-                      onApply({
-                        ...filters,
-                        category,
-                      })
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() =>
+                    onApply({
+                      ...filters,
+                      category,
+                    })
+                  }
+                  className={`
+                    flex
+                    min-h-12
+                    w-full
+                    items-center
+                    justify-between
+                    rounded-[10px]
+                    px-4
+                    text-left
+                    transition
+                    ${
+                      active
+                        ? "bg-[#F0E5D6] text-[#805D34]"
+                        : "text-[#655D55] hover:bg-[#F5F0E9]"
                     }
+                  `}
+                >
+                  <span
                     className={`
-                      flex
-                      min-h-12
-                      w-full
-                      items-center
-                      justify-between
-                      rounded-[10px]
-                      px-4
-                      text-left
-                      transition
+                      text-[14px]
                       ${
                         active
-                          ? "bg-[#F0E5D6] text-[#805D34]"
-                          : "text-[#655D55] hover:bg-[#F5F0E9]"
+                          ? "font-semibold"
+                          : "font-normal"
                       }
                     `}
                   >
-                    <span
-                      className={`
-                        text-[14px]
-                        ${
-                          active
-                            ? "font-semibold"
-                            : "font-normal"
-                        }
-                      `}
-                    >
-                      {category}
-                    </span>
+                    {category}
+                  </span>
 
-                    {active && (
-                      <Check
-                        size={17}
-                        strokeWidth={1.7}
-                        className="text-[#A4773E]"
-                      />
-                    )}
-                  </button>
-                );
-              },
-            )}
+                  {active && (
+                    <Check
+                      size={17}
+                      strokeWidth={1.7}
+                      className="text-[#A4773E]"
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
+        {/* MATERIAL */}
 
         <div
           className="
@@ -318,55 +408,51 @@ const MobileFilterSheet = ({
           </p>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
-            {materials.map(
-              (material) => {
-                const active =
-                  filters.materials.includes(
-                    material,
-                  );
-
-                return (
-                  <button
-                    key={material}
-                    type="button"
-                    onClick={() =>
-                      toggleMaterial(
-                        material,
-                      )
-                    }
-                    className={`
-                      flex
-                      min-h-11.25
-                      items-center
-                      justify-between
-                      rounded-[9px]
-                      border
-                      px-3.5
-                      text-[13px]
-                      transition
-                      ${
-                        active
-                          ? "border-[#B99A6B] bg-[#F1E6D7] font-medium text-[#805D34]"
-                          : "border-[#DED5C9] bg-white text-[#6E655C]"
-                      }
-                    `}
-                  >
-                    {material}
-
-                    {active && (
-                      <Check
-                        size={15}
-                        strokeWidth={1.7}
-                      />
-                    )}
-                  </button>
+            {materials.map((material) => {
+              const active =
+                filters.materials.includes(
+                  material,
                 );
-              },
-            )}
+
+              return (
+                <button
+                  key={material}
+                  type="button"
+                  onClick={() =>
+                    toggleMaterial(material)
+                  }
+                  className={`
+                    flex
+                    min-h-11.25
+                    items-center
+                    justify-between
+                    rounded-[9px]
+                    border
+                    px-3.5
+                    text-[13px]
+                    transition
+                    ${
+                      active
+                        ? "border-[#B99A6B] bg-[#F1E6D7] font-medium text-[#805D34]"
+                        : "border-[#DED5C9] bg-white text-[#6E655C]"
+                    }
+                  `}
+                >
+                  {material}
+
+                  {active && (
+                    <Check
+                      size={15}
+                      strokeWidth={1.7}
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-
+        {/* PRICE RANGE */}
 
         <div
           className="
@@ -391,6 +477,11 @@ const MobileFilterSheet = ({
 
             <span className="text-[11px] text-[#7D7368]">
               ₹
+              {filters.minPrice.toLocaleString(
+                "en-IN",
+              )}
+              {" - "}
+              ₹
               {filters.maxPrice.toLocaleString(
                 "en-IN",
               )}
@@ -398,22 +489,166 @@ const MobileFilterSheet = ({
           </div>
 
           <div className="mt-6">
-            <div className="relative h-0.75 rounded-full bg-[#D8CEC2]">
-              <div className="absolute inset-y-0 left-0 w-[72%] rounded-full bg-[#A4773E]" />
+            <div className="relative h-7">
+              <div
+                className="
+                  absolute
+                  left-0
+                  right-0
+                  top-1/2
+                  h-0.75
+                  -translate-y-1/2
+                  rounded-full
+                  bg-[#D8CEC2]
+                "
+              />
 
-              <span className="absolute left-0 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#A4773E] bg-[#FAF8F5]" />
+              <div
+                className="
+                  pointer-events-none
+                  absolute
+                  top-1/2
+                  h-0.75
+                  -translate-y-1/2
+                  rounded-full
+                  bg-[#A4773E]
+                "
+                style={{
+                  left: `${minPercentage}%`,
+                  right: `${
+                    100 - maxPercentage
+                  }%`,
+                }}
+              />
 
-              <span className="absolute right-0 top-1/2 h-4 w-4 translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#A4773E] bg-[#FAF8F5]" />
+              <input
+                type="range"
+                min={0}
+                max={maxPrice}
+                step={1000}
+                value={filters.minPrice}
+                onChange={(event) => {
+                  const value = Number(
+                    event.target.value,
+                  );
+
+                  onApply({
+                    ...filters,
+
+                    minPrice: Math.min(
+                      value,
+                      filters.maxPrice - 1000,
+                    ),
+                  });
+                }}
+                className="
+                  absolute
+                  inset-0
+                  z-20
+                  h-7
+                  w-full
+                  cursor-pointer
+                  appearance-none
+                  bg-transparent
+                  opacity-0
+                "
+                aria-label="Minimum price"
+              />
+
+              <input
+                type="range"
+                min={0}
+                max={maxPrice}
+                step={1000}
+                value={filters.maxPrice}
+                onChange={(event) => {
+                  const value = Number(
+                    event.target.value,
+                  );
+
+                  onApply({
+                    ...filters,
+
+                    maxPrice: Math.max(
+                      value,
+                      filters.minPrice + 1000,
+                    ),
+                  });
+                }}
+                className="
+                  absolute
+                  inset-0
+                  z-30
+                  h-7
+                  w-full
+                  cursor-pointer
+                  appearance-none
+                  bg-transparent
+                  opacity-0
+                "
+                aria-label="Maximum price"
+              />
+
+              <span
+                className="
+                  pointer-events-none
+                  absolute
+                  top-1/2
+                  z-10
+                  h-4
+                  w-4
+                  -translate-x-1/2
+                  -translate-y-1/2
+                  rounded-full
+                  border-2
+                  border-[#A4773E]
+                  bg-[#FAF8F5]
+                "
+                style={{
+                  left: `${minPercentage}%`,
+                }}
+              />
+
+              <span
+                className="
+                  pointer-events-none
+                  absolute
+                  top-1/2
+                  z-10
+                  h-4
+                  w-4
+                  -translate-x-1/2
+                  -translate-y-1/2
+                  rounded-full
+                  border-2
+                  border-[#A4773E]
+                  bg-[#FAF8F5]
+                "
+                style={{
+                  left: `${maxPercentage}%`,
+                }}
+              />
             </div>
 
             <div className="mt-4 flex justify-between text-[11px] text-[#766D63]">
-              <span>₹0</span>
-              <span>₹1,00,000+</span>
+              <span>
+                ₹
+                {filters.minPrice.toLocaleString(
+                  "en-IN",
+                )}
+              </span>
+
+              <span>
+                ₹
+                {filters.maxPrice.toLocaleString(
+                  "en-IN",
+                )}
+              </span>
             </div>
           </div>
         </div>
 
-
+        {/* COLOR */}
 
         <div
           className="
@@ -435,22 +670,24 @@ const MobileFilterSheet = ({
             Color
           </p>
 
-          <div className="mt-5 flex gap-4">
+          <div className="mt-5 flex flex-wrap gap-4">
             {colors.map((color) => {
               const active =
-                filters.colors.includes(
-                  color.name,
-                );
+                filters.colors.includes(color);
+
+              const backgroundColor =
+                COLOR_VALUES[
+                  color.toLowerCase()
+                ] ?? color;
 
               return (
                 <button
-                  key={color.name}
+                  key={color}
                   type="button"
-                  aria-label={color.name}
+                  aria-label={color}
+                  title={color}
                   onClick={() =>
-                    toggleColor(
-                      color.name,
-                    )
+                    toggleColor(color)
                   }
                   className={`
                     relative
@@ -466,15 +703,21 @@ const MobileFilterSheet = ({
                     }
                   `}
                   style={{
-                    backgroundColor:
-                      color.value,
+                    backgroundColor,
                   }}
                 >
                   {active && (
                     <Check
                       size={15}
                       strokeWidth={1.8}
-                      className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white"
+                      className="
+                        absolute
+                        left-1/2
+                        top-1/2
+                        -translate-x-1/2
+                        -translate-y-1/2
+                        text-white
+                      "
                     />
                   )}
                 </button>
@@ -483,7 +726,7 @@ const MobileFilterSheet = ({
           </div>
         </div>
 
-
+        {/* RATING */}
 
         <div
           className="
@@ -515,8 +758,7 @@ const MobileFilterSheet = ({
           <div className="mt-4 space-y-3">
             {[4, 3].map((rating) => {
               const active =
-                filters.minRating ===
-                rating;
+                filters.minRating === rating;
 
               return (
                 <button
@@ -525,6 +767,7 @@ const MobileFilterSheet = ({
                   onClick={() =>
                     onApply({
                       ...filters,
+
                       minRating: active
                         ? 0
                         : rating,
@@ -566,6 +809,7 @@ const MobileFilterSheet = ({
 
                   <span className="text-[13px] tracking-[0.04em] text-[#C88924]">
                     {"★".repeat(rating)}
+
                     <span className="text-[#D8CEC3]">
                       {"★".repeat(
                         5 - rating,
@@ -582,7 +826,7 @@ const MobileFilterSheet = ({
           </div>
         </div>
 
-
+        {/* ACTIONS */}
 
         <div
           className="

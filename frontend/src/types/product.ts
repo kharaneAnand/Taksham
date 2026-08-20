@@ -1,9 +1,15 @@
+export interface ProductImage {
+  url: string;
+
+  publicId: string;
+}
+
 export interface ProductVariant {
   _id: string;
 
   color?: string;
 
-  images: string[];
+  images: ProductImage[];
 
   price?: number;
 
@@ -21,11 +27,20 @@ export interface Product {
 
   price: number;
 
-  // Primary / thumbnail image
-  image: string;
+  /*
+   * Primary / thumbnail image
+   */
+  image: ProductImage;
 
-  // Full product gallery
-  images?: string[];
+  /*
+   * Full common product gallery
+   *
+   * Front view
+   * Side view
+   * Back view
+   * Detail view
+   */
+  images?: ProductImage[];
 
   category: string;
 

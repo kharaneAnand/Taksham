@@ -7,7 +7,7 @@ import morgan from "morgan";
 
 import productRoutes from "./routes/product.routes.js";
 import errorHandler from "./middleware/error.middleware.js";
-
+import categoryRoutes from "./routes/category.routes.js"
 const app = express();
 
 app.use(
@@ -40,6 +40,7 @@ app.use(
   "/api/v1/products",
   productRoutes,
 );
+app.use("/api/v1/categories", categoryRoutes);
 
 app.get("/", (_req, res) => {
   res.status(200).json({
