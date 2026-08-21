@@ -8,7 +8,7 @@ const PRODUCT_API_URL =
   import.meta.env.VITE_PRODUCT_SERVICE_URL ||
   "http://localhost:5002/api/v1/products";
 
-/*
+/* 
  * =====================================================
  * TYPES
  * =====================================================
@@ -40,7 +40,7 @@ export interface ProductQueryParams {
   sort?: ProductSort;
 }
 
-/*
+/* 
  * =====================================================
  * PRODUCT VARIANT PAYLOAD
  * =====================================================
@@ -49,9 +49,6 @@ export interface ProductQueryParams {
 export interface CreateProductVariantPayload {
   color?: string;
 
-  /*
-   * Images uploaded to Cloudinary.
-   */
   images: ProductImage[];
 
   price?: number;
@@ -61,7 +58,7 @@ export interface CreateProductVariantPayload {
   material?: string;
 }
 
-/*
+/* 
  * =====================================================
  * CREATE PRODUCT PAYLOAD
  * =====================================================
@@ -74,25 +71,8 @@ export interface CreateProductPayload {
 
   price: number;
 
-  /*
-   * Main / cover image.
-   *
-   * {
-   *   url: "...",
-   *   publicId: "..."
-   * }
-   */
   image: ProductImage;
 
-  /*
-   * Common product gallery.
-   *
-   * Example:
-   * Front view
-   * Side view
-   * Back view
-   * Detail view
-   */
   images?: ProductImage[];
 
   category: string;
@@ -115,13 +95,10 @@ export interface CreateProductPayload {
 
   stock: number;
 
-  /*
-   * Color-wise / variant-wise images.
-   */
   variants?: CreateProductVariantPayload[];
 }
 
-/*
+/* 
  * =====================================================
  * UPDATE PRODUCT PAYLOAD
  * =====================================================
@@ -130,7 +107,7 @@ export interface CreateProductPayload {
 export type UpdateProductPayload =
   Partial<CreateProductPayload>;
 
-/*
+/* 
  * =====================================================
  * REQUEST HELPER
  * =====================================================
@@ -176,7 +153,7 @@ const request = async <T>(
   return result.data as T;
 };
 
-/*
+/* 
  * =====================================================
  * GET PRODUCTS
  * =====================================================
@@ -280,7 +257,33 @@ export const getProducts = async (
   );
 };
 
-/*
+/* 
+ * =====================================================
+ * GET ALL PRODUCTS FOR ADMIN SELECTORS
+ * =====================================================
+ *
+ * Useful for:
+ * - Add Collection
+ * - Edit Collection
+ * - Admin product selection
+ *
+ * Fetches a large product list and returns
+ * only the actual Product array.
+ */
+
+export const getAllProducts = async (): Promise<
+  Product[]
+> => {
+  const response =
+    await getProducts({
+      page: 1,
+      limit: 100,
+    });
+
+  return response.products;
+};
+
+/* 
  * =====================================================
  * GET PRODUCT BY SLUG
  * =====================================================
@@ -299,7 +302,7 @@ export const getProductBySlug = async (
   );
 };
 
-/*
+/* 
  * =====================================================
  * GET PRODUCT BY ID
  * =====================================================
@@ -318,7 +321,7 @@ export const getProductById = async (
   );
 };
 
-/*
+/* 
  * =====================================================
  * CREATE PRODUCT
  * =====================================================
@@ -339,7 +342,7 @@ export const createProduct = async (
   );
 };
 
-/*
+/* 
  * =====================================================
  * UPDATE PRODUCT
  * =====================================================
@@ -363,7 +366,7 @@ export const updateProduct = async (
   );
 };
 
-/*
+/* 
  * =====================================================
  * DELETE PRODUCT
  * =====================================================

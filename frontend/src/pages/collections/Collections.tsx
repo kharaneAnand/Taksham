@@ -1,5 +1,13 @@
 import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
   ArrowRight,
+  FolderOpen,
+  Loader2,
   Sparkles,
 } from "lucide-react";
 
@@ -7,13 +15,13 @@ import {
   useNavigate,
 } from "react-router-dom";
 
-import livingRoom from "../../assets/images/rooms/living-room.png";
-import bedroom from "../../assets/images/rooms/bedroom.png";
-import diningRoom from "../../assets/images/rooms/diningroom.png";
-import homeOffice from "../../assets/images/rooms/office.png";
-import Study from "../../assets/images/rooms/Study.png";
-import Balcony from "../../assets/images/rooms/Balcony.png";
-import Entertainment from "../../assets/images/rooms/Entertainment.png";
+import {
+  getCollections,
+} from "../../api/collectionApi";
+
+import type {
+  Collection,
+} from "../../types/collection";
 
 import sofa from "../../assets/images/categories/sofa.png";
 import chair from "../../assets/images/categories/chair.png";
@@ -23,79 +31,6 @@ import beds from "../../assets/images/categories/beds.png";
 import lighting from "../../assets/images/categories/Lighting.png";
 import decor from "../../assets/images/categories/Dacore.png";
 import rugs from "../../assets/images/categories/Rugs.png";
-
-interface Collection {
-  id: string;
-  eyebrow: string;
-  title: string;
-  description: string;
-  image: string;
-  route: string;
-  type: "room" | "category";
-}
-
-const collections: Collection[] = [
-  {
-    id: "living",
-    eyebrow: "01 / LIVING",
-    title: "The Living Edit",
-    description:
-      "Warm, inviting pieces designed around conversations, comfort and everyday living.",
-    image: livingRoom,
-    route: "/rooms/living-room",
-    type: "room",
-  },
-  {
-    id: "bedroom",
-    eyebrow: "02 / BEDROOM",
-    title: "The Bedroom Edit",
-    description:
-      "Create a calm personal retreat with timeless forms and considered comfort.",
-    image: bedroom,
-    route: "/rooms/bedroom",
-    type: "room",
-  },
-  {
-    id: "dining",
-    eyebrow: "03 / DINING",
-    title: "The Dining Edit",
-    description:
-      "Pieces made for gathering, long conversations and beautifully shared moments.",
-    image: diningRoom,
-    route: "/rooms/dining-room",
-    type: "room",
-  },
-  {
-    id: "work",
-    eyebrow: "04 / WORK & STUDY",
-    title: "The Work Edit",
-    description:
-      "Thoughtful furniture for focused work, quiet reading and inspired thinking.",
-    image: homeOffice,
-    route: "/rooms/home-office",
-    type: "room",
-  },
-  {
-    id: "study",
-    eyebrow: "05 / STUDY",
-    title: "The Study Edit",
-    description:
-      "A refined balance of function and character for your personal corner.",
-    image: Study,
-    route: "/rooms/study-library",
-    type: "room",
-  },
-  {
-    id: "outdoor",
-    eyebrow: "06 / OUTDOOR",
-    title: "The Balcony Edit",
-    description:
-      "Turn overlooked corners into beautiful spaces made for slow mornings.",
-    image: Balcony,
-    route: "/rooms/balcony",
-    type: "room",
-  },
-];
 
 const categoryCollections = [
   {
@@ -144,10 +79,81 @@ const Collections = () => {
   const navigate =
     useNavigate();
 
+  const [
+    collections,
+    setCollections,
+  ] = useState<Collection[]>([]);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+  /* =====================================================
+      FETCH COLLECTIONS
+  ===================================================== */
+
+  useEffect(() => {
+    const fetchCollections =
+      async () => {
+        try {
+          setLoading(true);
+          setError("");
+
+          const response =
+            await getCollections();
+
+          setCollections(
+            response.filter(
+              (collection) =>
+                collection.isActive,
+            ),
+          );
+        } catch (err) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load collections",
+          );
+        } finally {
+          setLoading(false);
+        }
+      };
+
+    fetchCollections();
+  }, []);
+
+  /* =====================================================
+      ACTIVE COLLECTIONS
+  ===================================================== */
+
+  const activeCollections =
+    useMemo(
+      () =>
+        collections.filter(
+          (collection) =>
+            collection.isActive,
+        ),
+      [collections],
+    );
+
+  /* =====================================================
+      HANDLERS
+  ===================================================== */
+
   const handleCollectionClick = (
     collection: Collection,
   ) => {
-    navigate(collection.route);
+    navigate(
+      `/collections/${encodeURIComponent(
+        collection.slug,
+      )}`,
+    );
   };
 
   const handleCategoryClick = (
@@ -182,8 +188,6 @@ const Collections = () => {
           bg-[#F4EEE6]
         "
       >
-        {/* Ambient background details */}
-
         <div
           className="
             pointer-events-none
@@ -243,8 +247,6 @@ const Collections = () => {
             xl:px-16
           "
         >
-          {/* Breadcrumb */}
-
           <button
             type="button"
             onClick={() =>
@@ -288,8 +290,6 @@ const Collections = () => {
 
             Collections
           </button>
-
-          {/* Hero content */}
 
           <div
             className="
@@ -368,11 +368,7 @@ const Collections = () => {
               />
             </div>
 
-            <div
-              className="
-                lg:pb-1
-              "
-            >
+            <div className="lg:pb-1">
               <p
                 className="
                   max-w-xl
@@ -392,9 +388,7 @@ const Collections = () => {
               <button
                 type="button"
                 onClick={() =>
-                  navigate(
-                    "/products",
-                  )
+                  navigate("/products")
                 }
                 className="
                   group
@@ -429,17 +423,11 @@ const Collections = () => {
                     group-hover:border-[#A4773E]
                     group-hover:bg-[#A4773E]
                     group-hover:text-white
-                    group-hover:shadow-[0_8px_20px_rgba(143,107,63,0.18)]
                   "
                 >
                   <ArrowRight
                     size={12}
                     strokeWidth={1.5}
-                    className="
-                      transition-transform
-                      duration-300
-                      group-hover:translate-x-0.5
-                    "
                   />
                 </span>
               </button>
@@ -479,8 +467,6 @@ const Collections = () => {
             blur-[90px]
           "
         />
-
-        {/* Section heading */}
 
         <div
           className="
@@ -542,303 +528,449 @@ const Collections = () => {
               sm:block
             "
           >
-            {collections.length} curated edits
+            {activeCollections.length} curated edit
+            {activeCollections.length !== 1
+              ? "s"
+              : ""}
           </span>
         </div>
 
-        {/* Collection grid */}
+        {/* LOADING */}
 
-        <div
-          className="
-            relative
-            grid
-            gap-4
-            sm:grid-cols-2
-            sm:gap-5
-            lg:grid-cols-3
-            lg:gap-6
-          "
-        >
-          {collections.map(
-            (
-              collection,
-              index,
-            ) => (
-              <button
-                key={
-                  collection.id
-                }
-                type="button"
-                onClick={() =>
-                  handleCollectionClick(
-                    collection,
-                  )
-                }
-                className={`
-                  group
-                  relative
-                  overflow-hidden
-                  rounded-[22px]
-                  border
-                  border-[#E2D8CD]
-                  bg-[#EEE7DE]
-                  text-left
-                  shadow-[0_14px_38px_rgba(55,43,31,0.055)]
-                  transition-all
-                  duration-500
-                  hover:-translate-y-1.5
-                  hover:border-[#CDB28B]
-                  hover:shadow-[0_24px_55px_rgba(55,43,31,0.12)]
-                  active:scale-[0.99]
-                  ${
-                    index === 0
-                      ? "sm:row-span-2"
-                      : ""
-                  }
-                `}
+        {loading && (
+          <div
+            className="
+              flex
+              min-h-80
+              items-center
+              justify-center
+              gap-3
+              rounded-[22px]
+              border
+              border-[#E2D8CD]
+              bg-[#F7F1E9]
+              text-sm
+              text-[#756B60]
+            "
+          >
+            <Loader2
+              size={20}
+              className="animate-spin"
+            />
+
+            Loading collections...
+          </div>
+        )}
+
+        {/* ERROR */}
+
+        {!loading && error && (
+          <div
+            className="
+              rounded-[22px]
+              border
+              border-red-200
+              bg-red-50
+              px-6
+              py-8
+              text-center
+            "
+          >
+            <p className="text-sm text-red-600">
+              {error}
+            </p>
+
+            <button
+              type="button"
+              onClick={() =>
+                window.location.reload()
+              }
+              className="
+                mt-4
+                text-xs
+                font-semibold
+                uppercase
+                tracking-[0.15em]
+                text-[#8F6B3F]
+              "
+            >
+              Try again
+            </button>
+          </div>
+        )}
+
+        {/* EMPTY STATE */}
+
+        {!loading &&
+          !error &&
+          activeCollections.length === 0 && (
+            <div
+              className="
+                flex
+                min-h-80
+                flex-col
+                items-center
+                justify-center
+                rounded-[22px]
+                border
+                border-dashed
+                border-[#D8CBBB]
+                bg-[#F7F1E9]
+                px-6
+                text-center
+              "
+            >
+              <div
+                className="
+                  flex
+                  h-14
+                  w-14
+                  items-center
+                  justify-center
+                  rounded-full
+                  bg-white
+                  shadow-sm
+                "
               >
-                <div
-                  className={`
-                    relative
-                    overflow-hidden
-                    ${
-                      index === 0
-                        ? "aspect-[0.78] sm:h-full"
-                        : "aspect-[1.05]"
-                    }
-                  `}
-                >
-                  <img
-                    src={
-                      collection.image
-                    }
-                    alt={
-                      collection.title
-                    }
-                    loading={
-                      index === 0
-                        ? undefined
-                        : "lazy"
-                    }
-                    className="
-                      h-full
-                      w-full
-                      object-cover
-                      transition-transform
-                      duration-900
-                      ease-out
-                      group-hover:scale-[1.055]
-                    "
-                  />
+                <FolderOpen
+                  size={24}
+                  className="text-[#A4773E]"
+                />
+              </div>
 
-                  <div
-                    className="
-                      pointer-events-none
-                      absolute
-                      inset-0
-                      bg-linear-to-t
-                      from-[#18130F]/92
-                      via-[#18130F]/20
-                      to-transparent
-                    "
-                  />
+              <h3
+                className="
+                  mt-5
+                  font-serif
+                  text-2xl
+                  text-[#302B25]
+                "
+              >
+                New edits are coming soon
+              </h3>
 
-                  <div
-                    className="
-                      pointer-events-none
-                      absolute
-                      inset-x-0
-                      top-0
-                      h-32
-                      bg-linear-to-b
-                      from-black/18
-                      to-transparent
-                    "
-                  />
+              <p
+                className="
+                  mt-2
+                  max-w-md
+                  text-sm
+                  leading-6
+                  text-[#81776C]
+                "
+              >
+                We are currently curating
+                beautiful collections for your home.
+              </p>
+            </div>
+          )}
 
-                  {/* Number */}
+        {/* COLLECTION GRID */}
 
-                  <span
-                    className="
-                      absolute
-                      left-4
-                      top-4
-                      flex
-                      h-8
-                      min-w-8
-                      items-center
-                      justify-center
-                      rounded-full
+        {!loading &&
+          !error &&
+          activeCollections.length > 0 && (
+            <div
+              className="
+                relative
+                grid
+                gap-4
+                sm:grid-cols-2
+                sm:gap-5
+                lg:grid-cols-3
+                lg:gap-6
+              "
+            >
+              {activeCollections.map(
+                (
+                  collection,
+                  index,
+                ) => (
+                  <button
+                    key={collection._id}
+                    type="button"
+                    onClick={() =>
+                      handleCollectionClick(
+                        collection,
+                      )
+                    }
+                    className={`
+                      group
+                      relative
+                      overflow-hidden
+                      rounded-[22px]
                       border
-                      border-white/35
-                      bg-black/15
-                      px-2
-                      text-[7px]
-                      font-semibold
-                      tracking-[0.08em]
-                      text-white
-                      shadow-sm
-                      backdrop-blur-md
-                      sm:left-5
-                      sm:top-5
-                    "
-                  >
-                    {String(
-                      index + 1,
-                    ).padStart(
-                      2,
-                      "0",
-                    )}
-                  </span>
-
-                  {/* Explore indicator */}
-
-                  <span
-                    className="
-                      absolute
-                      right-4
-                      top-4
-                      flex
-                      h-9
-                      w-9
-                      translate-y-1
-                      items-center
-                      justify-center
-                      rounded-full
-                      border
-                      border-white/35
-                      bg-white/10
-                      text-white
-                      opacity-0
-                      backdrop-blur-md
+                      border-[#E2D8CD]
+                      bg-[#EEE7DE]
+                      text-left
+                      shadow-[0_14px_38px_rgba(55,43,31,0.055)]
                       transition-all
-                      duration-400
-                      group-hover:translate-y-0
-                      group-hover:opacity-100
-                      sm:right-5
-                      sm:top-5
-                    "
+                      duration-500
+                      hover:-translate-y-1.5
+                      hover:border-[#CDB28B]
+                      hover:shadow-[0_24px_55px_rgba(55,43,31,0.12)]
+                      active:scale-[0.99]
+                      ${
+                        index === 0
+                          ? "sm:row-span-2"
+                          : ""
+                      }
+                    `}
                   >
-                    <ArrowRight
-                      size={13}
-                      strokeWidth={1.5}
-                      className="
-                        -rotate-45
-                      "
-                    />
-                  </span>
-
-                  {/* Content */}
-
-                  <div
-                    className="
-                      absolute
-                      bottom-0
-                      left-0
-                      right-0
-                      p-5
-                      sm:p-6
-                    "
-                  >
-                    <p
-                      className="
-                        text-[7px]
-                        font-semibold
-                        uppercase
-                        tracking-[0.28em]
-                        text-[#E5C895]
-                        sm:text-[8px]
-                      "
+                    <div
+                      className={`
+                        relative
+                        overflow-hidden
+                        ${
+                          index === 0
+                            ? "aspect-[0.78] sm:h-full"
+                            : "aspect-[1.05]"
+                        }
+                      `}
                     >
-                      {
-                        collection.eyebrow
-                      }
-                    </p>
+                      {collection.image?.url ? (
+                        <img
+                          src={
+                            collection.image.url
+                          }
+                          alt={
+                            collection.name
+                          }
+                          loading={
+                            index === 0
+                              ? "eager"
+                              : "lazy"
+                          }
+                          className="
+                            h-full
+                            w-full
+                            object-cover
+                            transition-transform
+                            duration-900
+                            ease-out
+                            group-hover:scale-[1.055]
+                          "
+                        />
+                      ) : (
+                        <div
+                          className="
+                            flex
+                            h-full
+                            w-full
+                            items-center
+                            justify-center
+                            bg-[#E9E0D5]
+                          "
+                        >
+                          <FolderOpen
+                            size={42}
+                            className="text-[#B9A58A]"
+                          />
+                        </div>
+                      )}
 
-                    <h3
-                      className="
-                        mt-2
-                        font-serif
-                        text-[28px]
-                        leading-[0.96]
-                        tracking-[-0.04em]
-                        text-white
-                        sm:text-[34px]
-                      "
-                    >
-                      {
-                        collection.title
-                      }
-                    </h3>
+                      <div
+                        className="
+                          pointer-events-none
+                          absolute
+                          inset-0
+                          bg-linear-to-t
+                          from-[#18130F]/92
+                          via-[#18130F]/20
+                          to-transparent
+                        "
+                      />
 
-                    <p
-                      className="
-                        mt-2.5
-                        max-w-sm
-                        text-[9px]
-                        leading-4.5
-                        text-white/75
-                        sm:text-[10px]
-                        sm:leading-5
-                      "
-                    >
-                      {
-                        collection.description
-                      }
-                    </p>
+                      <div
+                        className="
+                          pointer-events-none
+                          absolute
+                          inset-x-0
+                          top-0
+                          h-32
+                          bg-linear-to-b
+                          from-black/18
+                          to-transparent
+                        "
+                      />
 
-                    <span
-                      className="
-                        mt-4
-                        flex
-                        items-center
-                        gap-2
-                        text-[7px]
-                        font-semibold
-                        uppercase
-                        tracking-[0.15em]
-                        text-white
-                        sm:text-[8px]
-                      "
-                    >
-                      Explore collection
+                      {/* NUMBER */}
 
                       <span
                         className="
+                          absolute
+                          left-4
+                          top-4
                           flex
                           h-8
-                          w-8
+                          min-w-8
+                          items-center
+                          justify-center
+                          rounded-full
+                          border
+                          border-white/35
+                          bg-black/15
+                          px-2
+                          text-[7px]
+                          font-semibold
+                          tracking-[0.08em]
+                          text-white
+                          shadow-sm
+                          backdrop-blur-md
+                          sm:left-5
+                          sm:top-5
+                        "
+                      >
+                        {String(
+                          index + 1,
+                        ).padStart(
+                          2,
+                          "0",
+                        )}
+                      </span>
+
+                      {/* EXPLORE */}
+
+                      <span
+                        className="
+                          absolute
+                          right-4
+                          top-4
+                          flex
+                          h-9
+                          w-9
+                          translate-y-1
                           items-center
                           justify-center
                           rounded-full
                           border
                           border-white/35
                           bg-white/10
+                          text-white
+                          opacity-0
                           backdrop-blur-md
                           transition-all
-                          duration-300
-                          group-hover:border-white
-                          group-hover:bg-white
-                          group-hover:text-[#6B4F2E]
+                          duration-400
+                          group-hover:translate-y-0
+                          group-hover:opacity-100
+                          sm:right-5
+                          sm:top-5
                         "
                       >
                         <ArrowRight
-                          size={11}
+                          size={13}
                           strokeWidth={1.5}
-                          className="
-                            transition-transform
-                            duration-300
-                            group-hover:translate-x-0.5
-                          "
+                          className="-rotate-45"
                         />
                       </span>
-                    </span>
-                  </div>
-                </div>
-              </button>
-            ),
+
+                      {/* CONTENT */}
+
+                      <div
+                        className="
+                          absolute
+                          bottom-0
+                          left-0
+                          right-0
+                          p-5
+                          sm:p-6
+                        "
+                      >
+                        <p
+                          className="
+                            text-[7px]
+                            font-semibold
+                            uppercase
+                            tracking-[0.28em]
+                            text-[#E5C895]
+                            sm:text-[8px]
+                          "
+                        >
+                          COLLECTION /{" "}
+                          {String(
+                            index + 1,
+                          ).padStart(
+                            2,
+                            "0",
+                          )}
+                        </p>
+
+                        <h3
+                          className="
+                            mt-2
+                            font-serif
+                            text-[28px]
+                            leading-[0.96]
+                            tracking-[-0.04em]
+                            text-white
+                            sm:text-[34px]
+                          "
+                        >
+                          {collection.name}
+                        </h3>
+
+                        <p
+                          className="
+                            mt-2.5
+                            max-w-sm
+                            text-[9px]
+                            leading-4.5
+                            text-white/75
+                            sm:text-[10px]
+                            sm:leading-5
+                          "
+                        >
+                          {collection.description ||
+                            "Discover a thoughtfully curated selection of pieces designed for your home."}
+                        </p>
+
+                        <span
+                          className="
+                            mt-4
+                            flex
+                            items-center
+                            gap-2
+                            text-[7px]
+                            font-semibold
+                            uppercase
+                            tracking-[0.15em]
+                            text-white
+                            sm:text-[8px]
+                          "
+                        >
+                          Explore collection
+
+                          <span
+                            className="
+                              flex
+                              h-8
+                              w-8
+                              items-center
+                              justify-center
+                              rounded-full
+                              border
+                              border-white/35
+                              bg-white/10
+                              backdrop-blur-md
+                              transition-all
+                              duration-300
+                              group-hover:border-white
+                              group-hover:bg-white
+                              group-hover:text-[#6B4F2E]
+                            "
+                          >
+                            <ArrowRight
+                              size={11}
+                              strokeWidth={1.5}
+                            />
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                ),
+              )}
+            </div>
           )}
-        </div>
       </section>
 
       {/* =====================================================
@@ -882,8 +1014,6 @@ const Collections = () => {
             xl:px-16
           "
         >
-          {/* Heading */}
-
           <div
             className="
               mb-8
@@ -929,9 +1059,7 @@ const Collections = () => {
             <button
               type="button"
               onClick={() =>
-                navigate(
-                  "/products",
-                )
+                navigate("/products")
               }
               className="
                 group
@@ -970,8 +1098,6 @@ const Collections = () => {
             </button>
           </div>
 
-          {/* Categories */}
-
           <div
             className="
               grid
@@ -985,9 +1111,7 @@ const Collections = () => {
             {categoryCollections.map(
               (category) => (
                 <button
-                  key={
-                    category.slug
-                  }
+                  key={category.slug}
                   type="button"
                   onClick={() =>
                     handleCategoryClick(
@@ -1040,12 +1164,8 @@ const Collections = () => {
                     />
 
                     <img
-                      src={
-                        category.image
-                      }
-                      alt={
-                        category.name
-                      }
+                      src={category.image}
+                      alt={category.name}
                       loading="lazy"
                       className="
                         relative
@@ -1089,12 +1209,7 @@ const Collections = () => {
                     </span>
                   </div>
 
-                  <div
-                    className="
-                      px-2
-                      py-3.5
-                    "
-                  >
+                  <div className="px-2 py-3.5">
                     <p
                       className="
                         text-[10px]
@@ -1103,9 +1218,7 @@ const Collections = () => {
                         sm:text-[11px]
                       "
                     >
-                      {
-                        category.name
-                      }
+                      {category.name}
                     </p>
 
                     <span
@@ -1144,14 +1257,10 @@ const Collections = () => {
             )}
           </div>
 
-          {/* Mobile view all */}
-
           <button
             type="button"
             onClick={() =>
-              navigate(
-                "/products",
-              )
+              navigate("/products")
             }
             className="
               group
@@ -1185,246 +1294,8 @@ const Collections = () => {
             <ArrowRight
               size={12}
               strokeWidth={1.5}
-              className="
-                transition-transform
-                duration-300
-                group-hover:translate-x-1
-              "
             />
           </button>
-        </div>
-      </section>
-
-      {/* =====================================================
-          ENTERTAINMENT / LIFESTYLE FEATURE
-      ===================================================== */}
-
-      <section
-        className="
-          mx-auto
-          max-w-375
-          px-5
-          py-15
-          sm:px-8
-          sm:py-20
-          lg:px-12
-          lg:py-25
-          xl:px-16
-        "
-      >
-        <div
-          className="
-            group
-            relative
-            overflow-hidden
-            rounded-[26px]
-            border
-            border-[#DED4C8]
-            bg-[#EEE7DE]
-            shadow-[0_16px_45px_rgba(55,43,31,0.065)]
-          "
-        >
-          <div
-            className="
-              grid
-              lg:grid-cols-[1fr_1fr]
-            "
-          >
-            {/* Image */}
-
-            <div
-              className="
-                relative
-                aspect-[1.15]
-                overflow-hidden
-                lg:aspect-auto
-                lg:min-h-120
-              "
-            >
-              <img
-                src={Entertainment}
-                alt="Entertainment room"
-                loading="lazy"
-                className="
-                  h-full
-                  w-full
-                  object-cover
-                  transition-transform
-                  duration-1000ms
-                  ease-out
-                  group-hover:scale-[1.035]
-                "
-              />
-
-              <div
-                className="
-                  pointer-events-none
-                  absolute
-                  inset-0
-                  bg-linear-to-r
-                  from-black/10
-                  via-transparent
-                  to-transparent
-                "
-              />
-
-              <span
-                className="
-                  absolute
-                  left-5
-                  top-5
-                  rounded-full
-                  border
-                  border-white/35
-                  bg-black/10
-                  px-3
-                  py-2
-                  text-[7px]
-                  font-semibold
-                  uppercase
-                  tracking-[0.18em]
-                  text-white
-                  backdrop-blur-md
-                "
-              >
-                Lifestyle edit
-              </span>
-            </div>
-
-            {/* Content */}
-
-            <div
-              className="
-                relative
-                flex
-                flex-col
-                justify-center
-                overflow-hidden
-                px-6
-                py-11
-                sm:px-10
-                sm:py-15
-                lg:px-14
-                xl:px-20
-              "
-            >
-              <div
-                className="
-                  pointer-events-none
-                  absolute
-                  -right-20
-                  -top-20
-                  h-52
-                  w-52
-                  rounded-full
-                  bg-[#D6BE9A]/20
-                  blur-[80px]
-                "
-              />
-
-              <div className="relative">
-                <p
-                  className="
-                    text-[8px]
-                    font-semibold
-                    uppercase
-                    tracking-[0.3em]
-                    text-[#A4773E]
-                  "
-                >
-                  The lifestyle edit
-                </p>
-
-                <h2
-                  className="
-                    mt-4
-                    max-w-lg
-                    font-serif
-                    text-[36px]
-                    leading-[0.96]
-                    tracking-tighter
-                    text-[#302B25]
-                    sm:text-[48px]
-                  "
-                >
-                  Spaces that bring
-                  <br />
-                  people together.
-                </h2>
-
-                <div
-                  className="
-                    mt-5
-                    h-px
-                    w-14
-                    bg-[#B7894A]
-                  "
-                />
-
-                <p
-                  className="
-                    mt-5
-                    max-w-lg
-                    text-[11px]
-                    leading-5.5
-                    text-[#776D62]
-                    sm:text-[12px]
-                    sm:leading-6
-                  "
-                >
-                  From quiet corners to lively
-                  evenings, discover pieces designed
-                  to make every space feel considered,
-                  comfortable and unmistakably yours.
-                </p>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigate(
-                      "/rooms/entertainment-room",
-                    )
-                  }
-                  className="
-                    group/button
-                    mt-7
-                    flex
-                    w-fit
-                    items-center
-                    gap-3
-                    rounded-xl
-                    bg-[#8F6B3F]
-                    px-5
-                    py-3.5
-                    text-[8px]
-                    font-semibold
-                    uppercase
-                    tracking-[0.15em]
-                    text-white
-                    shadow-[0_10px_24px_rgba(143,107,63,0.17)]
-                    transition-all
-                    duration-300
-                    hover:-translate-y-0.5
-                    hover:bg-[#795832]
-                    hover:shadow-[0_14px_30px_rgba(143,107,63,0.22)]
-                    active:scale-[0.98]
-                  "
-                >
-                  Explore the space
-
-                  <ArrowRight
-                    size={12}
-                    strokeWidth={1.5}
-                    className="
-                      transition-transform
-                      duration-300
-                      group-hover/button:translate-x-1
-                    "
-                  />
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -1532,9 +1403,7 @@ const Collections = () => {
           <button
             type="button"
             onClick={() =>
-              navigate(
-                "/products",
-              )
+              navigate("/products")
             }
             className="
               group

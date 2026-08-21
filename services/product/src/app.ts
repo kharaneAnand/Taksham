@@ -6,8 +6,11 @@ import compression from "compression";
 import morgan from "morgan";
 
 import productRoutes from "./routes/product.routes.js";
+import categoryRoutes from "./routes/category.routes.js";
+import collectionRoutes from "./routes/collection.routes.js";
+
 import errorHandler from "./middleware/error.middleware.js";
-import categoryRoutes from "./routes/category.routes.js"
+
 const app = express();
 
 app.use(
@@ -36,11 +39,23 @@ app.use(
 app.use(cookieParser());
 
 
+
 app.use(
   "/api/v1/products",
   productRoutes,
 );
-app.use("/api/v1/categories", categoryRoutes);
+
+app.use(
+  "/api/v1/categories",
+  categoryRoutes,
+);
+
+app.use(
+  "/api/v1/collections",
+  collectionRoutes,
+);
+
+
 
 app.get("/", (_req, res) => {
   res.status(200).json({
@@ -49,6 +64,8 @@ app.get("/", (_req, res) => {
   });
 });
 
-app.use(errorHandler) ;
+
+
+app.use(errorHandler);
 
 export default app;

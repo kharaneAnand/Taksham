@@ -39,6 +39,10 @@ import AdminProducts from "../pages/admin/Products";
 import AddProduct from "../pages/admin/AddProduct" ;
 import EditProduct from "../pages/admin/EditProduct" ;
 import AdminCategories from "../pages/admin/Categories";
+import AdminCollections from "../pages/admin/Collections";
+import AddCollection from "../pages/admin/AddCollection";
+import EditCollection from "../pages/admin/EditCollection";
+import CollectionDetails from "../pages/collections/CollectionDetails";
 
 const AppRoutes = () => {
   return (
@@ -83,6 +87,11 @@ const AppRoutes = () => {
             path="/collections"
             element={<Collections />}
           />
+
+           <Route
+              path="/collections/:slug"
+              element={<CollectionDetails />}
+            />
 
           {/* Ideas & Inspiration */}
 
@@ -216,6 +225,23 @@ const AppRoutes = () => {
               path="/admin/categories"
               element={<AdminCategories />}
             />
+
+            <Route
+              path="/admin/collections"
+              element={<AdminCollections />}
+            />
+
+            <Route
+              path="/admin/collections/new"
+              element={<AddCollection />}
+            />
+
+            <Route
+              path="/admin/collections/:id/edit"
+              element={<EditCollection />}
+            />
+
+           
 
           </Route>
 
