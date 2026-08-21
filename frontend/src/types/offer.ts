@@ -32,6 +32,16 @@ export interface Offer {
 
   discountValue: number;
 
+  /*
+   * Maximum discount for percentage offers.
+   */
+  maximumDiscountAmount?: number;
+
+  /*
+   * Optional coupon code linked to this offer.
+   */
+  couponCode?: string;
+
   appliesTo: OfferAppliesTo;
 
   /*
@@ -71,6 +81,10 @@ export interface CreateOfferPayload {
   discountType: OfferDiscountType;
 
   discountValue: number;
+
+  maximumDiscountAmount?: number;
+
+  couponCode?: string;
 
   appliesTo: OfferAppliesTo;
 

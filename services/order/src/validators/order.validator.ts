@@ -114,6 +114,19 @@ export const createOrderSchema =
       "cod",
       "online",
     ]),
+
+    couponCode: z
+      .string()
+      .trim()
+      .min(
+        1,
+        "Coupon code cannot be empty",
+      )
+      .max(
+        50,
+        "Coupon code cannot exceed 50 characters",
+      )
+      .optional(),
   });
 
 /*

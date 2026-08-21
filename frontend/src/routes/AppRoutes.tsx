@@ -43,9 +43,11 @@ import AdminCollections from "../pages/admin/Collections";
 import AddCollection from "../pages/admin/AddCollection";
 import EditCollection from "../pages/admin/EditCollection";
 import CollectionDetails from "../pages/collections/CollectionDetails";
-import AdminOffers from "../pages/admin/offer";
+import AdminOffers from "../pages/admin/Offer";
 import AddOffer from "../pages/admin/AddOffer";
 import EditOffer from "../pages/admin/Editoffer";
+import AddCoupon from "../pages/admin/AddCoupon";
+import EditCoupon from "../pages/admin/EditCoupon";
 
 const AppRoutes = () => {
   return (
@@ -257,6 +259,16 @@ const AppRoutes = () => {
            <Route
             path="/admin/offers/:id/edit"
             element={<EditOffer />}
+          />
+
+          <Route
+            path="/admin/coupons/add"
+            element={<AddCoupon />}
+          />
+
+          <Route
+            path="/admin/coupons/:id/edit"
+            element={<EditCoupon />}
           />
 
           </Route>

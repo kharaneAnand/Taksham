@@ -45,6 +45,13 @@ const isOfferCurrentlyValid = (
   const endDate =
     new Date(offer.endDate);
 
+  if (
+    Number.isNaN(startDate.getTime()) ||
+    Number.isNaN(endDate.getTime())
+  ) {
+    return false;
+  }
+
   return (
     now >= startDate &&
     now <= endDate
@@ -53,14 +60,6 @@ const isOfferCurrentlyValid = (
 
 /* ========================================
  * GET ID
- *
- * Supports both:
- *
- * "product-id"
- *
- * and populated objects:
- *
- * { _id: "product-id", ... }
  * ======================================== */
 
 const getId = (
@@ -83,64 +82,58 @@ const getId = (
 const doesOfferApplyToProduct = (
   offer: Offer,
   product: Product,
-  collections: Collection[],
+  collections: Collection[] = [],
 ): boolean => {
-  /* ================================
-   * ALL PRODUCTS
-   * ================================ */
+  /* ALL PRODUCTS */
 
   if (offer.appliesTo === "all") {
     return true;
   }
 
-  /* ================================
-   * SPECIFIC PRODUCTS
-   * ================================ */
+  /* SPECIFIC PRODUCTS */
 
-  if (
-    offer.appliesTo === "products"
-  ) {
-    return offer.productIds.some(
-      (productId) =>
-        getId(productId) === product._id,
+  if (offer.appliesTo === "products") {
+    return (
+      offer.productIds?.some(
+        (productId) =>
+          getId(productId) === product._id,
+      ) ?? false
     );
   }
 
-  /* ================================
-   * SPECIFIC COLLECTIONS
-   * ================================ */
+  /* SPECIFIC COLLECTIONS */
 
-  if (
-    offer.appliesTo === "collections"
-  ) {
+  if (offer.appliesTo === "collections") {
     const offerCollectionIds =
-      offer.collectionIds.map(
+      (offer.collectionIds ?? []).map(
         (collectionId) =>
           getId(collectionId),
       );
 
     return collections.some(
       (collection) => {
-        const productExists =
-          collection.products.some(
+        if (
+          !offerCollectionIds.includes(
+            collection._id,
+          )
+        ) {
+          return false;
+        }
+
+        return (
+          collection.products?.some(
             (collectionProduct) => {
-              const id =
+              const productId =
                 typeof collectionProduct ===
                 "string"
                   ? collectionProduct
                   : collectionProduct._id;
 
               return (
-                id === product._id
+                productId === product._id
               );
             },
-          );
-
-        return (
-          productExists &&
-          offerCollectionIds.includes(
-            collection._id,
-          )
+          ) ?? false
         );
       },
     );
@@ -157,33 +150,54 @@ const calculateDiscount = (
   price: number,
   offer: Offer,
 ): number => {
-  if (
-    offer.discountType ===
-    "percentage"
-  ) {
+  const discountValue =
+    Number(offer.discountValue) || 0;
+
+  if (discountValue <= 0 || price <= 0) {
+    return 0;
+  }
+
+  /* PERCENTAGE OFFER */
+
+  if (offer.discountType === "percentage") {
     return (
       price *
-      (offer.discountValue / 100)
+      Math.min(
+        Math.max(discountValue, 0),
+        100,
+      ) /
+      100
     );
   }
 
-  return offer.discountValue;
+  /* FIXED OFFER */
+
+  if (offer.discountType === "fixed") {
+    return Math.min(
+      discountValue,
+      price,
+    );
+  }
+
+  return 0;
 };
 
 /* ========================================
  * GET BEST OFFER
  *
- * If multiple offers apply,
- * customer receives the highest discount.
+ * IMPORTANT:
+ * Percentage offers are compared using
+ * their actual discount amount for this
+ * specific product.
  * ======================================== */
 
 export const getProductOffer = (
   product: Product,
-  offers: Offer[],
+  offers: Offer[] = [],
   collections: Collection[] = [],
 ): ProductOfferResult => {
   const originalPrice =
-    product.price;
+    Number(product.price) || 0;
 
   const applicableOffers =
     offers.filter(

@@ -46,6 +46,11 @@ export interface Product {
 
   subcategory?: string;
 
+  /*
+   * Collection reference
+   */
+  collectionId?: string;
+
   room: string;
 
   material?: string;

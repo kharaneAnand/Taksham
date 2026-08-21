@@ -10,7 +10,7 @@ import morgan from "morgan";
 
 import mediaRoutes from "./routes/media.routes.js";
 import offerRoutes from "./routes/offer.routes.js";
-
+import couponRoutes from "./routes/coupon.routes.js";
 import notFound from "./middleware/notFound.middleware.js";
 
 import errorHandler from "./middleware/error.middleware.js";
@@ -43,7 +43,7 @@ app.get("/", (_req, res) => {
 
 app.use("/api/v1/media", mediaRoutes);
 app.use("/api/v1/offers",offerRoutes,);
-
+app.use("/api/v1/coupons",couponRoutes,);
 app.use(notFound);
 
 app.use(errorHandler);

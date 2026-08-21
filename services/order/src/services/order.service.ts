@@ -1,6 +1,12 @@
+import mongoose from "mongoose";
+
 import ApiError from "../helpers/ApiError.js";
 
 import Order from "../models/order.model.js";
+
+import Coupon, {
+  type ICoupon,
+} from "../models/coupon.model.js";
 
 import env from "../config/env.js";
 
@@ -76,6 +82,14 @@ interface StockItem {
   quantity: number;
 
   variantId?: string;
+}
+
+interface CouponDiscountResult {
+  couponCode?: string;
+
+  discountAmount: number;
+
+  coupon?: ICoupon;
 }
 
 /*
@@ -223,6 +237,135 @@ class OrderService {
     }
 
     return result.data;
+  }
+
+  /*
+   * ========================================
+   * VALIDATE AND CALCULATE COUPON
+   * ========================================
+   */
+
+  private async calculateCouponDiscount(
+    couponCode: string | undefined,
+    subtotal: number,
+  ): Promise<CouponDiscountResult> {
+    if (!couponCode) {
+      return {
+        discountAmount: 0,
+      };
+    }
+
+    const couponModel =
+      Coupon as mongoose.Model<ICoupon>;
+
+    const coupon =
+      await couponModel.findOne({
+        code:
+          couponCode
+            .trim()
+            .toUpperCase(),
+      });
+
+    if (!coupon) {
+      throw new ApiError(
+        StatusCodes.NOT_FOUND,
+        "Invalid coupon code",
+      );
+    }
+
+    const now =
+      new Date();
+
+    if (!coupon.isActive) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "This coupon is not active",
+      );
+    }
+
+    if (
+      now < coupon.startDate
+    ) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "This coupon is not active yet",
+      );
+    }
+
+    if (
+      now > coupon.endDate
+    ) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "This coupon has expired",
+      );
+    }
+
+    if (
+      subtotal <
+      coupon.minimumOrderAmount
+    ) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        `Minimum order amount of ₹${coupon.minimumOrderAmount} is required for this coupon`,
+      );
+    }
+
+    if (
+      coupon.usageLimit !== undefined &&
+      coupon.usedCount >=
+        coupon.usageLimit
+    ) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "This coupon usage limit has been reached",
+      );
+    }
+
+    let discountAmount = 0;
+
+    if (
+      coupon.discountType ===
+      "percentage"
+    ) {
+      discountAmount =
+        (subtotal *
+          coupon.discountValue) /
+        100;
+
+      if (
+        coupon.maximumDiscountAmount !==
+          undefined &&
+        discountAmount >
+          coupon.maximumDiscountAmount
+      ) {
+        discountAmount =
+          coupon.maximumDiscountAmount;
+      }
+    } else {
+      discountAmount =
+        coupon.discountValue;
+    }
+
+    /*
+     * Discount can never be greater
+     * than the cart subtotal.
+     */
+
+    discountAmount =
+      Math.min(
+        discountAmount,
+        subtotal,
+      );
+
+    return {
+      couponCode:
+        coupon.code,
+
+      discountAmount,
+
+      coupon,
+    };
   }
 
   /*
@@ -682,16 +825,41 @@ class OrderService {
       });
     }
 
+    /*
+     * ====================================
+     * COUPON
+     * ====================================
+     */
+
+    const couponResult =
+      await this.calculateCouponDiscount(
+        data.couponCode,
+        subtotal,
+      );
+
+    const discountAmount =
+      couponResult.discountAmount;
+
+    const amountAfterDiscount =
+      subtotal -
+      discountAmount;
+
+    /*
+     * ====================================
+     * SHIPPING
+     * ====================================
+     */
+
     const shippingCost =
       data.shippingMethod ===
       "express"
         ? 199
-        : subtotal >= 999
+        : amountAfterDiscount >= 999
           ? 0
           : 99;
 
     const total =
-      subtotal +
+      amountAfterDiscount +
       shippingCost;
 
     const orderNumber =
@@ -730,6 +898,12 @@ class OrderService {
         : {}),
     };
 
+    /*
+     * ====================================
+     * CREATE ORDER
+     * ====================================
+     */
+
     const order =
       await Order.create({
         userId,
@@ -757,10 +931,56 @@ class OrderService {
 
         subtotal,
 
+        discountAmount,
+
+        ...(couponResult.couponCode
+          ? {
+              couponCode:
+                couponResult.couponCode,
+            }
+          : {}),
+
         shippingCost,
 
         total,
       });
+
+    /*
+     * ====================================
+     * INCREASE COUPON USAGE
+     *
+     * Only after the order has been
+     * successfully created.
+     * ====================================
+     */
+
+    if (couponResult.coupon) {
+      const couponModel =
+        Coupon as mongoose.Model<ICoupon>;
+
+      await couponModel.updateOne(
+        {
+          _id:
+            couponResult.coupon._id,
+
+          ...(couponResult.coupon
+            .usageLimit !== undefined
+            ? {
+                usedCount: {
+                  $lt:
+                    couponResult.coupon
+                      .usageLimit,
+                },
+              }
+            : {}),
+        },
+        {
+          $inc: {
+            usedCount: 1,
+          },
+        },
+      );
+    }
 
     /*
      * ====================================
@@ -795,6 +1015,32 @@ class OrderService {
         await Order.findByIdAndDelete(
           order._id,
         );
+
+        /*
+         * Roll back coupon usage if
+         * stock deduction fails.
+         */
+
+        if (couponResult.coupon) {
+          const couponModel =
+            Coupon as mongoose.Model<ICoupon>;
+
+          await couponModel.updateOne(
+            {
+              _id:
+                couponResult.coupon._id,
+
+              usedCount: {
+                $gt: 0,
+              },
+            },
+            {
+              $inc: {
+                usedCount: -1,
+              },
+            },
+          );
+        }
 
         throw error;
       }
@@ -868,16 +1114,6 @@ class OrderService {
    * ========================================
    * GET ALL ORDERS - ADMIN
    * ========================================
-   *
-   * Supports:
-   *
-   * - Pagination
-   * - Search
-   * - Order status
-   * - Payment status
-   * - Payment method
-   * - Sorting
-   * ========================================
    */
 
   async getAllOrders(
@@ -893,31 +1129,10 @@ class OrderService {
       sort = "newest",
     } = query;
 
-    /*
-     * ------------------------------------
-     * Build Filter
-     * ------------------------------------
-     */
-
     const filter: Record<
       string,
       unknown
     > = {};
-
-    /*
-     * ------------------------------------
-     * Search
-     * ------------------------------------
-     *
-     * Search supports:
-     *
-     * - Order number
-     * - User ID
-     * - Customer first name
-     * - Customer last name
-     * - Phone number
-     * ------------------------------------
-     */
 
     if (search) {
       const escapedSearch =
@@ -960,44 +1175,20 @@ class OrderService {
       ];
     }
 
-    /*
-     * ------------------------------------
-     * Order Status
-     * ------------------------------------
-     */
-
     if (orderStatus) {
       filter.orderStatus =
         orderStatus;
     }
-
-    /*
-     * ------------------------------------
-     * Payment Status
-     * ------------------------------------
-     */
 
     if (paymentStatus) {
       filter.paymentStatus =
         paymentStatus;
     }
 
-    /*
-     * ------------------------------------
-     * Payment Method
-     * ------------------------------------
-     */
-
     if (paymentMethod) {
       filter.paymentMethod =
         paymentMethod;
     }
-
-    /*
-     * ------------------------------------
-     * Sorting
-     * ------------------------------------
-     */
 
     let sortOption:
       Record<
@@ -1034,21 +1225,9 @@ class OrderService {
         break;
     }
 
-    /*
-     * ------------------------------------
-     * Pagination
-     * ------------------------------------
-     */
-
     const skip =
       (page - 1) *
       limit;
-
-    /*
-     * ------------------------------------
-     * Fetch Orders + Count
-     * ------------------------------------
-     */
 
     const [
       orders,
@@ -1064,12 +1243,6 @@ class OrderService {
           filter,
         ),
       ]);
-
-    /*
-     * ------------------------------------
-     * Pagination Metadata
-     * ------------------------------------
-     */
 
     const totalPages =
       Math.ceil(
@@ -1112,12 +1285,6 @@ class OrderService {
     orderId: string,
     data: UpdateOrderStatusInput,
   ) {
-    /*
-     * ------------------------------------
-     * 1. Find Order
-     * ------------------------------------
-     */
-
     const order =
       await Order.findById(
         orderId,
@@ -1131,23 +1298,11 @@ class OrderService {
       );
     }
 
-    /*
-     * ------------------------------------
-     * 2. Current Status
-     * ------------------------------------
-     */
-
     const currentStatus =
       order.orderStatus;
 
     const requestedStatus =
       data.orderStatus;
-
-    /*
-     * ------------------------------------
-     * 3. Prevent Updating Delivered
-     * ------------------------------------
-     */
 
     if (
       currentStatus ===
@@ -1159,12 +1314,6 @@ class OrderService {
         "Delivered orders cannot be updated",
       );
     }
-
-    /*
-     * ------------------------------------
-     * 4. Find Status Positions
-     * ------------------------------------
-     */
 
     const currentIndex =
       ORDER_STATUS_FLOW.indexOf(
@@ -1178,12 +1327,6 @@ class OrderService {
           (typeof ORDER_STATUS_FLOW)[number],
       );
 
-    /*
-     * ------------------------------------
-     * 5. Validate Current Status
-     * ------------------------------------
-     */
-
     if (
       currentIndex === -1
     ) {
@@ -1193,12 +1336,6 @@ class OrderService {
         `Invalid current order status: ${currentStatus}`,
       );
     }
-
-    /*
-     * ------------------------------------
-     * 6. Validate Requested Status
-     * ------------------------------------
-     */
 
     if (
       requestedIndex === -1
@@ -1210,12 +1347,6 @@ class OrderService {
       );
     }
 
-    /*
-     * ------------------------------------
-     * 7. Only Allow Next Status
-     * ------------------------------------
-     */
-
     if (
       requestedIndex !==
       currentIndex + 1
@@ -1226,12 +1357,6 @@ class OrderService {
         `Invalid order status transition: ${currentStatus} → ${requestedStatus}`,
       );
     }
-
-    /*
-     * ------------------------------------
-     * 8. Payment Validation
-     * ------------------------------------
-     */
 
     if (
       currentStatus ===
@@ -1253,22 +1378,10 @@ class OrderService {
       }
     }
 
-    /*
-     * ------------------------------------
-     * 9. Update Status
-     * ------------------------------------
-     */
-
     order.orderStatus =
       requestedStatus;
 
     await order.save();
-
-    /*
-     * ------------------------------------
-     * 10. Return Updated Order
-     * ------------------------------------
-     */
 
     return order;
   }

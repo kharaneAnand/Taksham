@@ -5,6 +5,12 @@ import type {
   VerifyPaymentInput,
 } from "../types/order";
 
+/*
+ * ========================================
+ * API URLs
+ * ========================================
+ */
+
 const ORDER_API_URL =
   import.meta.env.VITE_ORDER_SERVICE_URL ||
   "http://localhost:5004/api/v1/orders";
@@ -18,23 +24,37 @@ const ORDER_SERVICE_BASE_URL =
 const PAYMENT_API_URL =
   `${ORDER_SERVICE_BASE_URL}/payments`;
 
+/*
+ * ========================================
+ * Request Helper
+ * ========================================
+ */
+
 const request = async <T>(
   url: string,
   options: RequestInit = {},
 ): Promise<T> => {
-  const response = await fetch(url, {
-    ...options,
+  const response = await fetch(
+    url,
+    {
+      ...options,
 
-    credentials: "include",
+      credentials: "include",
 
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
+      headers: {
+        Accept:
+          "application/json",
+
+        "Content-Type":
+          "application/json",
+
+        ...(options.headers || {}),
+      },
     },
-  });
+  );
 
-  const result = await response.json();
+  const result =
+    await response.json();
 
   if (!response.ok) {
     throw new Error(
@@ -52,6 +72,19 @@ const request = async <T>(
  * ========================================
  */
 
+/*
+ * Create Order
+ *
+ * POST /api/v1/orders
+ *
+ * CreateOrderInput includes:
+ *
+ * - shippingAddress
+ * - shippingMethod
+ * - paymentMethod
+ * - couponCode (optional)
+ */
+
 export const createOrder = (
   data: CreateOrderInput,
 ): Promise<Order> => {
@@ -59,10 +92,19 @@ export const createOrder = (
     ORDER_API_URL,
     {
       method: "POST",
-      body: JSON.stringify(data),
+
+      body: JSON.stringify(
+        data,
+      ),
     },
   );
 };
+
+/*
+ * Get Current User Orders
+ *
+ * GET /api/v1/orders
+ */
 
 export const getMyOrders =
   (): Promise<Order[]> => {
@@ -73,6 +115,12 @@ export const getMyOrders =
       },
     );
   };
+
+/*
+ * Get Single Order
+ *
+ * GET /api/v1/orders/:id
+ */
 
 export const getOrderById = (
   orderId: string,
@@ -86,6 +134,12 @@ export const getOrderById = (
     },
   );
 };
+
+/*
+ * Cancel Order
+ *
+ * PATCH /api/v1/orders/:id/cancel
+ */
 
 export const cancelOrder = (
   orderId: string,
@@ -106,6 +160,10 @@ export const cancelOrder = (
  * ========================================
  */
 
+/*
+ * Create Razorpay Payment Order
+ */
+
 export const createPaymentOrder = (
   orderId: string,
 ): Promise<CreatePaymentOrderResponse> => {
@@ -121,6 +179,10 @@ export const createPaymentOrder = (
   );
 };
 
+/*
+ * Verify Razorpay Payment
+ */
+
 export const verifyPayment = (
   data: VerifyPaymentInput,
 ): Promise<Order> => {
@@ -129,7 +191,9 @@ export const verifyPayment = (
     {
       method: "POST",
 
-      body: JSON.stringify(data),
+      body: JSON.stringify(
+        data,
+      ),
     },
   );
 };

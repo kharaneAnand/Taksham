@@ -1,29 +1,42 @@
 export interface OrderItem {
   productId: string;
+
   productName: string;
+
   productImage: string;
 
   variantId?: string;
 
   variant?: {
     color?: string;
+
     material?: string;
+
     image?: string;
   };
 
   quantity: number;
+
   price: number;
+
   subtotal: number;
 }
 
 export interface ShippingAddress {
   firstName: string;
+
   lastName: string;
+
   phone: string;
+
   address: string;
+
   city: string;
+
   state: string;
+
   pincode: string;
+
   landmark?: string;
 }
 
@@ -67,17 +80,39 @@ export interface Order {
 
   paymentStatus: PaymentStatus;
 
+  /*
+   * ----------------------------------------
+   * Razorpay Payment Details
+   * ----------------------------------------
+   */
+
   razorpayOrderId?: string;
 
   razorpayPaymentId?: string;
 
   razorpaySignature?: string;
 
+  /*
+   * ----------------------------------------
+   * Order Status
+   * ----------------------------------------
+   */
+
   orderStatus: OrderStatus;
+
+  /*
+   * ----------------------------------------
+   * Pricing
+   * ----------------------------------------
+   */
 
   subtotal: number;
 
   shippingCost: number;
+
+  couponCode?: string;
+
+  discountAmount: number;
 
   total: number;
 
@@ -86,13 +121,27 @@ export interface Order {
   updatedAt: string;
 }
 
+/*
+ * ========================================
+ * Create Order Input
+ * ========================================
+ */
+
 export interface CreateOrderInput {
   shippingAddress: ShippingAddress;
 
   shippingMethod: ShippingMethod;
 
   paymentMethod: PaymentMethod;
+
+  couponCode?: string;
 }
+
+/*
+ * ========================================
+ * Razorpay Create Payment Order Response
+ * ========================================
+ */
 
 export interface CreatePaymentOrderResponse {
   razorpayOrderId: string;
@@ -101,6 +150,12 @@ export interface CreatePaymentOrderResponse {
 
   currency: string;
 }
+
+/*
+ * ========================================
+ * Verify Razorpay Payment Input
+ * ========================================
+ */
 
 export interface VerifyPaymentInput {
   orderId: string;

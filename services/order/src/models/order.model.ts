@@ -4,7 +4,6 @@ import mongoose, {
   type Model,
 } from "mongoose";
 
-
 export interface IOrderItem {
   productId: string;
 
@@ -27,7 +26,6 @@ export interface IOrderItem {
   subtotal: number;
 }
 
-
 export interface IShippingAddress {
   firstName: string;
 
@@ -46,8 +44,6 @@ export interface IShippingAddress {
   landmark?: string;
 }
 
-
-
 export type OrderStatus =
   | "pending"
   | "confirmed"
@@ -57,13 +53,9 @@ export type OrderStatus =
   | "delivered"
   | "cancelled";
 
-
-
 export type PaymentMethod =
   | "cod"
   | "online";
-
-
 
 export type PaymentStatus =
   | "pending"
@@ -71,13 +63,9 @@ export type PaymentStatus =
   | "failed"
   | "refunded";
 
-
-
 export type ShippingMethod =
   | "standard"
   | "express";
-
-
 
 export interface IOrder
   extends Document {
@@ -113,14 +101,22 @@ export interface IOrder
 
   shippingCost: number;
 
+  /*
+   * ----------------------------------------
+   * Coupon Details
+   * ----------------------------------------
+   */
+
+  couponCode?: string;
+
+  discountAmount: number;
+
   total: number;
 
   createdAt: Date;
 
   updatedAt: Date;
 }
-
-
 
 const orderItemSchema =
   new Schema<IOrderItem>(
@@ -193,8 +189,6 @@ const orderItemSchema =
     },
   );
 
-
-
 const shippingAddressSchema =
   new Schema<IShippingAddress>(
     {
@@ -265,8 +259,6 @@ const shippingAddressSchema =
       _id: false,
     },
   );
-
-
 
 const orderSchema =
   new Schema<IOrder>(
@@ -346,7 +338,11 @@ const orderSchema =
         default: "pending",
       },
 
-   
+      /*
+       * ----------------------------------------
+       * Razorpay Payment Details
+       * ----------------------------------------
+       */
 
       razorpayOrderId: {
         type: String,
@@ -394,6 +390,30 @@ const orderSchema =
         min: 0,
       },
 
+      /*
+       * ----------------------------------------
+       * Coupon Details
+       * ----------------------------------------
+       */
+
+      couponCode: {
+        type: String,
+
+        trim: true,
+
+        uppercase: true,
+      },
+
+      discountAmount: {
+        type: Number,
+
+        required: true,
+
+        default: 0,
+
+        min: 0,
+      },
+
       total: {
         type: Number,
 
@@ -408,15 +428,11 @@ const orderSchema =
     },
   );
 
-
-
 orderSchema.index({
   userId: 1,
 
   createdAt: -1,
 });
-
-
 
 const Order: Model<IOrder> =
   mongoose.models.Order ||

@@ -1,26 +1,50 @@
 import {
-  ArrowLeft,
-  Check,
-  ChevronRight,
-  MapPin,
-  ShieldCheck,
-  Sparkles,
-  Truck,
-} from "lucide-react";
-
-import {
   useEffect,
   useMemo,
   useState,
 } from "react";
 
 import {
+  Check,
+  ChevronRight,
+  CreditCard,
+  Gift,
+  Loader2,
+  MapPin,
+  Package,
+  ShieldCheck,
+  Tag,
+  Truck,
+  X,
+} from "lucide-react";
+
+import {
   useNavigate,
 } from "react-router-dom";
 
-import toast from "react-hot-toast";
+import {
+  toast,
+} from "sonner";
 
-import { useCart } from "../../context/CartContext";
+import {
+  useCart,
+} from "../../context/CartContext";
+
+import type {
+  CreateOrderInput,
+} from "../../types/order";
+
+import type {
+  Coupon,
+} from "../../types/coupon";
+
+import type {
+  Offer,
+} from "../../types/offer";
+
+import {
+  getAllCoupons,
+} from "../../api/coupon.api";
 
 import {
   getActiveOffers,
@@ -32,89 +56,9 @@ import {
   verifyPayment,
 } from "../../api/order.api";
 
-import type {
-  Offer,
-} from "../../types/offer";
-
-import type {
-  CreateOrderInput,
-} from "../../types/order";
-
-/*
- * ========================================
- * Razorpay Global Type
- * ========================================
- */
-
-declare global {
-  interface Window {
-    Razorpay?: new (
-      options: RazorpayOptions,
-    ) => RazorpayInstance;
-  }
-}
-
-interface RazorpayOptions {
-  key: string;
-
-  amount: number;
-
-  currency: string;
-
-  name: string;
-
-  description?: string;
-
-  order_id: string;
-
-  prefill?: {
-    name?: string;
-    contact?: string;
-    email?: string;
-  };
-
-  notes?: Record<
-    string,
-    string
-  >;
-
-  theme?: {
-    color?: string;
-  };
-
-  handler: (
-    response: RazorpayResponse,
-  ) => void;
-
-  modal?: {
-    ondismiss?: () => void;
-  };
-}
-
-interface RazorpayResponse {
-  razorpay_payment_id: string;
-
-  razorpay_order_id: string;
-
-  razorpay_signature: string;
-}
-
-interface RazorpayInstance {
-  open: () => void;
-
-  on: (
-    event: string,
-    handler: (
-      response: unknown,
-    ) => void,
-  ) => void;
-}
-
-/*
- * ========================================
- * Checkout Types
- * ========================================
- */
+/* ========================================
+ * TYPES
+ * ======================================== */
 
 type ShippingMethod =
   | "standard"
@@ -124,7 +68,7 @@ type PaymentMethod =
   | "cod"
   | "online";
 
-interface AddressForm {
+type AddressForm = {
   firstName: string;
 
   lastName: string;
@@ -133,68 +77,145 @@ interface AddressForm {
 
   address: string;
 
+  landmark: string;
+
   city: string;
 
   state: string;
 
   pincode: string;
-
-  landmark: string;
-}
-
-/*
- * ========================================
- * Initial Address
- * ========================================
- */
-
-const initialAddress: AddressForm = {
-  firstName: "",
-
-  lastName: "",
-
-  phone: "",
-
-  address: "",
-
-  city: "",
-
-  state: "",
-
-  pincode: "",
-
-  landmark: "",
 };
 
-/*
- * ========================================
- * Razorpay Configuration
- * ========================================
- */
+type RazorpayResponse = {
+  razorpay_payment_id: string;
+
+  razorpay_order_id: string;
+
+  razorpay_signature: string;
+};
+
+type RazorpayInstance = {
+  open: () => void;
+
+  on: (
+    event: string,
+    callback: (
+      response: unknown,
+    ) => void,
+  ) => void;
+};
+
+type RazorpayConstructor = new (
+  options: {
+    key: string;
+
+    amount: number;
+
+    currency: string;
+
+    name: string;
+
+    description: string;
+
+    order_id: string;
+
+    prefill?: {
+      name?: string;
+
+      contact?: string;
+    };
+
+    notes?: Record<
+      string,
+      string
+    >;
+
+    theme?: {
+      color?: string;
+    };
+
+    handler: (
+      response: RazorpayResponse,
+    ) => void;
+
+    modal?: {
+      ondismiss?: () => void;
+    };
+  },
+) => RazorpayInstance;
+
+declare global {
+  interface Window {
+    Razorpay?: RazorpayConstructor;
+  }
+}
+
+/* ========================================
+ * CONSTANTS
+ * ======================================== */
 
 const RAZORPAY_KEY_ID =
-  String(
-    import.meta.env
-      .VITE_RAZORPAY_KEY_ID ||
-      "",
-  ).trim();
+  import.meta.env
+    .VITE_RAZORPAY_KEY_ID ||
+  "";
 
 const RAZORPAY_SCRIPT_URL =
   "https://checkout.razorpay.com/v1/checkout.js";
 
-/*
- * ========================================
- * Load Razorpay Script
- * ========================================
- */
+const initialAddress: AddressForm =
+  {
+    firstName: "",
+
+    lastName: "",
+
+    phone: "",
+
+    address: "",
+
+    landmark: "",
+
+    city: "",
+
+    state: "",
+
+    pincode: "",
+  };
+
+/* ========================================
+ * HELPERS
+ * ======================================== */
+
+const formatCurrency = (
+  value: number,
+) =>
+  `₹${Math.max(
+    0,
+    Math.round(value),
+  ).toLocaleString("en-IN")}`;
+
+const getImageUrl = (
+  image?:
+    | string
+    | {
+        url: string;
+        publicId?: string;
+      },
+) => {
+  if (!image) {
+    return "";
+  }
+
+  return typeof image ===
+    "string"
+    ? image
+    : image.url;
+};
 
 const loadRazorpayScript =
   (): Promise<boolean> => {
     return new Promise(
       (resolve) => {
         if (
-          typeof window !==
-            "undefined" &&
           window.Razorpay
         ) {
           resolve(true);
@@ -203,67 +224,22 @@ const loadRazorpayScript =
         }
 
         const existingScript =
-          document.querySelector(
+          document.querySelector<HTMLScriptElement>(
             `script[src="${RAZORPAY_SCRIPT_URL}"]`,
-          ) as HTMLScriptElement | null;
+          );
 
-        if (existingScript) {
-          if (
-            window.Razorpay
-          ) {
-            resolve(true);
-
-            return;
-          }
-
-          let settled = false;
-
-          const cleanup =
+        if (
+          existingScript
+        ) {
+          existingScript.addEventListener(
+            "load",
             () => {
-              existingScript.removeEventListener(
-                "load",
-                handleLoad,
-              );
-
-              existingScript.removeEventListener(
-                "error",
-                handleError,
-              );
-            };
-
-          const handleLoad =
-            () => {
-              if (settled) {
-                return;
-              }
-
-              settled = true;
-
-              cleanup();
-
               resolve(
                 Boolean(
                   window.Razorpay,
                 ),
               );
-            };
-
-          const handleError =
-            () => {
-              if (settled) {
-                return;
-              }
-
-              settled = true;
-
-              cleanup();
-
-              resolve(false);
-            };
-
-          existingScript.addEventListener(
-            "load",
-            handleLoad,
+            },
             {
               once: true,
             },
@@ -271,54 +247,13 @@ const loadRazorpayScript =
 
           existingScript.addEventListener(
             "error",
-            handleError,
+            () => {
+              resolve(false);
+            },
             {
               once: true,
             },
           );
-
-          const startedAt =
-            Date.now();
-
-          const checkLoaded =
-            () => {
-              if (settled) {
-                return;
-              }
-
-              if (
-                window.Razorpay
-              ) {
-                settled = true;
-
-                cleanup();
-
-                resolve(true);
-
-                return;
-              }
-
-              if (
-                Date.now() -
-                  startedAt >
-                10000
-              ) {
-                settled = true;
-
-                cleanup();
-
-                resolve(false);
-
-                return;
-              }
-
-              window.setTimeout(
-                checkLoaded,
-                100,
-              );
-            };
-
-          checkLoaded();
 
           return;
         }
@@ -354,11 +289,9 @@ const loadRazorpayScript =
     );
   };
 
-/*
- * ========================================
- * Checkout Component
- * ========================================
- */
+/* ========================================
+ * CHECKOUT COMPONENT
+ * ======================================== */
 
 const Checkout = () => {
   const navigate =
@@ -370,19 +303,60 @@ const Checkout = () => {
     clearCart,
   } = useCart();
 
-  const [offers, setOffers] =
+  /* ========================================
+   * OFFER STATE
+   * ======================================== */
+
+  const [
+    offers,
+    setOffers,
+  ] =
     useState<Offer[]>([]);
 
-  const [isOffersLoading, setIsOffersLoading] =
+  const [
+    isOffersLoading,
+    setIsOffersLoading,
+  ] =
     useState(true);
 
-  /*
-   * ----------------------------------------
-   * State
-   * ----------------------------------------
-   */
+  /* ========================================
+   * COUPON STATE
+   * ======================================== */
 
-  const [address, setAddress] =
+  const [
+    coupons,
+    setCoupons,
+  ] =
+    useState<Coupon[]>([]);
+
+  const [
+    isCouponsLoading,
+    setIsCouponsLoading,
+  ] =
+    useState(true);
+
+  const [
+    couponCode,
+    setCouponCode,
+  ] =
+    useState("");
+
+  const [
+    selectedCoupon,
+    setSelectedCoupon,
+  ] =
+    useState<Coupon | null>(
+      null,
+    );
+
+  /* ========================================
+   * CHECKOUT STATE
+   * ======================================== */
+
+  const [
+    address,
+    setAddress,
+  ] =
     useState<AddressForm>(
       initialAddress,
     );
@@ -409,7 +383,10 @@ const Checkout = () => {
   ] =
     useState(false);
 
-  const [errors, setErrors] =
+  const [
+    errors,
+    setErrors,
+  ] =
     useState<
       Partial<
         Record<
@@ -419,11 +396,12 @@ const Checkout = () => {
       >
     >({});
 
-  /*
-   * ========================================
-   * Fetch Active Offers
-   * ========================================
-   */
+  /* ========================================
+   * FETCH ACTIVE OFFERS
+   *
+   * OFFERS ARE AUTOMATIC.
+   * USER DOES NOT ENTER ANY OFFER CODE.
+   * ======================================== */
 
   useEffect(() => {
     let cancelled = false;
@@ -431,15 +409,25 @@ const Checkout = () => {
     const fetchOffers =
       async () => {
         try {
-          setIsOffersLoading(true);
+          setIsOffersLoading(
+            true,
+          );
 
-          const data =
+          const response =
             await getActiveOffers();
 
           if (!cancelled) {
-            setOffers(data);
+            setOffers(
+              Array.isArray(
+                response,
+              )
+                ? response
+                : [],
+            );
           }
-        } catch (error) {
+        } catch (
+          error
+        ) {
           console.error(
             "Failed to fetch active offers:",
             error,
@@ -450,7 +438,9 @@ const Checkout = () => {
           }
         } finally {
           if (!cancelled) {
-            setIsOffersLoading(false);
+            setIsOffersLoading(
+              false,
+            );
           }
         }
       };
@@ -462,321 +452,644 @@ const Checkout = () => {
     };
   }, []);
 
-  /*
-   * ========================================
-   * OFFER HELPERS
-   * ========================================
-   */
+  /* ========================================
+   * FETCH COUPONS
+   *
+   * COUPONS ARE NOT AUTOMATICALLY APPLIED.
+   * THEY ARE ONLY USED AFTER THE CUSTOMER
+   * ENTERS AND APPLIES A VALID CODE.
+   * ======================================== */
 
-  const getOfferProductIds = (
-    offer: Offer,
-  ): string[] => {
-    return offer.productIds.map(
-      (product) =>
-        typeof product === "string"
-          ? product
-          : product._id,
-    );
-  };
+  useEffect(() => {
+    let cancelled = false;
 
-  const getOfferCollectionIds = (
-    offer: Offer,
-  ): string[] => {
-    return offer.collectionIds.map(
-      (collection) =>
-        typeof collection === "string"
-          ? collection
-          : collection._id,
-    );
-  };
-
-  const getApplicableOffer = (
-    productId: string,
-    collectionId?: string,
-  ): Offer | null => {
-    const now = new Date();
-
-    const applicableOffers =
-      offers.filter((offer) => {
-        if (!offer.isActive) {
-          return false;
-        }
-
-        const startDate =
-          new Date(
-            offer.startDate,
+    const fetchCoupons =
+      async () => {
+        try {
+          setIsCouponsLoading(
+            true,
           );
 
-        const endDate =
-          new Date(
-            offer.endDate,
-          );
+          const response =
+            await getAllCoupons();
 
-        if (
-          now < startDate ||
-          now > endDate
-        ) {
-          return false;
-        }
-
-        if (
-          offer.appliesTo ===
-          "all"
-        ) {
-          return true;
-        }
-
-        if (
-          offer.appliesTo ===
-          "products"
-        ) {
-          return getOfferProductIds(
-            offer,
-          ).includes(productId);
-        }
-
-        if (
-          offer.appliesTo ===
-          "collections"
-        ) {
-          if (!collectionId) {
-            return false;
+          if (!cancelled) {
+            setCoupons(
+              Array.isArray(
+                response,
+              )
+                ? response
+                : [],
+            );
           }
-
-          return getOfferCollectionIds(
-            offer,
-          ).includes(
-            collectionId,
+        } catch (
+          error
+        ) {
+          console.error(
+            "Failed to fetch coupons:",
+            error,
           );
+
+          if (!cancelled) {
+            setCoupons([]);
+          }
+        } finally {
+          if (!cancelled) {
+            setIsCouponsLoading(
+              false,
+            );
+          }
         }
-
-        return false;
-      });
-
-    if (
-      applicableOffers.length === 0
-    ) {
-      return null;
-    }
-
-    return applicableOffers.reduce(
-      (
-        bestOffer,
-        currentOffer,
-      ) => {
-        const bestDiscount =
-          bestOffer.discountType ===
-          "percentage"
-            ? bestOffer.discountValue
-            : bestOffer.discountValue;
-
-        const currentDiscount =
-          currentOffer.discountType ===
-          "percentage"
-            ? currentOffer.discountValue
-            : currentOffer.discountValue;
-
-        return currentDiscount >
-          bestDiscount
-          ? currentOffer
-          : bestOffer;
-      },
-    );
-  };
-
-  const getDiscountedPrice = (
-    originalPrice: number,
-    productId: string,
-    collectionId?: string,
-  ): {
-    price: number;
-    offer: Offer | null;
-    discountAmount: number;
-  } => {
-    const offer =
-      getApplicableOffer(
-        productId,
-        collectionId,
-      );
-
-    if (!offer) {
-      return {
-        price: originalPrice,
-        offer: null,
-        discountAmount: 0,
       };
-    }
 
-    let discountAmount = 0;
+    void fetchCoupons();
 
-    if (
-      offer.discountType ===
-      "percentage"
-    ) {
-      discountAmount =
-        (originalPrice *
-          offer.discountValue) /
-        100;
-    } else {
-      discountAmount =
-        offer.discountValue;
-    }
-
-    discountAmount = Math.min(
-      discountAmount,
-      originalPrice,
-    );
-
-    const discountedPrice =
-      Math.max(
-        0,
-        originalPrice -
-          discountAmount,
-      );
-
-    return {
-      price: Math.round(
-        discountedPrice,
-      ),
-      offer,
-      discountAmount:
-        Math.round(
-          discountAmount,
-        ),
+    return () => {
+      cancelled = true;
     };
-  };
+  }, []);
 
-  /*
-   * ========================================
-   * CART CALCULATIONS
-   * ========================================
-   */
+  /* ========================================
+   * OFFER HELPERS
+   * ======================================== */
 
-  const cartCalculations =
-    useMemo(() => {
-      let originalSubtotal = 0;
+  const getOfferProductIds =
+    (
+      offer: Offer,
+    ): string[] => {
+      return (
+        offer.productIds ?? []
+      ).map(
+        (product) =>
+          typeof product ===
+          "string"
+            ? product
+            : product._id,
+      );
+    };
 
-      let discountedSubtotal = 0;
+  const getOfferCollectionIds =
+    (
+      offer: Offer,
+    ): string[] => {
+      return (
+        offer.collectionIds ?? []
+      ).map(
+        (collection) =>
+          typeof collection ===
+          "string"
+            ? collection
+            : collection._id,
+      );
+    };
 
-      items.forEach((item) => {
-        const originalPrice =
-          item.price;
+  const getApplicableOffer =
+    (
+      productId: string,
+      collectionId?: string,
+    ): Offer | null => {
+      const now =
+        new Date();
 
-        const collectionId =
-          (
-            item.product as typeof item.product & {
-              collectionId?: string;
+      const applicableOffers =
+        offers.filter(
+          (offer) => {
+            if (
+              !offer.isActive
+            ) {
+              return false;
             }
-          ).collectionId;
 
-        const {
-          price: discountedPrice,
-        } = getDiscountedPrice(
-          originalPrice,
-          item.product._id,
-          collectionId,
+            const startDate =
+              new Date(
+                offer.startDate,
+              );
+
+            const endDate =
+              new Date(
+                offer.endDate,
+              );
+
+            if (
+              Number.isNaN(
+                startDate.getTime(),
+              ) ||
+              Number.isNaN(
+                endDate.getTime(),
+              )
+            ) {
+              return false;
+            }
+
+            if (
+              now < startDate ||
+              now > endDate
+            ) {
+              return false;
+            }
+
+            if (
+              offer.appliesTo ===
+              "all"
+            ) {
+              return true;
+            }
+
+            if (
+              offer.appliesTo ===
+              "products"
+            ) {
+              return getOfferProductIds(
+                offer,
+              ).includes(
+                productId,
+              );
+            }
+
+            if (
+              offer.appliesTo ===
+                "collections" &&
+              collectionId
+            ) {
+              return getOfferCollectionIds(
+                offer,
+              ).includes(
+                collectionId,
+              );
+            }
+
+            return false;
+          },
         );
 
-        originalSubtotal +=
-          originalPrice *
-          item.quantity;
+      if (
+        applicableOffers.length ===
+        0
+      ) {
+        return null;
+      }
 
-        discountedSubtotal +=
-          discountedPrice *
-          item.quantity;
-      });
+      /*
+       * If multiple offers match,
+       * use the one giving the
+       * highest discount.
+       */
 
-      return {
-        originalSubtotal,
-        discountedSubtotal,
-        totalSavings:
-          originalSubtotal -
-          discountedSubtotal,
-      };
+      return applicableOffers.reduce(
+        (
+          bestOffer,
+          currentOffer,
+        ) => {
+          if (
+            currentOffer.discountType ===
+            "percentage"
+          ) {
+            if (
+              bestOffer.discountType ===
+              "fixed"
+            ) {
+              return currentOffer;
+            }
+
+            return currentOffer.discountValue >
+              bestOffer.discountValue
+              ? currentOffer
+              : bestOffer;
+          }
+
+          if (
+            bestOffer.discountType ===
+            "percentage"
+          ) {
+            return currentOffer;
+          }
+
+          return currentOffer.discountValue >
+            bestOffer.discountValue
+            ? currentOffer
+            : bestOffer;
+        },
+      );
+    };
+
+  const calculateOfferDiscount =
+    (
+      price: number,
+      offer: Offer | null,
+    ) => {
+      if (!offer) {
+        return 0;
+      }
+
+      if (
+        offer.discountType ===
+        "percentage"
+      ) {
+        return Math.min(
+          price,
+          (
+            price *
+            offer.discountValue
+          ) / 100,
+        );
+      }
+
+      return Math.min(
+        price,
+        offer.discountValue,
+      );
+    };
+
+  /* ========================================
+   * CART + AUTOMATIC OFFER CALCULATIONS
+   * ======================================== */
+
+  const cartSummary =
+    useMemo(() => {
+      return items.map(
+        (item) => {
+          const productId =
+            item.product._id ??
+            item.product._id;
+
+          const collectionId =
+            (
+              item as {
+                collectionId?: string;
+              }
+            ).collectionId;
+
+          const offer =
+            getApplicableOffer(
+              productId,
+              collectionId,
+            );
+
+          const unitPrice =
+            Number(
+              item.price,
+            ) || 0;
+
+          const quantity =
+            Number(
+              item.quantity,
+            ) || 0;
+
+          const unitOfferDiscount =
+            calculateOfferDiscount(
+              unitPrice,
+              offer,
+            );
+
+          const discountedUnitPrice =
+            Math.max(
+              0,
+              unitPrice -
+                unitOfferDiscount,
+            );
+
+          const originalTotal =
+            unitPrice *
+            quantity;
+
+          const offerDiscount =
+            unitOfferDiscount *
+            quantity;
+
+          const discountedTotal =
+            discountedUnitPrice *
+            quantity;
+
+          return {
+            item,
+            offer,
+            unitPrice,
+            quantity,
+            originalTotal,
+            offerDiscount,
+            discountedUnitPrice,
+            discountedTotal,
+          };
+        },
+      );
     }, [
       items,
       offers,
     ]);
 
-  const subtotal =
-    cartCalculations.discountedSubtotal;
-
   const originalSubtotal =
-    cartCalculations.originalSubtotal;
+    useMemo(
+      () =>
+        cartSummary.reduce(
+          (
+            total,
+            item,
+          ) =>
+            total +
+            item.originalTotal,
+          0,
+        ),
+      [cartSummary],
+    );
 
-  const totalSavings =
-    cartCalculations.totalSavings;
+  const offerDiscount =
+    useMemo(
+      () =>
+        cartSummary.reduce(
+          (
+            total,
+            item,
+          ) =>
+            total +
+            item.offerDiscount,
+          0,
+        ),
+      [cartSummary],
+    );
 
   /*
-   * ----------------------------------------
-   * Shipping
+   * This is the amount AFTER automatic
+   * product/collection offers.
    *
-   * Delivery logic stays here exactly as
-   * checkout logic.
-   * ----------------------------------------
+   * Coupon is calculated only on this amount.
    */
 
-  const shippingCost =
-    useMemo(() => {
+  const subtotalAfterOffers =
+    Math.max(
+      0,
+      originalSubtotal -
+        offerDiscount,
+    );
+
+  /* ========================================
+   * COUPON APPLY
+   * ======================================== */
+
+  const handleApplyCoupon =
+    () => {
+      const normalizedCode =
+        couponCode
+          .trim()
+          .toUpperCase();
+
       if (
-        shippingMethod ===
-        "express"
+        !normalizedCode
       ) {
-        return 199;
+        toast.error(
+          "Please enter a coupon code",
+        );
+
+        return;
       }
 
-      return subtotal >= 999
-        ? 0
-        : 99;
+      if (
+        isCouponsLoading
+      ) {
+        toast.error(
+          "Coupons are loading. Please try again.",
+        );
+
+        return;
+      }
+
+      const coupon =
+        coupons.find(
+          (item) =>
+            item.code
+              .trim()
+              .toUpperCase() ===
+            normalizedCode,
+        );
+
+      if (!coupon) {
+        toast.error(
+          "Invalid coupon code",
+        );
+
+        return;
+      }
+
+      const now =
+        new Date();
+
+      const startDate =
+        new Date(
+          coupon.startDate,
+        );
+
+      const endDate =
+        new Date(
+          coupon.endDate,
+        );
+
+      if (
+        !coupon.isActive
+      ) {
+        toast.error(
+          "This coupon is not active",
+        );
+
+        return;
+      }
+
+      if (
+        now < startDate
+      ) {
+        toast.error(
+          "This coupon is not active yet",
+        );
+
+        return;
+      }
+
+      if (
+        now > endDate
+      ) {
+        toast.error(
+          "This coupon has expired",
+        );
+
+        return;
+      }
+
+      if (
+        subtotalAfterOffers <
+        (
+          coupon.minimumOrderAmount ??
+          0
+        )
+      ) {
+        toast.error(
+          `Minimum order amount of ${formatCurrency(
+            coupon.minimumOrderAmount ??
+              0,
+          )} is required`,
+        );
+
+        return;
+      }
+
+      if (
+        coupon.usageLimit !==
+          undefined &&
+        coupon.usedCount >=
+          coupon.usageLimit
+      ) {
+        toast.error(
+          "This coupon usage limit has been reached",
+        );
+
+        return;
+      }
+
+      setSelectedCoupon(
+        coupon,
+      );
+
+      setCouponCode(
+        coupon.code,
+      );
+
+      toast.success(
+        "Coupon applied successfully",
+      );
+    };
+
+  const handleRemoveCoupon =
+    () => {
+      setSelectedCoupon(
+        null,
+      );
+
+      setCouponCode("");
+
+      toast.success(
+        "Coupon removed",
+      );
+    };
+
+  /* ========================================
+   * COUPON DISCOUNT
+   *
+   * ONLY RUNS WHEN selectedCoupon EXISTS.
+   * Typing a code alone does nothing.
+   * ======================================== */
+
+  const couponDiscount =
+    useMemo(() => {
+      if (
+        !selectedCoupon
+      ) {
+        return 0;
+      }
+
+      if (
+        subtotalAfterOffers <
+        (
+          selectedCoupon.minimumOrderAmount ??
+          0
+        )
+      ) {
+        return 0;
+      }
+
+      if (
+        selectedCoupon.discountType ===
+        "percentage"
+      ) {
+        const calculatedDiscount =
+          (
+            subtotalAfterOffers *
+            selectedCoupon.discountValue
+          ) / 100;
+
+        const maximumDiscount =
+          selectedCoupon.maximumDiscountAmount;
+
+        return Math.min(
+          calculatedDiscount,
+          maximumDiscount ??
+            calculatedDiscount,
+          subtotalAfterOffers,
+        );
+      }
+
+      return Math.min(
+        selectedCoupon.discountValue,
+        subtotalAfterOffers,
+      );
     }, [
-      shippingMethod,
-      subtotal,
+      selectedCoupon,
+      subtotalAfterOffers,
     ]);
 
-  /*
-   * ----------------------------------------
-   * Total
-   * ----------------------------------------
-   */
+  const amountAfterDiscounts =
+    Math.max(
+      0,
+      subtotalAfterOffers -
+        couponDiscount,
+    );
 
-  const total = useMemo(
-    () =>
-      subtotal +
-      shippingCost,
-    [
-      subtotal,
-      shippingCost,
-    ],
-  );
+  /* ========================================
+   * SHIPPING
+   * ======================================== */
 
-  /*
-   * ----------------------------------------
-   * Empty Cart
-   * ----------------------------------------
-   */
+  const shippingCost =
+    shippingMethod ===
+    "express"
+      ? 199
+      : amountAfterDiscounts >= 999
+        ? 0
+        : 99;
 
-  if (items.length === 0) {
+  /* ========================================
+   * FINAL TOTAL
+   * ======================================== */
+
+  const estimatedTotal =
+    Math.max(
+      0,
+      amountAfterDiscounts +
+        shippingCost,
+    );
+
+  const totalSavings =
+    offerDiscount +
+    couponDiscount;
+
+  /* ========================================
+   * EMPTY CART
+   * ======================================== */
+
+  if (
+    items.length === 0
+  ) {
     return (
       <main
         className="
           min-h-screen
-          bg-[#FAF8F5]
+          bg-[#F8F5F0]
           px-5
-          py-16
+          py-20
           sm:px-8
-          lg:px-12
         "
       >
         <div
           className="
             mx-auto
             flex
-            min-h-[60vh]
-            max-w-3xl
+            max-w-xl
             flex-col
             items-center
             justify-center
+            rounded-[28px]
+            border
+            border-[#E4D8CA]
+            bg-[#FFFCF8]
+            px-6
+            py-16
             text-center
+            shadow-[0_20px_60px_rgba(65,48,31,0.08)]
           "
         >
           <div
@@ -787,15 +1100,13 @@ const Checkout = () => {
               items-center
               justify-center
               rounded-full
-              border
-              border-[#DCCFC0]
-              bg-[#F4EEE5]
+              bg-[#F2E8DB]
+              text-[#9A7138]
             "
           >
-            <Truck
-              size={25}
-              strokeWidth={1.4}
-              className="text-[#A4773E]"
+            <Package
+              size={24}
+              strokeWidth={1.5}
             />
           </div>
 
@@ -803,31 +1114,33 @@ const Checkout = () => {
             className="
               mt-6
               font-serif
-              text-[34px]
-              text-[#302B25]
-              sm:text-[44px]
+              text-[30px]
+              text-[#332D27]
             "
           >
-            Your cart is empty.
+            Your cart is empty
           </h1>
 
           <p
             className="
               mt-3
-              max-w-md
-              text-[12px]
+              max-w-sm
+              text-[11px]
               leading-6
-              text-[#81776C]
+              text-[#84796D]
             "
           >
-            Add something to your cart before
-            continuing to checkout.
+            Add something beautiful
+            to your cart before
+            proceeding to checkout.
           </p>
 
           <button
             type="button"
             onClick={() =>
-              navigate("/products")
+              navigate(
+                "/products",
+              )
             }
             className="
               mt-7
@@ -858,11 +1171,9 @@ const Checkout = () => {
     );
   }
 
-  /*
-   * ----------------------------------------
-   * Update Address
-   * ----------------------------------------
-   */
+  /* ========================================
+   * ADDRESS
+   * ======================================== */
 
   const handleAddressChange =
     (
@@ -870,27 +1181,27 @@ const Checkout = () => {
       value: string,
     ) => {
       setAddress(
-        (currentAddress) => ({
+        (
+          currentAddress,
+        ) => ({
           ...currentAddress,
           [field]: value,
         }),
       );
 
-      if (errors[field]) {
+      if (
+        errors[field]
+      ) {
         setErrors(
-          (currentErrors) => ({
+          (
+            currentErrors,
+          ) => ({
             ...currentErrors,
             [field]: undefined,
           }),
         );
       }
     };
-
-  /*
-   * ----------------------------------------
-   * Validate Address
-   * ----------------------------------------
-   */
 
   const validateAddress =
     (): boolean => {
@@ -951,7 +1262,9 @@ const Checkout = () => {
           "Pincode is required";
       }
 
-      setErrors(nextErrors);
+      setErrors(
+        nextErrors,
+      );
 
       return (
         Object.keys(
@@ -960,16 +1273,15 @@ const Checkout = () => {
       );
     };
 
-  /*
-   * ----------------------------------------
-   * Open Razorpay Checkout
-   * ----------------------------------------
-   */
+  /* ========================================
+   * RAZORPAY
+   * ======================================== */
 
   const openRazorpayCheckout =
     async (
       order: {
         _id: string;
+
         orderNumber: string;
       },
     ) => {
@@ -977,7 +1289,7 @@ const Checkout = () => {
         !RAZORPAY_KEY_ID
       ) {
         throw new Error(
-          "Razorpay Key ID is not configured. Check VITE_RAZORPAY_KEY_ID in the frontend .env file.",
+          "Razorpay Key ID is not configured.",
         );
       }
 
@@ -989,7 +1301,7 @@ const Checkout = () => {
         !window.Razorpay
       ) {
         throw new Error(
-          "Razorpay Checkout could not be loaded. Please check your internet connection or try again.",
+          "Razorpay Checkout could not be loaded. Please check your internet connection and try again.",
         );
       }
 
@@ -1036,7 +1348,8 @@ const Checkout = () => {
             paymentOrder.razorpayOrderId,
 
           prefill: {
-            name: `${address.firstName.trim()} ${address.lastName.trim()}`,
+            name:
+              `${address.firstName.trim()} ${address.lastName.trim()}`,
 
             contact:
               address.phone.trim(),
@@ -1082,7 +1395,9 @@ const Checkout = () => {
                 navigate(
                   `/orders/${order._id}`,
                 );
-              } catch (error) {
+              } catch (
+                error
+              ) {
                 console.error(
                   "Payment verification failed:",
                   error,
@@ -1121,7 +1436,7 @@ const Checkout = () => {
           response,
         ) => {
           console.error(
-            "Razorpay payment failed:",
+            "Payment failed:",
             response,
           );
 
@@ -1138,11 +1453,15 @@ const Checkout = () => {
       razorpay.open();
     };
 
-  /*
-   * ----------------------------------------
-   * Place Order
-   * ----------------------------------------
-   */
+  /* ========================================
+   * PLACE ORDER
+   *
+   * couponCode is sent ONLY if the customer
+   * manually applied a coupon.
+   *
+   * Offers are automatic and the backend
+   * must calculate eligible offers again.
+   * ======================================== */
 
   const handlePlaceOrder =
     async () => {
@@ -1214,6 +1533,15 @@ const Checkout = () => {
             shippingMethod,
 
             paymentMethod,
+
+            ...(selectedCoupon
+              ? {
+                  couponCode:
+                    selectedCoupon.code
+                      .trim()
+                      .toUpperCase(),
+                }
+              : {}),
           };
 
         const order =
@@ -1241,14 +1569,17 @@ const Checkout = () => {
         await openRazorpayCheckout(
           order,
         );
-      } catch (error) {
+      } catch (
+        error
+      ) {
         console.error(
           "Failed to place order:",
           error,
         );
 
         toast.error(
-          error instanceof Error
+          error instanceof
+            Error
             ? error.message
             : "Failed to place order",
         );
@@ -1263,152 +1594,163 @@ const Checkout = () => {
     <main
       className="
         min-h-screen
-        bg-[#FAF8F5]
-        text-[#302B25]
+        bg-[#F8F5F0]
+        pb-16
       "
     >
       <div
         className="
           mx-auto
-          max-w-7xl
-          px-5
+          max-w-350
+          px-4
           py-8
-          sm:px-8
-          sm:py-10
-          lg:px-12
-          lg:py-12
+          sm:px-6
+          lg:px-8
+          lg:py-10
         "
       >
-        <button
-          type="button"
-          onClick={() =>
-            navigate("/cart")
-          }
+        {/* ====================================
+         * HEADER
+         * ==================================== */}
+
+        <div
           className="
-            group
-            mb-7
+            mb-8
             flex
-            items-center
-            gap-2
-            text-[9px]
-            font-semibold
-            uppercase
-            tracking-[0.15em]
-            text-[#81776C]
-            transition-colors
-            hover:text-[#9A7138]
+            items-end
+            justify-between
+            gap-4
+            border-b
+            border-[#DED4C8]
+            pb-5
           "
         >
-          <ArrowLeft
-            size={14}
-            strokeWidth={1.5}
-            className="
-              transition-transform
-              duration-300
-              group-hover:-translate-x-1
-            "
-          />
+          <div>
+            <p
+              className="
+                text-[8px]
+                font-semibold
+                uppercase
+                tracking-[0.24em]
+                text-[#A4773E]
+              "
+            >
+              Secure Checkout
+            </p>
 
-          Back to Cart
-        </button>
+            <h1
+              className="
+                mt-2
+                font-serif
+                text-[30px]
+                text-[#2F2923]
+                sm:text-[36px]
+              "
+            >
+              Complete your order
+            </h1>
+          </div>
+
+          <div
+            className="
+              hidden
+              items-center
+              gap-2
+              text-[9px]
+              text-[#81776C]
+              sm:flex
+            "
+          >
+            <Package
+              size={14}
+            />
+
+            {totalItems} item
+            {totalItems !== 1
+              ? "s"
+              : ""}
+          </div>
+        </div>
 
         <div
           className="
             grid
-            gap-8
-            lg:grid-cols-[minmax(0,1fr)_390px]
-            lg:gap-10
+            gap-7
+            lg:grid-cols-[minmax(0,1fr)_420px]
           "
         >
-          <section>
-            <div
+          {/* ====================================
+           * LEFT
+           * ==================================== */}
+
+          <div
+            className="
+              space-y-6
+            "
+          >
+            {/* DELIVERY ADDRESS */}
+
+            <section
               className="
-                mb-7
-                border-b
-                border-[#E2D8CC]
-                pb-6
-              "
-            >
-              <div
-                className="
-                  flex
-                  items-center
-                  gap-2
-                "
-              >
-                <span
-                  className="
-                    h-px
-                    w-6
-                    bg-[#B7894A]
-                  "
-                />
-
-                <p
-                  className="
-                    text-[8px]
-                    font-semibold
-                    uppercase
-                    tracking-[0.22em]
-                    text-[#A4773E]
-                  "
-                >
-                  Secure Checkout
-                </p>
-              </div>
-
-              <h1
-                className="
-                  mt-3
-                  font-serif
-                  text-[36px]
-                  tracking-[-0.04em]
-                  text-[#302B25]
-                  sm:text-[46px]
-                "
-              >
-                Delivery Details
-              </h1>
-            </div>
-
-            <div
-              className="
-                rounded-[20px]
+                rounded-[22px]
                 border
                 border-[#E2D8CC]
-                bg-white
+                bg-[#FFFCF8]
                 p-5
-                shadow-[0_10px_35px_rgba(65,50,35,0.035)]
-                sm:p-7
+                shadow-[0_8px_30px_rgba(70,50,30,0.035)]
+                sm:p-6
               "
             >
               <div
                 className="
+                  mb-5
                   flex
                   items-center
-                  gap-2
+                  gap-3
                 "
               >
-                <MapPin
-                  size={17}
-                  strokeWidth={1.4}
-                  className="text-[#A4773E]"
-                />
-
-                <h2
+                <div
                   className="
-                    font-serif
-                    text-[23px]
-                    text-[#302B25]
+                    flex
+                    h-9
+                    w-9
+                    items-center
+                    justify-center
+                    rounded-full
+                    bg-[#F2E7D8]
+                    text-[#9A7138]
                   "
                 >
-                  Delivery Address
-                </h2>
+                  <MapPin
+                    size={16}
+                  />
+                </div>
+
+                <div>
+                  <h2
+                    className="
+                      text-[13px]
+                      font-semibold
+                      text-[#332D27]
+                    "
+                  >
+                    Delivery Address
+                  </h2>
+
+                  <p
+                    className="
+                      mt-0.5
+                      text-[9px]
+                      text-[#93877A]
+                    "
+                  >
+                    Where should we deliver your order?
+                  </p>
+                </div>
               </div>
 
               <div
                 className="
-                  mt-6
                   grid
                   gap-4
                   sm:grid-cols-2
@@ -1451,25 +1793,33 @@ const Checkout = () => {
                     field,
                     label,
                   ]) => (
-                    <div
+                    <label
                       key={field}
+                      className="
+                        block
+                      "
                     >
-                      <label
+                      <span
                         className="
                           mb-1.5
                           block
                           text-[8px]
                           font-semibold
                           uppercase
-                          tracking-[0.14em]
-                          text-[#81776C]
+                          tracking-[0.12em]
+                          text-[#7C7166]
                         "
                       >
                         {label}
-                      </label>
+                      </span>
 
                       <input
-                        type="text"
+                        type={
+                          field ===
+                          "phone"
+                            ? "tel"
+                            : "text"
+                        }
                         value={
                           address[field]
                         }
@@ -1478,28 +1828,34 @@ const Checkout = () => {
                         ) =>
                           handleAddressChange(
                             field,
-                            event.target.value,
+                            event.target
+                              .value,
                           )
                         }
-                        className="
+                        className={`
                           h-11
                           w-full
-                          rounded-[10px]
+                          rounded-lg
                           border
-                          border-[#DED4C7]
-                          bg-[#FCFAF7]
-                          px-3.5
+                          bg-[#FFFEFC]
+                          px-3
                           text-[11px]
                           text-[#302B25]
                           outline-none
                           transition
-                          focus:border-[#B7894A]
-                          focus:ring-2
-                          focus:ring-[#B7894A]/10
-                        "
+                          ${
+                            errors[
+                              field
+                            ]
+                              ? "border-red-400"
+                              : "border-[#DDD2C5] focus:border-[#A4773E]"
+                          }
+                        `}
                       />
 
-                      {errors[field] && (
+                      {errors[
+                        field
+                      ] && (
                         <p
                           className="
                             mt-1
@@ -1514,28 +1870,29 @@ const Checkout = () => {
                           }
                         </p>
                       )}
-                    </div>
+                    </label>
                   ),
                 )}
 
-                <div
+                <label
                   className="
+                    block
                     sm:col-span-2
                   "
                 >
-                  <label
+                  <span
                     className="
                       mb-1.5
                       block
                       text-[8px]
                       font-semibold
                       uppercase
-                      tracking-[0.14em]
-                      text-[#81776C]
+                      tracking-[0.12em]
+                      text-[#7C7166]
                     "
                   >
                     Full Address
-                  </label>
+                  </span>
 
                   <textarea
                     value={
@@ -1549,24 +1906,25 @@ const Checkout = () => {
                         event.target.value,
                       )
                     }
-                    rows={4}
-                    className="
+                    rows={3}
+                    className={`
                       w-full
                       resize-none
-                      rounded-[10px]
+                      rounded-lg
                       border
-                      border-[#DED4C7]
-                      bg-[#FCFAF7]
-                      px-3.5
+                      bg-[#FFFEFC]
+                      px-3
                       py-3
                       text-[11px]
                       text-[#302B25]
                       outline-none
                       transition
-                      focus:border-[#B7894A]
-                      focus:ring-2
-                      focus:ring-[#B7894A]/10
-                    "
+                      ${
+                        errors.address
+                          ? "border-red-400"
+                          : "border-[#DDD2C5] focus:border-[#A4773E]"
+                      }
+                    `}
                   />
 
                   {errors.address && (
@@ -1582,22 +1940,23 @@ const Checkout = () => {
                       }
                     </p>
                   )}
-                </div>
+                </label>
 
-                <div
+                <label
                   className="
+                    block
                     sm:col-span-2
                   "
                 >
-                  <label
+                  <span
                     className="
                       mb-1.5
                       block
                       text-[8px]
                       font-semibold
                       uppercase
-                      tracking-[0.14em]
-                      text-[#81776C]
+                      tracking-[0.12em]
+                      text-[#7C7166]
                     "
                   >
                     Landmark
@@ -1606,12 +1965,12 @@ const Checkout = () => {
                         ml-1
                         normal-case
                         tracking-normal
-                        text-[#AAA095]
+                        text-[#A79C90]
                       "
                     >
                       (Optional)
                     </span>
-                  </label>
+                  </span>
 
                   <input
                     type="text"
@@ -1629,64 +1988,88 @@ const Checkout = () => {
                     className="
                       h-11
                       w-full
-                      rounded-[10px]
+                      rounded-lg
                       border
-                      border-[#DED4C7]
-                      bg-[#FCFAF7]
-                      px-3.5
+                      border-[#DDD2C5]
+                      bg-[#FFFEFC]
+                      px-3
                       text-[11px]
                       text-[#302B25]
                       outline-none
                       transition
-                      focus:border-[#B7894A]
-                      focus:ring-2
-                      focus:ring-[#B7894A]/10
+                      focus:border-[#A4773E]
                     "
                   />
-                </div>
+                </label>
               </div>
-            </div>
+            </section>
 
-            <div
+            {/* SHIPPING */}
+
+            <section
               className="
-                mt-6
-                rounded-[20px]
+                rounded-[22px]
                 border
                 border-[#E2D8CC]
-                bg-white
+                bg-[#FFFCF8]
                 p-5
-                shadow-[0_10px_35px_rgba(65,50,35,0.035)]
-                sm:p-7
+                shadow-[0_8px_30px_rgba(70,50,30,0.035)]
+                sm:p-6
               "
             >
               <div
                 className="
+                  mb-5
                   flex
                   items-center
-                  gap-2
+                  gap-3
                 "
               >
-                <Truck
-                  size={17}
-                  strokeWidth={1.4}
-                  className="text-[#A4773E]"
-                />
-
-                <h2
+                <div
                   className="
-                    font-serif
-                    text-[23px]
-                    text-[#302B25]
+                    flex
+                    h-9
+                    w-9
+                    items-center
+                    justify-center
+                    rounded-full
+                    bg-[#F2E7D8]
+                    text-[#9A7138]
                   "
                 >
-                  Shipping Method
-                </h2>
+                  <Truck
+                    size={16}
+                  />
+                </div>
+
+                <div>
+                  <h2
+                    className="
+                      text-[13px]
+                      font-semibold
+                      text-[#332D27]
+                    "
+                  >
+                    Shipping Method
+                  </h2>
+
+                  <p
+                    className="
+                      mt-0.5
+                      text-[9px]
+                      text-[#93877A]
+                    "
+                  >
+                    Choose how quickly you want your order.
+                  </p>
+                </div>
               </div>
 
               <div
                 className="
-                  mt-5
-                  space-y-3
+                  grid
+                  gap-3
+                  sm:grid-cols-2
                 "
               >
                 <button
@@ -1697,10 +2080,6 @@ const Checkout = () => {
                     )
                   }
                   className={`
-                    flex
-                    w-full
-                    items-center
-                    justify-between
                     rounded-xl
                     border
                     p-4
@@ -1709,44 +2088,48 @@ const Checkout = () => {
                     ${
                       shippingMethod ===
                       "standard"
-                        ? "border-[#B7894A] bg-[#FBF6EF]"
-                        : "border-[#E2D8CC] hover:border-[#D1B890]"
+                        ? "border-[#A4773E] bg-[#FBF5ED]"
+                        : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
                     }
                   `}
                 >
-                  <div>
-                    <p
+                  <div
+                    className="
+                      flex
+                      items-center
+                      justify-between
+                    "
+                  >
+                    <span
                       className="
-                        text-[11px]
+                        text-[10px]
                         font-semibold
-                        text-[#302B25]
+                        text-[#332D27]
                       "
                     >
                       Standard Delivery
-                    </p>
+                    </span>
 
-                    <p
-                      className="
-                        mt-1
-                        text-[9px]
-                        text-[#81776C]
-                      "
-                    >
-                      Delivered in 4–7 business days
-                    </p>
+                    {shippingMethod ===
+                      "standard" && (
+                      <Check
+                        size={15}
+                        className="
+                          text-[#A4773E]
+                        "
+                      />
+                    )}
                   </div>
 
-                  <span
+                  <p
                     className="
-                      text-[10px]
-                      font-semibold
-                      text-[#A4773E]
+                      mt-2
+                      text-[9px]
+                      text-[#8B8074]
                     "
                   >
-                    {subtotal >= 999
-                      ? "Free"
-                      : "₹99"}
-                  </span>
+                    Free above ₹999
+                  </p>
                 </button>
 
                 <button
@@ -1757,10 +2140,6 @@ const Checkout = () => {
                     )
                   }
                   className={`
-                    flex
-                    w-full
-                    items-center
-                    justify-between
                     rounded-xl
                     border
                     p-4
@@ -1769,86 +2148,118 @@ const Checkout = () => {
                     ${
                       shippingMethod ===
                       "express"
-                        ? "border-[#B7894A] bg-[#FBF6EF]"
-                        : "border-[#E2D8CC] hover:border-[#D1B890]"
+                        ? "border-[#A4773E] bg-[#FBF5ED]"
+                        : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
                     }
                   `}
                 >
-                  <div>
-                    <p
+                  <div
+                    className="
+                      flex
+                      items-center
+                      justify-between
+                    "
+                  >
+                    <span
                       className="
-                        text-[11px]
+                        text-[10px]
                         font-semibold
-                        text-[#302B25]
+                        text-[#332D27]
                       "
                     >
                       Express Delivery
-                    </p>
+                    </span>
 
-                    <p
-                      className="
-                        mt-1
-                        text-[9px]
-                        text-[#81776C]
-                      "
-                    >
-                      Faster delivery where available
-                    </p>
+                    {shippingMethod ===
+                      "express" && (
+                      <Check
+                        size={15}
+                        className="
+                          text-[#A4773E]
+                        "
+                      />
+                    )}
                   </div>
 
-                  <span
+                  <p
                     className="
-                      text-[10px]
-                      font-semibold
-                      text-[#A4773E]
+                      mt-2
+                      text-[9px]
+                      text-[#8B8074]
                     "
                   >
-                    ₹199
-                  </span>
+                    ₹199 · Faster delivery
+                  </p>
                 </button>
               </div>
-            </div>
+            </section>
 
-            <div
+            {/* PAYMENT */}
+
+            <section
               className="
-                mt-6
-                rounded-[20px]
+                rounded-[22px]
                 border
                 border-[#E2D8CC]
-                bg-white
+                bg-[#FFFCF8]
                 p-5
-                shadow-[0_10px_35px_rgba(65,50,35,0.035)]
-                sm:p-7
+                shadow-[0_8px_30px_rgba(70,50,30,0.035)]
+                sm:p-6
               "
             >
               <div
                 className="
+                  mb-5
                   flex
                   items-center
-                  gap-2
+                  gap-3
                 "
               >
-                <ShieldCheck
-                  size={17}
-                  strokeWidth={1.4}
-                  className="text-[#A4773E]"
-                />
-
-                <h2
+                <div
                   className="
-                    font-serif
-                    text-[23px]
-                    text-[#302B25]
+                    flex
+                    h-9
+                    w-9
+                    items-center
+                    justify-center
+                    rounded-full
+                    bg-[#F2E7D8]
+                    text-[#9A7138]
                   "
                 >
-                  Payment Method
-                </h2>
+                  <CreditCard
+                    size={16}
+                  />
+                </div>
+
+                <div>
+                  <h2
+                    className="
+                      text-[13px]
+                      font-semibold
+                      text-[#332D27]
+                    "
+                  >
+                    Payment Method
+                  </h2>
+
+                  <p
+                    className="
+                      mt-0.5
+                      text-[9px]
+                      text-[#93877A]
+                    "
+                  >
+                    Choose your preferred payment method.
+                  </p>
+                </div>
               </div>
 
               <div
                 className="
-                  mt-5
-                  space-y-3
+                  grid
+                  gap-3
+                  sm:grid-cols-2
                 "
               >
                 <button
@@ -1859,10 +2270,6 @@ const Checkout = () => {
                     )
                   }
                   className={`
-                    flex
-                    w-full
-                    items-center
-                    justify-between
                     rounded-xl
                     border
                     p-4
@@ -1871,40 +2278,48 @@ const Checkout = () => {
                     ${
                       paymentMethod ===
                       "cod"
-                        ? "border-[#B7894A] bg-[#FBF6EF]"
-                        : "border-[#E2D8CC] hover:border-[#D1B890]"
+                        ? "border-[#A4773E] bg-[#FBF5ED]"
+                        : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
                     }
                   `}
                 >
-                  <div>
-                    <p
+                  <div
+                    className="
+                      flex
+                      items-center
+                      justify-between
+                    "
+                  >
+                    <span
                       className="
-                        text-[11px]
+                        text-[10px]
                         font-semibold
-                        text-[#302B25]
+                        text-[#332D27]
                       "
                     >
                       Cash on Delivery
-                    </p>
+                    </span>
 
-                    <p
-                      className="
-                        mt-1
-                        text-[9px]
-                        text-[#81776C]
-                      "
-                    >
-                      Pay when your order arrives
-                    </p>
+                    {paymentMethod ===
+                      "cod" && (
+                      <Check
+                        size={15}
+                        className="
+                          text-[#A4773E]
+                        "
+                      />
+                    )}
                   </div>
 
-                  {paymentMethod ===
-                    "cod" && (
-                    <Check
-                      size={17}
-                      className="text-[#A4773E]"
-                    />
-                  )}
+                  <p
+                    className="
+                      mt-2
+                      text-[9px]
+                      text-[#8B8074]
+                    "
+                  >
+                    Pay when your order arrives
+                  </p>
                 </button>
 
                 <button
@@ -1915,10 +2330,6 @@ const Checkout = () => {
                     )
                   }
                   className={`
-                    flex
-                    w-full
-                    items-center
-                    justify-between
                     rounded-xl
                     border
                     p-4
@@ -1927,57 +2338,68 @@ const Checkout = () => {
                     ${
                       paymentMethod ===
                       "online"
-                        ? "border-[#B7894A] bg-[#FBF6EF]"
-                        : "border-[#E2D8CC] hover:border-[#D1B890]"
+                        ? "border-[#A4773E] bg-[#FBF5ED]"
+                        : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
                     }
                   `}
                 >
-                  <div>
-                    <p
+                  <div
+                    className="
+                      flex
+                      items-center
+                      justify-between
+                    "
+                  >
+                    <span
                       className="
-                        text-[11px]
+                        text-[10px]
                         font-semibold
-                        text-[#302B25]
+                        text-[#332D27]
                       "
                     >
                       Pay Online
-                    </p>
+                    </span>
 
-                    <p
-                      className="
-                        mt-1
-                        text-[9px]
-                        text-[#81776C]
-                      "
-                    >
-                      Secure payment powered by Razorpay
-                    </p>
+                    {paymentMethod ===
+                      "online" && (
+                      <Check
+                        size={15}
+                        className="
+                          text-[#A4773E]
+                        "
+                      />
+                    )}
                   </div>
 
-                  {paymentMethod ===
-                    "online" && (
-                    <Check
-                      size={17}
-                      className="text-[#A4773E]"
-                    />
-                  )}
+                  <p
+                    className="
+                      mt-2
+                      text-[9px]
+                      text-[#8B8074]
+                    "
+                  >
+                    Secure payment with Razorpay
+                  </p>
                 </button>
               </div>
-            </div>
-          </section>
+            </section>
+          </div>
+
+          {/* ====================================
+           * ORDER SUMMARY
+           * ==================================== */}
 
           <aside
             className="
               h-fit
-              overflow-hidden
               rounded-[22px]
               border
-              border-[#DCD1C4]
-              bg-[#F4EDE3]
+              border-[#E0D5C8]
+              bg-[#FFFCF8]
               p-5
-              shadow-[0_14px_50px_rgba(68,51,34,0.05)]
+              shadow-[0_12px_40px_rgba(65,48,31,0.06)]
               lg:sticky
-              lg:top-24
+              lg:top-6
               sm:p-6
             "
           >
@@ -2005,158 +2427,215 @@ const Checkout = () => {
                   className="
                     mt-2
                     font-serif
-                    text-[29px]
-                    text-[#302B25]
+                    text-[24px]
+                    text-[#332D27]
                   "
                 >
-                  Your Order
+                  Your order
                 </h2>
               </div>
 
-              <span
+              <div
                 className="
+                  flex
+                  h-9
+                  w-9
+                  items-center
+                  justify-center
                   rounded-full
-                  border
-                  border-[#DED1C1]
-                  bg-white/70
-                  px-3
-                  py-1.5
-                  text-[8px]
-                  font-semibold
-                  uppercase
-                  tracking-[0.12em]
-                  text-[#75695D]
+                  bg-[#F3E8DA]
+                  text-[#9A7138]
                 "
               >
-                {totalItems} Items
-              </span>
+                <Package
+                  size={16}
+                />
+              </div>
             </div>
+
+            {/* PRODUCTS */}
 
             <div
               className="
-                mt-6
+                mt-5
+                max-h-83
                 space-y-4
-                border-b
-                border-[#D8CCBE]
-                pb-5
+                overflow-y-auto
+                pr-1
               "
             >
-              {items.map(
-                (item) => {
-                  const collectionId =
-                    (
-                      item.product as typeof item.product & {
-                        collectionId?: string;
-                      }
-                    ).collectionId;
-
-                  const {
-                    price: discountedPrice,
-                    offer,
-                  } =
-                    getDiscountedPrice(
-                      item.price,
-                      item.product._id,
-                      collectionId,
+              {cartSummary.map(
+                ({
+                  item,
+                  offer,
+                  quantity,
+                  originalTotal,
+                  offerDiscount:
+                    itemOfferDiscount,
+                  discountedTotal,
+                }) => {
+                  const imageUrl =
+                    getImageUrl(
+                      item.product.image,
                     );
-
-                  const itemOriginalTotal =
-                    item.price *
-                    item.quantity;
-
-                  const itemDiscountedTotal =
-                    discountedPrice *
-                    item.quantity;
 
                   return (
                     <div
-                      key={item.id}
+                      key={
+                        item.product._id ??
+                        item.product._id
+                      }
                       className="
                         flex
-                        items-start
-                        justify-between
-                        gap-4
+                        gap-3
                       "
                     >
                       <div
-                        className="min-w-0"
+                        className="
+                          flex
+                          h-14
+                          w-14
+                          shrink-0
+                          items-center
+                          justify-center
+                          overflow-hidden
+                          rounded-xl
+                          border
+                          border-[#E5DACE]
+                          bg-[#F4EFE8]
+                        "
+                      >
+                        {imageUrl ? (
+                          <img
+                            src={
+                              imageUrl
+                            }
+                            alt={
+                              item.product.name
+                            }
+                            className="
+                              h-full
+                              w-full
+                              object-contain
+                              p-1
+                            "
+                          />
+                        ) : (
+                          <Package
+                            size={18}
+                            className="
+                              text-[#A99C8C]
+                            "
+                          />
+                        )}
+                      </div>
+
+                      <div
+                        className="
+                          min-w-0
+                          flex-1
+                        "
                       >
                         <p
                           className="
                             truncate
                             text-[10px]
-                            font-medium
-                            text-[#302B25]
+                            font-semibold
+                            text-[#332D27]
                           "
                         >
-                          {
-                            item.product.name
-                          }
+                          {item.product.name}
                         </p>
 
                         <p
                           className="
                             mt-1
                             text-[8px]
-                            text-[#81776C]
+                            text-[#968B7F]
                           "
                         >
-                          Qty:{" "}
-                          {
-                            item.quantity
-                          }
+                          Qty: {quantity}
                         </p>
 
                         {offer && (
-                          <p
+                          <div
                             className="
-                              mt-1
-                              text-[8px]
-                              font-medium
-                              text-[#A4773E]
+                              mt-1.5
+                              inline-flex
+                              items-center
+                              gap-1
+                              rounded-full
+                              bg-[#EAF2E9]
+                              px-2
+                              py-1
+                              text-[7px]
+                              font-semibold
+                              text-[#587154]
                             "
                           >
-                            {
-                              offer.name
-                            }
-                          </p>
-                        )}
-                      </div>
+                            <Tag
+                              size={9}
+                            />
 
-                      <div
-                        className="
-                          shrink-0
-                          text-right
-                        "
-                      >
-                        {offer && (
-                          <p
-                            className="
-                              text-[8px]
-                              text-[#A0988D]
-                              line-through
-                            "
-                          >
-                            ₹
-                            {itemOriginalTotal.toLocaleString(
-                              "en-IN",
-                            )}
-                          </p>
+                            {offer.name}
+                          </div>
                         )}
 
-                        <p
+                        <div
                           className="
-                            mt-0.5
-                            text-[10px]
-                            font-semibold
-                            text-[#302B25]
+                            mt-2
+                            flex
+                            items-end
+                            justify-between
+                            gap-3
                           "
                         >
-                          ₹
-                          {itemDiscountedTotal.toLocaleString(
-                            "en-IN",
+                          <div>
+                            {itemOfferDiscount >
+                              0 && (
+                              <p
+                                className="
+                                  text-[8px]
+                                  text-[#A59A8D]
+                                  line-through
+                                "
+                              >
+                                {formatCurrency(
+                                  originalTotal,
+                                )}
+                              </p>
+                            )}
+
+                            <p
+                              className="
+                                mt-0.5
+                                text-[10px]
+                                font-semibold
+                                text-[#302B25]
+                              "
+                            >
+                              {formatCurrency(
+                                discountedTotal,
+                              )}
+                            </p>
+                          </div>
+
+                          {itemOfferDiscount >
+                            0 && (
+                            <p
+                              className="
+                                text-[8px]
+                                font-medium
+                                text-[#65805F]
+                              "
+                            >
+                              Save{" "}
+                              {formatCurrency(
+                                itemOfferDiscount,
+                              )}
+                            </p>
                           )}
-                        </p>
+                        </div>
                       </div>
                     </div>
                   );
@@ -2176,6 +2655,242 @@ const Checkout = () => {
               </p>
             )}
 
+            {/* COUPON */}
+
+            <div
+              className="
+                mt-5
+                border-t
+                border-[#E4D9CC]
+                pt-5
+              "
+            >
+              <div
+                className="
+                  mb-2
+                  flex
+                  items-center
+                  gap-2
+                "
+              >
+                <Gift
+                  size={14}
+                  className="
+                    text-[#A4773E]
+                  "
+                />
+
+                <p
+                  className="
+                    text-[9px]
+                    font-semibold
+                    uppercase
+                    tracking-[0.12em]
+                    text-[#554C43]
+                  "
+                >
+                  Have a coupon code?
+                </p>
+              </div>
+
+              {!selectedCoupon ? (
+                <>
+                  <div
+                    className="
+                      flex
+                      gap-2
+                    "
+                  >
+                    <input
+                      type="text"
+                      value={
+                        couponCode
+                      }
+                      onChange={(
+                        event,
+                      ) =>
+                        setCouponCode(
+                          event.target.value
+                            .toUpperCase(),
+                        )
+                      }
+                      onKeyDown={(
+                        event,
+                      ) => {
+                        if (
+                          event.key ===
+                          "Enter"
+                        ) {
+                          event.preventDefault();
+
+                          handleApplyCoupon();
+                        }
+                      }}
+                      placeholder="Enter coupon code"
+                      className="
+                        h-11
+                        min-w-0
+                        flex-1
+                        rounded-lg
+                        border
+                        border-[#DDD2C5]
+                        bg-white
+                        px-3
+                        text-[10px]
+                        font-medium
+                        uppercase
+                        tracking-[0.06em]
+                        text-[#332D27]
+                        outline-none
+                        placeholder:normal-case
+                        placeholder:tracking-normal
+                        focus:border-[#A4773E]
+                      "
+                    />
+
+                    <button
+                      type="button"
+                      onClick={
+                        handleApplyCoupon
+                      }
+                      disabled={
+                        isCouponsLoading
+                      }
+                      className="
+                        flex
+                        h-11
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-lg
+                        bg-[#8F6B3F]
+                        px-4
+                        text-[8px]
+                        font-semibold
+                        uppercase
+                        tracking-[0.12em]
+                        text-white
+                        transition
+                        hover:bg-[#795832]
+                        disabled:cursor-not-allowed
+                        disabled:opacity-60
+                      "
+                    >
+                      {isCouponsLoading ? (
+                        <Loader2
+                          size={13}
+                          className="
+                            animate-spin
+                          "
+                        />
+                      ) : (
+                        "Apply"
+                      )}
+                    </button>
+                  </div>
+
+                  <p
+                    className="
+                      mt-2
+                      text-[8px]
+                      leading-5
+                      text-[#978D82]
+                    "
+                  >
+                    Coupon discount is applied only after you enter
+                    and apply a valid coupon code.
+                  </p>
+                </>
+              ) : (
+                <div
+                  className="
+                    flex
+                    items-center
+                    justify-between
+                    gap-3
+                    rounded-xl
+                    border
+                    border-[#BED1BB]
+                    bg-[#F1F7EF]
+                    px-3
+                    py-3
+                  "
+                >
+                  <div
+                    className="
+                      min-w-0
+                    "
+                  >
+                    <div
+                      className="
+                        flex
+                        items-center
+                        gap-1.5
+                      "
+                    >
+                      <Check
+                        size={13}
+                        className="
+                          text-[#64815F]
+                        "
+                      />
+
+                      <span
+                        className="
+                          truncate
+                          text-[9px]
+                          font-semibold
+                          uppercase
+                          tracking-widest
+                          text-[#4F684B]
+                        "
+                      >
+                        {
+                          selectedCoupon.code
+                        }
+                      </span>
+                    </div>
+
+                    <p
+                      className="
+                        mt-1
+                        text-[8px]
+                        text-[#70816D]
+                      "
+                    >
+                      Coupon applied successfully
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={
+                      handleRemoveCoupon
+                    }
+                    className="
+                      flex
+                      h-8
+                      w-8
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-full
+                      text-[#8A5B52]
+                      transition
+                      hover:bg-[#F8E8E4]
+                    "
+                    aria-label="Remove coupon"
+                  >
+                    <X
+                      size={14}
+                    />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* TOTALS */}
+
             <div
               className="
                 mt-5
@@ -2185,67 +2900,112 @@ const Checkout = () => {
                 pb-5
               "
             >
-              {totalSavings > 0 && (
-                <>
-                  <div
+              <div
+                className="
+                  flex
+                  items-center
+                  justify-between
+                  text-[11px]
+                "
+              >
+                <span
+                  className="
+                    text-[#81776C]
+                  "
+                >
+                  Original Subtotal
+                </span>
+
+                <span
+                  className="
+                    font-medium
+                    text-[#403931]
+                  "
+                >
+                  {formatCurrency(
+                    originalSubtotal,
+                  )}
+                </span>
+              </div>
+
+              {offerDiscount > 0 && (
+                <div
+                  className="
+                    flex
+                    items-center
+                    justify-between
+                    text-[11px]
+                  "
+                >
+                  <span
                     className="
                       flex
                       items-center
-                      justify-between
-                      text-[11px]
+                      gap-1.5
+                      text-[#65805F]
                     "
                   >
-                    <span
-                      className="
-                        text-[#81776C]
-                      "
-                    >
-                      Original Subtotal
-                    </span>
+                    <Tag
+                      size={12}
+                    />
 
-                    <span
-                      className="
-                        font-medium
-                        text-[#81776C]
-                        line-through
-                      "
-                    >
-                      ₹
-                      {originalSubtotal.toLocaleString(
-                        "en-IN",
-                      )}
-                    </span>
-                  </div>
+                    Product Offers
+                  </span>
 
-                  <div
+                  <span
+                    className="
+                      font-medium
+                      text-[#65805F]
+                    "
+                  >
+                    −
+                    {formatCurrency(
+                      offerDiscount,
+                    )}
+                  </span>
+                </div>
+              )}
+
+              {selectedCoupon && (
+                <div
+                  className="
+                    flex
+                    items-center
+                    justify-between
+                    text-[11px]
+                  "
+                >
+                  <span
                     className="
                       flex
                       items-center
-                      justify-between
-                      text-[11px]
+                      gap-1.5
+                      text-[#65805F]
                     "
                   >
-                    <span
-                      className="
-                        text-[#A4773E]
-                      "
-                    >
-                      Offer Savings
-                    </span>
+                    <Gift
+                      size={12}
+                    />
 
-                    <span
-                      className="
-                        font-semibold
-                        text-[#A4773E]
-                      "
-                    >
-                      −₹
-                      {totalSavings.toLocaleString(
-                        "en-IN",
-                      )}
-                    </span>
-                  </div>
-                </>
+                    Coupon (
+                    {
+                      selectedCoupon.code
+                    }
+                    )
+                  </span>
+
+                  <span
+                    className="
+                      font-medium
+                      text-[#65805F]
+                    "
+                  >
+                    −
+                    {formatCurrency(
+                      couponDiscount,
+                    )}
+                  </span>
+                </div>
               )}
 
               <div
@@ -2261,105 +3021,60 @@ const Checkout = () => {
                     text-[#81776C]
                   "
                 >
-                  Subtotal
-                </span>
-
-                <span
-                  className="
-                    font-semibold
-                    text-[#302B25]
-                  "
-                >
-                  ₹
-                  {subtotal.toLocaleString(
-                    "en-IN",
-                  )}
-                </span>
-              </div>
-
-              <div
-                className="
-                  flex
-                  items-center
-                  justify-between
-                  text-[11px]
-                "
-              >
-                <span
-                  className="
-                    text-[#81776C]
-                  "
-                >
-                  Delivery
+                  Shipping
                 </span>
 
                 <span
                   className="
                     font-medium
-                    text-[#302B25]
+                    text-[#403931]
                   "
                 >
-                  {shippingCost === 0
-                    ? "Free"
-                    : `₹${shippingCost.toLocaleString(
-                        "en-IN",
-                      )}`}
+                  {shippingCost ===
+                  0
+                    ? "FREE"
+                    : formatCurrency(
+                        shippingCost,
+                      )}
                 </span>
               </div>
-            </div>
 
-            {totalSavings > 0 && (
-              <div
-                className="
-                  mt-4
-                  rounded-[11px]
-                  border
-                  border-[#DCC8AA]
-                  bg-[#F7EDDF]
-                  px-3
-                  py-3
-                "
-              >
+              {totalSavings > 0 && (
                 <div
                   className="
                     flex
                     items-center
-                    gap-2
+                    justify-between
+                    rounded-lg
+                    bg-[#F1F7EF]
+                    px-3
+                    py-2.5
                   "
                 >
-                  <Sparkles
-                    size={14}
-                    strokeWidth={1.4}
-                    className="
-                      shrink-0
-                      text-[#A4773E]
-                    "
-                  />
-
-                  <p
+                  <span
                     className="
                       text-[9px]
-                      leading-4
-                      text-[#725F49]
+                      font-medium
+                      text-[#5D7659]
                     "
                   >
-                    Great choice! You are saving{" "}
-                    <span
-                      className="
-                        font-semibold
-                        text-[#9A7138]
-                      "
-                    >
-                      ₹
-                      {totalSavings.toLocaleString(
-                        "en-IN",
-                      )}
-                    </span>{" "}
-                    with active offers.
-                  </p>
+                    Total savings
+                  </span>
+
+                  <span
+                    className="
+                      text-[9px]
+                      font-semibold
+                      text-[#587154]
+                    "
+                  >
+                    {formatCurrency(
+                      totalSavings,
+                    )}
+                  </span>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             <div
               className="
@@ -2376,37 +3091,37 @@ const Checkout = () => {
                     font-semibold
                     uppercase
                     tracking-[0.16em]
-                    text-[#7C7063]
+                    text-[#95897D]
                   "
                 >
-                  Grand Total
+                  Total
                 </p>
 
                 <p
                   className="
                     mt-1
-                    text-[8px]
-                    text-[#A0988D]
+                    text-[9px]
+                    text-[#95897D]
                   "
                 >
-                  Inclusive of applicable taxes
+                  Inclusive of all applicable discounts
                 </p>
               </div>
 
-              <span
+              <p
                 className="
                   font-serif
                   text-[28px]
-                  tracking-tight
-                  text-[#302B25]
+                  text-[#332D27]
                 "
               >
-                ₹
-                {total.toLocaleString(
-                  "en-IN",
+                {formatCurrency(
+                  estimatedTotal,
                 )}
-              </span>
+              </p>
             </div>
+
+            {/* PLACE ORDER */}
 
             <button
               type="button"
@@ -2419,59 +3134,82 @@ const Checkout = () => {
               className="
                 mt-6
                 flex
-                h-12
+                h-13
                 w-full
                 items-center
                 justify-center
-                gap-3
-                rounded-[10px]
-                bg-[#8F6B3F]
+                gap-2
+                rounded-xl
+                bg-[#6B5138]
                 text-[9px]
                 font-semibold
                 uppercase
-                tracking-[0.18em]
+                tracking-[0.12em]
                 text-white
-                shadow-[0_10px_25px_rgba(143,107,63,0.18)]
-                transition-all
-                duration-300
-                hover:bg-[#795832]
+                shadow-[0_12px_28px_rgba(91,67,43,0.18)]
+                transition
+                hover:bg-[#59432F]
                 disabled:cursor-not-allowed
-                disabled:opacity-60
+                disabled:opacity-70
               "
             >
-              {isPlacingOrder
-                ? "Processing..."
-                : paymentMethod ===
-                    "online"
-                  ? "Pay Securely"
-                  : "Place Order"}
+              {isPlacingOrder ? (
+                <>
+                  <Loader2
+                    size={15}
+                    className="
+                      animate-spin
+                    "
+                  />
 
-              <ChevronRight
-                size={14}
-                strokeWidth={1.5}
-              />
+                  Processing...
+                </>
+              ) : paymentMethod ===
+                "online" ? (
+                <>
+                  <CreditCard
+                    size={15}
+                  />
+
+                  Pay
+                  {" "}
+                  {formatCurrency(
+                    estimatedTotal,
+                  )}
+                </>
+              ) : (
+                <>
+                  <Check
+                    size={15}
+                  />
+
+                  Place Order
+                </>
+              )}
             </button>
 
             <div
               className="
-                mt-5
+                mt-4
                 flex
                 items-center
                 justify-center
                 gap-2
-                text-[7px]
-                uppercase
-                tracking-[0.13em]
-                text-[#95897C]
+                text-center
+                text-[8px]
+                leading-5
+                text-[#978D82]
               "
             >
               <ShieldCheck
-                size={12}
-                strokeWidth={1.4}
-                className="text-[#A4773E]"
+                size={13}
+                className="
+                  shrink-0
+                "
               />
 
-              Secure checkout
+              Secure checkout · Product offers are automatic ·
+              Coupons require a valid code
             </div>
           </aside>
         </div>
