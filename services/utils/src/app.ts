@@ -9,6 +9,7 @@ import compression from "compression";
 import morgan from "morgan";
 
 import mediaRoutes from "./routes/media.routes.js";
+import offerRoutes from "./routes/offer.routes.js";
 
 import notFound from "./middleware/notFound.middleware.js";
 
@@ -41,6 +42,7 @@ app.get("/", (_req, res) => {
 });
 
 app.use("/api/v1/media", mediaRoutes);
+app.use("/api/v1/offers",offerRoutes,);
 
 app.use(notFound);
 

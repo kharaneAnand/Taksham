@@ -1,9 +1,13 @@
 import app from "./app.js";
 import env from "./config/env.js";
 import cloudinary from "./config/cloudinary.js";
+import connectDB from "./config/db.js";
 
 const startServer = async (): Promise<void> => {
   try {
+    // Connect MongoDB
+    await connectDB();
+
     // Check Cloudinary Connection
     const result = await cloudinary.api.ping();
 
@@ -12,9 +16,10 @@ const startServer = async (): Promise<void> => {
 
     // Start Express Server
     app.listen(env.PORT, () => {
-      console.log(`utils service is running on the ${env.PORT}`)
+      console.log(
+        `utils service is running on the ${env.PORT}`,
+      );
     });
-
   } catch (error) {
     console.error("Failed to start Utils Service");
     console.error(error);

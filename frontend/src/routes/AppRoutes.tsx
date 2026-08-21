@@ -43,6 +43,9 @@ import AdminCollections from "../pages/admin/Collections";
 import AddCollection from "../pages/admin/AddCollection";
 import EditCollection from "../pages/admin/EditCollection";
 import CollectionDetails from "../pages/collections/CollectionDetails";
+import AdminOffers from "../pages/admin/offer";
+import AddOffer from "../pages/admin/AddOffer";
+import EditOffer from "../pages/admin/Editoffer";
 
 const AppRoutes = () => {
   return (
@@ -241,7 +244,20 @@ const AppRoutes = () => {
               element={<EditCollection />}
             />
 
+            <Route
+              path="/admin/offers"
+              element={<AdminOffers />}
+            />
+
+            <Route
+              path="/admin/offers/add"
+              element={<AddOffer />}
+            />
            
+           <Route
+            path="/admin/offers/:id/edit"
+            element={<EditOffer />}
+          />
 
           </Route>
 
