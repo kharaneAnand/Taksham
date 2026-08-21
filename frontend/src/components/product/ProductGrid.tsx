@@ -1,14 +1,44 @@
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import ProductCard from "../product/ProductCard";
-import type { Product } from "../../types/product";
+
+import type {
+  Product,
+} from "../../types/product";
+
+import type {
+  Offer,
+} from "../../types/offer";
+
+import type {
+  Collection,
+} from "../../types/collection";
+
+import {
+  getActiveOffers,
+} from "../../api/offer.api";
+
+import {
+  getActiveCollections,
+} from "../../api/collectionApi";
+
+import {
+  getProductOffer,
+} from "../../utils/offer";
 
 interface ProductGridProps {
   products: Product[];
+
   viewMode: "grid" | "list";
+
   onAddToCart?: (
     product: Product,
   ) => void;
 }
-
 
 const getProductImage = (
   product: Product,
@@ -21,9 +51,6 @@ const getProductImage = (
     return product.image.url;
   }
 
-  /*
-   * Fallback to common gallery image.
-   */
   const firstGalleryImage =
     product.images?.[0];
 
@@ -35,9 +62,6 @@ const getProductImage = (
     return firstGalleryImage.url;
   }
 
-  /*
-   * Final fallback to first variant image.
-   */
   const firstVariantImage =
     product.variants?.[0]?.images?.[0];
 
@@ -57,6 +81,71 @@ const ProductGrid = ({
   viewMode,
   onAddToCart,
 }: ProductGridProps) => {
+  const [
+    offers,
+    setOffers,
+  ] = useState<Offer[]>([]);
+
+  const [
+    collections,
+    setCollections,
+  ] = useState<Collection[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadOfferData =
+      async (): Promise<void> => {
+        try {
+          const [
+            activeOffers,
+            activeCollections,
+          ] = await Promise.all([
+            getActiveOffers(),
+            getActiveCollections(),
+          ]);
+
+          if (!isMounted) {
+            return;
+          }
+
+          setOffers(activeOffers);
+          setCollections(
+            activeCollections,
+          );
+        } catch (error) {
+          console.error(
+            "Failed to load offer data",
+            error,
+          );
+        }
+      };
+
+    void loadOfferData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const productOfferResults =
+    useMemo(() => {
+      return new Map(
+        products.map((product) => [
+          product._id,
+          getProductOffer(
+            product,
+            offers,
+            collections,
+          ),
+        ]),
+      );
+    }, [
+      products,
+      offers,
+      collections,
+    ]);
+
   if (products.length === 0) {
     return (
       <div
@@ -117,12 +206,27 @@ const ProductGrid = ({
    * LIST VIEW
    * ========================================
    */
+
   if (viewMode === "list") {
     return (
       <div className="space-y-4 sm:space-y-5">
         {products.map((product) => {
           const productImage =
             getProductImage(product);
+
+          const offerResult =
+            productOfferResults.get(
+              product._id,
+            );
+
+          const hasOffer =
+            offerResult?.offer !== null &&
+            offerResult?.offer !== undefined;
+
+          const finalPrice =
+            hasOffer && offerResult
+              ? offerResult.finalPrice
+              : product.price;
 
           return (
             <div
@@ -178,30 +282,60 @@ const ProductGrid = ({
                   justify-center
                 "
               >
-                <p
+                <div
                   className="
-                    text-[9px]
-                    font-semibold
-                    uppercase
-                    tracking-widest
-                    text-[#A4773E]
+                    flex
+                    items-start
+                    justify-between
+                    gap-4
                   "
                 >
-                  {product.category}
-                </p>
+                  <div className="min-w-0">
+                    <p
+                      className="
+                        text-[9px]
+                        font-semibold
+                        uppercase
+                        tracking-widest
+                        text-[#A4773E]
+                      "
+                    >
+                      {product.category}
+                    </p>
 
-                <h3
-                  className="
-                    mt-1.5
-                    truncate
-                    font-serif
-                    text-[20px]
-                    text-[#302B25]
-                    sm:text-[24px]
-                  "
-                >
-                  {product.name}
-                </h3>
+                    <h3
+                      className="
+                        mt-1.5
+                        truncate
+                        font-serif
+                        text-[20px]
+                        text-[#302B25]
+                        sm:text-[24px]
+                      "
+                    >
+                      {product.name}
+                    </h3>
+                  </div>
+
+                  {hasOffer && offerResult && (
+                    <span
+                      className="
+                        shrink-0
+                        rounded-md
+                        bg-[#F4E4C8]
+                        px-2
+                        py-1
+                        text-[8px]
+                        font-semibold
+                        uppercase
+                        tracking-wider
+                        text-[#8A6436]
+                      "
+                    >
+                      {offerResult.discountPercentage}% OFF
+                    </span>
+                  )}
+                </div>
 
                 {product.description && (
                   <p
@@ -221,26 +355,82 @@ const ProductGrid = ({
                   </p>
                 )}
 
-                <div className="mt-3 flex items-center gap-3">
-                  <p
-                    className="
-                      text-[14px]
-                      font-semibold
-                      text-[#302B25]
-                      sm:text-[15px]
-                    "
-                  >
-                    ₹
-                    {product.price.toLocaleString(
-                      "en-IN",
-                    )}
-                  </p>
+                <div
+                  className="
+                    mt-3
+                    flex
+                    flex-wrap
+                    items-center
+                    gap-3
+                  "
+                >
+                  {hasOffer && offerResult ? (
+                    <>
+                      <div
+                        className="
+                          flex
+                          items-center
+                          gap-2
+                        "
+                      >
+                        <p
+                          className="
+                            text-[15px]
+                            font-semibold
+                            text-[#8A6436]
+                            sm:text-[17px]
+                          "
+                        >
+                          ₹
+                          {Math.round(
+                            finalPrice,
+                          ).toLocaleString(
+                            "en-IN",
+                          )}
+                        </p>
+
+                        <p
+                          className="
+                            text-[11px]
+                            text-[#9C9287]
+                            line-through
+                          "
+                        >
+                          ₹
+                          {Math.round(
+                            product.price,
+                          ).toLocaleString(
+                            "en-IN",
+                          )}
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <p
+                      className="
+                        text-[15px]
+                        font-semibold
+                        text-[#302B25]
+                        sm:text-[17px]
+                      "
+                    >
+                      ₹
+                      {product.price.toLocaleString(
+                        "en-IN",
+                      )}
+                    </p>
+                  )}
 
                   <span className="text-[#D1C7BC]">
                     •
                   </span>
 
-                  <span className="text-[11px] text-[#8D8378]">
+                  <span
+                    className="
+                      text-[11px]
+                      text-[#8D8378]
+                    "
+                  >
                     {product.material ??
                       "Premium finish"}
                   </span>
@@ -283,6 +473,7 @@ const ProductGrid = ({
    * GRID VIEW
    * ========================================
    */
+
   return (
     <div
       className="
@@ -305,6 +496,11 @@ const ProductGrid = ({
         <ProductCard
           key={product._id}
           product={product}
+          offerResult={
+            productOfferResults.get(
+              product._id,
+            )
+          }
           onAddToCart={onAddToCart}
         />
       ))}

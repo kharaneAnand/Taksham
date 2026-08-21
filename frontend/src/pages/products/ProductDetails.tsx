@@ -38,10 +38,30 @@ import {
   getProducts,
 } from "../../api/product.api";
 
+import {
+  getActiveOffers,
+} from "../../api/offer.api";
+
+import {
+  getActiveCollections,
+} from "../../api/collectionApi";
+
+import {
+  getProductOffer,
+} from "../../utils/offer";
+
 import type {
   Product,
   ProductImage,
 } from "../../types/product";
+
+import type {
+  Offer,
+} from "../../types/offer";
+
+import type {
+  Collection,
+} from "../../types/collection";
 
 const ProductDetails = () => {
   const { addToCart } = useCart();
@@ -61,6 +81,16 @@ const ProductDetails = () => {
     relatedProducts,
     setRelatedProducts,
   ] = useState<Product[]>([]);
+
+  const [
+    offers,
+    setOffers,
+  ] = useState<Offer[]>([]);
+
+  const [
+    collections,
+    setCollections,
+  ] = useState<Collection[]>([]);
 
   const [
     isLoading,
@@ -83,11 +113,6 @@ const ProductDetails = () => {
     setSelectedImageIndex,
   ] = useState(0);
 
-  /*
-   * ========================================
-   * Fetch Product
-   * ========================================
-   */
   useEffect(() => {
     if (!slug) {
       setProduct(null);
@@ -107,21 +132,12 @@ const ProductDetails = () => {
 
         setProduct(data);
 
-        /*
-         * Select first available variant color.
-         *
-         * Prefer variant color because variants
-         * control images, price and stock.
-         */
         setSelectedColor(
           data.colors?.[0] ||
             data.variants?.[0]?.color ||
             "",
         );
 
-        /*
-         * Always start with main cover image.
-         */
         setSelectedImageIndex(0);
         setQuantity(1);
       } catch (error) {
@@ -145,11 +161,43 @@ const ProductDetails = () => {
     void fetchProduct();
   }, [slug]);
 
-  /*
-   * ========================================
-   * Fetch Related Products
-   * ========================================
-   */
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadOfferData =
+      async (): Promise<void> => {
+        try {
+          const [
+            activeOffers,
+            activeCollections,
+          ] = await Promise.all([
+            getActiveOffers(),
+            getActiveCollections(),
+          ]);
+
+          if (!isMounted) {
+            return;
+          }
+
+          setOffers(activeOffers);
+          setCollections(
+            activeCollections,
+          );
+        } catch (error) {
+          console.error(
+            "Failed to load offer data:",
+            error,
+          );
+        }
+      };
+
+    void loadOfferData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (!product?.category) {
       setRelatedProducts([]);
@@ -191,124 +239,106 @@ const ProductDetails = () => {
     product?.slug,
   ]);
 
-  /*
-   * ========================================
-   * Available Colors
-   *
-   * Colors are primarily taken from variants.
-   * product.colors is used as fallback/addition.
-   * ========================================
-   */
-const availableColors = useMemo(() => {
-  if (!product) {
-    return [];
-  }
-
-  const colors = new Set<string>();
-
-  product.colors?.forEach((color) => {
-    if (color?.trim()) {
-      colors.add(color.trim());
+  const availableColors = useMemo(() => {
+    if (!product) {
+      return [];
     }
-  });
 
-  product.variants?.forEach((variant) => {
-    if (variant.color?.trim()) {
-      colors.add(variant.color.trim());
-    }
-  });
+    const colors = new Set<string>();
 
-  return Array.from(colors);
-}, [product]);
+    product.colors?.forEach((color) => {
+      if (color?.trim()) {
+        colors.add(color.trim());
+      }
+    });
 
-  /*
-   * ========================================
-   * Active Variant
-   *
-   * Find ONLY the variant for the currently
-   * selected color.
-   * ========================================
-   */
+    product.variants?.forEach((variant) => {
+      if (variant.color?.trim()) {
+        colors.add(
+          variant.color.trim(),
+        );
+      }
+    });
+
+    return Array.from(colors);
+  }, [product]);
+
   const activeVariant = useMemo(() => {
-  if (!product?.variants?.length || !selectedColor) {
-    return undefined;
-  }
+    if (
+      !product?.variants?.length ||
+      !selectedColor
+    ) {
+      return undefined;
+    }
 
-  return product.variants.find(
-    (variant) =>
-      variant.color?.toLowerCase() ===
-      selectedColor.toLowerCase(),
-  );
-}, [product, selectedColor]);
-
-  
- const activeImages = useMemo<ProductImage[]>(() => {
-  if (!product) {
-    return [];
-  }
-
-  const normalizedSelectedColor =
-    selectedColor.trim().toLowerCase();
-
-  /*
-   * Find the selected variant.
-   */
-  const selectedVariant =
-    product.variants?.find(
+    return product.variants.find(
       (variant) =>
-        variant.color?.trim().toLowerCase() ===
-        normalizedSelectedColor,
+        variant.color?.toLowerCase() ===
+        selectedColor.toLowerCase(),
     );
+  }, [
+    product,
+    selectedColor,
+  ]);
 
-  /*
-   * If a real variant is selected,
-   * show ONLY that variant's images.
-   */
-  if (selectedVariant?.images?.length) {
-    return selectedVariant.images;
-  }
+  const activeImages =
+    useMemo<ProductImage[]>(() => {
+      if (!product) {
+        return [];
+      }
 
-  /*
-   * Otherwise this is the main/default
-   * product color.
-   *
-   * Show its cover image + its other images.
-   */
-  const mainImages: ProductImage[] = [];
+      const normalizedSelectedColor =
+        selectedColor
+          .trim()
+          .toLowerCase();
 
-  if (product.image?.url) {
-    mainImages.push(product.image);
-  }
+      const selectedVariant =
+        product.variants?.find(
+          (variant) =>
+            variant.color
+              ?.trim()
+              .toLowerCase() ===
+            normalizedSelectedColor,
+        );
 
-  if (product.images?.length) {
-    mainImages.push(...product.images);
-  }
+      if (
+        selectedVariant?.images?.length
+      ) {
+        return selectedVariant.images;
+      }
 
-  return mainImages.filter(
-    (image, index, array) =>
-      array.findIndex(
-        (item) =>
-          item.publicId === image.publicId ||
-          item.url === image.url,
-      ) === index,
-  );
-}, [product, selectedColor]);
+      const mainImages: ProductImage[] =
+        [];
 
-  /*
-   * ========================================
-   * Active Main Display Image
-   * ========================================
-   */
+      if (product.image?.url) {
+        mainImages.push(product.image);
+      }
+
+      if (product.images?.length) {
+        mainImages.push(
+          ...product.images,
+        );
+      }
+
+      return mainImages.filter(
+        (image, index, array) =>
+          array.findIndex(
+            (item) =>
+              item.publicId ===
+                image.publicId ||
+              item.url === image.url,
+          ) === index,
+      );
+    }, [
+      product,
+      selectedColor,
+    ]);
+
   const activeImage =
     activeImages[selectedImageIndex] ||
     activeImages[0] ||
     product?.image;
 
-  /*
-   * ========================================
-   * Active Product Values
-   * ========================================
-   */
   const activeColor =
     selectedColor ||
     activeVariant?.color ||
@@ -330,13 +360,39 @@ const availableColors = useMemo(() => {
     product?.material ||
     "Premium finish";
 
-  /*
-   * ========================================
-   * Reset Image When Color Changes
-   *
-   * Index 0 = Main Cover Image
-   * ========================================
-   */
+  const offerResult = useMemo(() => {
+    if (!product) {
+      return null;
+    }
+
+    return getProductOffer(
+      product,
+      offers,
+      collections,
+    );
+  }, [
+    product,
+    offers,
+    collections,
+  ]);
+
+  const hasOffer =
+    offerResult?.offer !== null &&
+    offerResult?.offer !== undefined;
+
+  const finalPrice =
+    hasOffer && offerResult
+      ? offerResult.finalPrice
+      : activePrice;
+
+  const originalPrice =
+    activePrice;
+
+  const discountPercentage =
+    hasOffer && offerResult
+      ? offerResult.discountPercentage
+      : 0;
+
   useEffect(() => {
     setSelectedImageIndex(0);
     setQuantity(1);
@@ -345,11 +401,6 @@ const availableColors = useMemo(() => {
     slug,
   ]);
 
-  /*
-   * ========================================
-   * Loading State
-   * ========================================
-   */
   if (isLoading) {
     return (
       <main className="min-h-screen bg-[#FAF8F5]">
@@ -395,11 +446,6 @@ const availableColors = useMemo(() => {
     );
   }
 
-  /*
-   * ========================================
-   * Product Not Found
-   * ========================================
-   */
   if (!product) {
     return (
       <main className="min-h-screen bg-[#FAF8F5]">
@@ -495,11 +541,6 @@ const availableColors = useMemo(() => {
   const reviews =
     product.reviews ?? 0;
 
-  /*
-   * ========================================
-   * Quantity Handlers
-   * ========================================
-   */
   const decreaseQuantity = () => {
     setQuantity((current) =>
       Math.max(1, current - 1),
@@ -515,39 +556,21 @@ const availableColors = useMemo(() => {
     );
   };
 
-  /*
-   * ========================================
-   * Color Change
-   * ========================================
-   */
   const handleColorChange = (
     color: string,
   ) => {
     setSelectedColor(color);
 
-    /*
-     * Return to main cover image.
-     */
     setSelectedImageIndex(0);
     setQuantity(1);
   };
 
-  /*
-   * ========================================
-   * Thumbnail Change
-   * ========================================
-   */
   const handleThumbnailChange = (
     index: number,
   ) => {
     setSelectedImageIndex(index);
   };
 
-  /*
-   * ========================================
-   * Add To Cart
-   * ========================================
-   */
   const handleAddToCart = () => {
     if (activeStock <= 0) {
       return;
@@ -564,11 +587,6 @@ const availableColors = useMemo(() => {
     }
   };
 
-  /*
-   * ========================================
-   * Buy Now
-   * ========================================
-   */
   const handleBuyNow = () => {
     if (activeStock <= 0) {
       return;
@@ -631,9 +649,6 @@ const availableColors = useMemo(() => {
             xl:px-16
           "
         >
-          {/* ========================================
-              PRODUCT IMAGES
-          ======================================== */}
           <div>
             <div
               className="
@@ -751,6 +766,37 @@ const availableColors = useMemo(() => {
                 </div>
               )}
 
+              {hasOffer && (
+                <div
+                  className="
+                    absolute
+                    left-4
+                    top-13
+                    rounded-full
+                    border
+                    border-[#D6B77F]/60
+                    bg-[#8F6B3F]
+                    px-3
+                    py-1.5
+                    shadow-sm
+                    sm:left-5
+                  "
+                >
+                  <span
+                    className="
+                      text-[7px]
+                      font-semibold
+                      uppercase
+                      tracking-[0.16em]
+                      text-white
+                      sm:text-[8px]
+                    "
+                  >
+                    {discountPercentage}% OFF
+                  </span>
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={async () => {
@@ -800,9 +846,6 @@ const availableColors = useMemo(() => {
               </button>
             </div>
 
-            {/* ========================================
-                THUMBNAILS
-            ======================================== */}
             {activeImages.length > 0 && (
               <div
                 className="
@@ -884,9 +927,6 @@ const availableColors = useMemo(() => {
             )}
           </div>
 
-          {/* ========================================
-              PRODUCT INFORMATION
-          ======================================== */}
           <div
             className="
               lg:sticky
@@ -975,24 +1015,79 @@ const availableColors = useMemo(() => {
               className="
                 mt-5
                 flex
-                items-baseline
-                gap-3
+                flex-wrap
+                items-center
+                gap-x-3
+                gap-y-2
               "
             >
-              <span
-                className="
-                  text-[26px]
-                  font-semibold
-                  tracking-tight
-                  text-[#302B25]
-                  sm:text-[29px]
-                "
-              >
-                ₹
-                {activePrice.toLocaleString(
-                  "en-IN",
-                )}
-              </span>
+              {hasOffer ? (
+                <>
+                  <span
+                    className="
+                      text-[26px]
+                      font-semibold
+                      tracking-tight
+                      text-[#8A6436]
+                      sm:text-[29px]
+                    "
+                  >
+                    ₹
+                    {Math.round(
+                      finalPrice,
+                    ).toLocaleString(
+                      "en-IN",
+                    )}
+                  </span>
+
+                  <span
+                    className="
+                      text-[13px]
+                      text-[#9A9186]
+                      line-through
+                      sm:text-[14px]
+                    "
+                  >
+                    ₹
+                    {Math.round(
+                      originalPrice,
+                    ).toLocaleString(
+                      "en-IN",
+                    )}
+                  </span>
+
+                  <span
+                    className="
+                      rounded-full
+                      bg-[#F4E4C8]
+                      px-2.5
+                      py-1
+                      text-[8px]
+                      font-semibold
+                      uppercase
+                      tracking-[0.08em]
+                      text-[#8A6436]
+                    "
+                  >
+                    Save {discountPercentage}%
+                  </span>
+                </>
+              ) : (
+                <span
+                  className="
+                    text-[26px]
+                    font-semibold
+                    tracking-tight
+                    text-[#302B25]
+                    sm:text-[29px]
+                  "
+                >
+                  ₹
+                  {activePrice.toLocaleString(
+                    "en-IN",
+                  )}
+                </span>
+              )}
 
               <span
                 className="
@@ -1004,6 +1099,19 @@ const availableColors = useMemo(() => {
                 Inclusive of all taxes
               </span>
             </div>
+
+            {hasOffer && offerResult?.offer && (
+              <p
+                className="
+                  mt-2
+                  text-[9px]
+                  font-medium
+                  text-[#8A6436]
+                "
+              >
+                {offerResult.offer.name}
+              </p>
+            )}
 
             <div className="my-5 h-px bg-[#E3DBD1]" />
 
@@ -1051,9 +1159,6 @@ const availableColors = useMemo(() => {
               </span>
             </div>
 
-            {/* ========================================
-                COLOR SELECTION
-            ======================================== */}
             {availableColors.length > 0 && (
               <div className="mt-6">
                 <div
@@ -1155,9 +1260,6 @@ const availableColors = useMemo(() => {
               </div>
             )}
 
-            {/* ========================================
-                STOCK
-            ======================================== */}
             <div
               className="
                 mt-5
@@ -1208,9 +1310,6 @@ const availableColors = useMemo(() => {
               )}
             </div>
 
-            {/* ========================================
-                QUANTITY + ADD TO CART
-            ======================================== */}
             <div
               className="
                 mt-6
@@ -1325,9 +1424,6 @@ const availableColors = useMemo(() => {
               </button>
             </div>
 
-            {/* ========================================
-                BUY NOW
-            ======================================== */}
             <button
               type="button"
               disabled={activeStock === 0}
@@ -1357,9 +1453,6 @@ const availableColors = useMemo(() => {
               Buy Now
             </button>
 
-            {/* ========================================
-                FEATURES
-            ======================================== */}
             <div
               className="
                 mt-6
@@ -1490,9 +1583,6 @@ const availableColors = useMemo(() => {
         </div>
       </section>
 
-      {/* ========================================
-          RELATED PRODUCTS
-      ======================================== */}
       {relatedProducts.length > 0 && (
         <section
           className="

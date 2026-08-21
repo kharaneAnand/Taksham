@@ -23,8 +23,14 @@ import {
   useWishlist,
 } from "../../context/WishlistContext";
 
+import type {
+  ProductOfferResult,
+} from "../../utils/offer";
+
 interface ProductCardProps {
   product: Product;
+
+  offerResult?: ProductOfferResult;
 
   onAddToCart?: (
     product: Product,
@@ -56,12 +62,17 @@ const getImageUrl = (
 
 const ProductCard = ({
   product,
+  offerResult,
   onAddToCart,
 }: ProductCardProps) => {
   const navigate = useNavigate();
 
- const [selectedColor, setSelectedColor] =
-  useState<string | null>(null);
+  const [
+    selectedColor,
+    setSelectedColor,
+  ] = useState<string | null>(
+    null,
+  );
 
   const rating =
     product.rating ?? 0;
@@ -93,9 +104,6 @@ const ProductCard = ({
    * ========================================
    * AVAILABLE COLORS
    * ========================================
-   *
-   * Prefer variant colors.
-   * Fall back to product.colors.
    */
 
   const availableColors = useMemo(() => {
@@ -145,58 +153,81 @@ const ProductCard = ({
 
   /*
    * ========================================
+   * DISPLAY PRICE
+   * ========================================
+   */
+
+  const displayPrice =
+    selectedVariant?.price ??
+    product.price;
+
+  /*
+   * ========================================
+   * OFFER
+   *
+   * Received from ProductGrid.
+   * ProductCard does not make API calls.
+   * ========================================
+   */
+
+  const hasOffer =
+    offerResult?.offer !== null &&
+    offerResult?.offer !== undefined;
+
+  /*
+   * For a selected variant, calculate
+   * the same discount percentage on the
+   * variant price.
+   */
+
+  const finalPrice =
+    hasOffer && offerResult
+      ? Math.max(
+          0,
+          displayPrice *
+            (
+              1 -
+              offerResult.discountPercentage /
+                100
+            ),
+        )
+      : displayPrice;
+
+  /*
+   * ========================================
    * DISPLAY IMAGE
    * ========================================
-   *
-   * Priority:
-   *
-   * 1. Selected color variant image
-   * 2. Main product image
-   * 3. First common gallery image
-   * 4. Placeholder
    */
 
   const productImage = useMemo(() => {
-  /*
-   * When user explicitly selects a color,
-   * show that variant's image.
-   */
-  if (
-    selectedColor &&
-    selectedVariant?.images?.[0]
-  ) {
-    return getImageUrl(
-      selectedVariant.images[0],
-    );
-  }
+    if (
+      selectedColor &&
+      selectedVariant?.images?.[0]
+    ) {
+      return getImageUrl(
+        selectedVariant.images[0],
+      );
+    }
 
-  /*
-   * Default card image must always be
-   * the main product cover image.
-   */
-  if (product.image) {
-    return getImageUrl(product.image);
-  }
+    if (product.image) {
+      return getImageUrl(
+        product.image,
+      );
+    }
 
-  /*
-   * Fallback to gallery image.
-   */
-  if (product.images?.[0]) {
-    return getImageUrl(
-      product.images[0],
-    );
-  }
+    if (product.images?.[0]) {
+      return getImageUrl(
+        product.images[0],
+      );
+    }
 
-  /*
-   * Final fallback.
-   */
-  return "/placeholder-product.png";
-}, [
-  selectedColor,
-  selectedVariant,
-  product.image,
-  product.images,
-]);
+    return "/placeholder-product.png";
+  }, [
+    selectedColor,
+    selectedVariant,
+    product.image,
+    product.images,
+  ]);
 
   /*
    * ========================================
@@ -219,10 +250,6 @@ const ProductCard = ({
         overflow-hidden
       "
     >
-      {/* =====================================================
-          PRODUCT IMAGE
-      ===================================================== */}
-
       <div
         onClick={handleProductClick}
         role="link"
@@ -259,8 +286,6 @@ const ProductCard = ({
           lg:group-hover:shadow-[0_18px_45px_rgba(55,43,31,0.09)]
         "
       >
-        {/* Background glow */}
-
         <div
           className="
             pointer-events-none
@@ -277,8 +302,6 @@ const ProductCard = ({
             blur-[45px]
           "
         />
-
-        {/* Product Image */}
 
         <div
           className="
@@ -327,8 +350,6 @@ const ProductCard = ({
           </div>
         </div>
 
-        {/* Image atmosphere */}
-
         <div
           className="
             pointer-events-none
@@ -342,46 +363,74 @@ const ProductCard = ({
           "
         />
 
-        {/* =====================================================
-            NEW BADGE
-        ===================================================== */}
-
-        {product.isNewProduct && (
-          <div
-            className="
-              absolute
-              left-2.5
-              top-2.5
-              z-30
-              rounded-[5px]
-              border
-              border-[#D6B77F]/60
-              bg-[#F4E4C8]
-              px-2.5
-              py-1.5
-              shadow-[0_4px_12px_rgba(60,45,30,0.08)]
-              sm:left-3
-              sm:top-3
-            "
-          >
-            <span
+        <div
+          className="
+            absolute
+            left-2.5
+            top-2.5
+            z-30
+            flex
+            flex-col
+            items-start
+            gap-1.5
+            sm:left-3
+            sm:top-3
+          "
+        >
+          {product.isNewProduct && (
+            <div
               className="
-                text-[6px]
-                font-semibold
-                uppercase
-                tracking-[0.13em]
-                text-[#70512E]
-                sm:text-[7px]
+                rounded-[5px]
+                border
+                border-[#D6B77F]/60
+                bg-[#F4E4C8]
+                px-2.5
+                py-1.5
+                shadow-[0_4px_12px_rgba(60,45,30,0.08)]
               "
             >
-              New
-            </span>
-          </div>
-        )}
+              <span
+                className="
+                  text-[6px]
+                  font-semibold
+                  uppercase
+                  tracking-[0.13em]
+                  text-[#70512E]
+                  sm:text-[7px]
+                "
+              >
+                New
+              </span>
+            </div>
+          )}
 
-        {/* =====================================================
-            WISHLIST
-        ===================================================== */}
+          {hasOffer && offerResult && (
+            <div
+              className="
+                rounded-[5px]
+                border
+                border-[#B66F37]/35
+                bg-[#8F6B3F]
+                px-2.5
+                py-1.5
+                shadow-[0_4px_12px_rgba(60,45,30,0.12)]
+              "
+            >
+              <span
+                className="
+                  text-[6px]
+                  font-semibold
+                  uppercase
+                  tracking-[0.12em]
+                  text-white
+                  sm:text-[7px]
+                "
+              >
+                {offerResult.discountPercentage}% OFF
+              </span>
+            </div>
+          )}
+        </div>
 
         <button
           type="button"
@@ -439,10 +488,6 @@ const ProductCard = ({
           />
         </button>
 
-        {/* =====================================================
-            VIEW PRODUCT
-        ===================================================== */}
-
         <button
           type="button"
           aria-label={`View ${product.name}`}
@@ -485,10 +530,6 @@ const ProductCard = ({
           />
         </button>
       </div>
-
-      {/* =====================================================
-          PRODUCT INFORMATION
-      ===================================================== */}
 
       <div
         className="
@@ -551,31 +592,70 @@ const ProductCard = ({
             </p>
           </button>
 
-          <span
+          <div
             className="
               shrink-0
-              whitespace-nowrap
               pt-0.5
-              text-[11px]
-              font-semibold
-              tracking-[-0.01em]
-              text-[#29241F]
-              sm:text-[13px]
+              text-right
             "
           >
-            ₹
-            {(
-              selectedVariant?.price ??
-              product.price
-            ).toLocaleString(
-              "en-IN",
-            )}
-          </span>
-        </div>
+            {hasOffer ? (
+              <>
+                <div
+                  className="
+                    whitespace-nowrap
+                    text-[11px]
+                    font-semibold
+                    tracking-[-0.01em]
+                    text-[#8A6436]
+                    sm:text-[13px]
+                  "
+                >
+                  ₹
+                  {Math.round(
+                    finalPrice,
+                  ).toLocaleString(
+                    "en-IN",
+                  )}
+                </div>
 
-        {/* =====================================================
-            COLOR OPTIONS
-        ===================================================== */}
+                <div
+                  className="
+                    mt-0.5
+                    whitespace-nowrap
+                    text-[7px]
+                    text-[#9C9287]
+                    line-through
+                    sm:text-[8px]
+                  "
+                >
+                  ₹
+                  {Math.round(
+                    displayPrice,
+                  ).toLocaleString(
+                    "en-IN",
+                  )}
+                </div>
+              </>
+            ) : (
+              <span
+                className="
+                  whitespace-nowrap
+                  text-[11px]
+                  font-semibold
+                  tracking-[-0.01em]
+                  text-[#29241F]
+                  sm:text-[13px]
+                "
+              >
+                ₹
+                {displayPrice.toLocaleString(
+                  "en-IN",
+                )}
+              </span>
+            )}
+          </div>
+        </div>
 
         {availableColors.length > 0 && (
           <div
@@ -625,10 +705,6 @@ const ProductCard = ({
             )}
           </div>
         )}
-
-        {/* =====================================================
-            RATING
-        ===================================================== */}
 
         <div
           className="
@@ -680,10 +756,6 @@ const ProductCard = ({
             </span>
           )}
         </div>
-
-        {/* =====================================================
-            ADD TO CART
-        ===================================================== */}
 
         <button
           type="button"

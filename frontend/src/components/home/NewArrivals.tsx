@@ -21,14 +21,21 @@ import {
   getProducts,
 } from "../../api/product.api";
 
+import {
+  getActiveOffers,
+} from "../../api/offer.api";
+
 import type {
   Product,
-
 } from "../../types/product";
+
+import type {
+  Offer,
+} from "../../types/offer";
 
 /*
  * ========================================
- * Benefits
+ * BENEFITS
  * ========================================
  */
 
@@ -60,13 +67,15 @@ const benefits = [
   },
 ];
 
+/*
+ * ========================================
+ * PRODUCT IMAGE HELPER
+ * ========================================
+ */
+
 const getProductImage = (
   product: Product,
 ): string => {
-  if (typeof product.image === "string") {
-    return product.image;
-  }
-
   if (product.image?.url) {
     return product.image.url;
   }
@@ -74,20 +83,12 @@ const getProductImage = (
   const firstGalleryImage =
     product.images?.[0];
 
-  if (typeof firstGalleryImage === "string") {
-    return firstGalleryImage;
-  }
-
   if (firstGalleryImage?.url) {
     return firstGalleryImage.url;
   }
 
   const firstVariantImage =
     product.variants?.[0]?.images?.[0];
-
-  if (typeof firstVariantImage === "string") {
-    return firstVariantImage;
-  }
 
   if (firstVariantImage?.url) {
     return firstVariantImage.url;
@@ -98,7 +99,518 @@ const getProductImage = (
 
 /*
  * ========================================
- * Component
+ * OFFER HELPERS
+ * ========================================
+ */
+
+const getEntityId = (
+  value: string | Product,
+): string => {
+  return typeof value === "string"
+    ? value
+    : value._id;
+};
+
+const getApplicableOffer = (
+  product: Product,
+  offers: Offer[],
+): Offer | null => {
+  const now = new Date();
+
+  const applicableOffers =
+    offers.filter((offer) => {
+      if (!offer.isActive) {
+        return false;
+      }
+
+      const startDate =
+        new Date(offer.startDate);
+
+      const endDate =
+        new Date(offer.endDate);
+
+      if (
+        Number.isNaN(startDate.getTime()) ||
+        Number.isNaN(endDate.getTime())
+      ) {
+        return false;
+      }
+
+      if (
+        now < startDate ||
+        now > endDate
+      ) {
+        return false;
+      }
+
+      /*
+       * Offer applies to every product.
+       */
+
+      if (offer.appliesTo === "all") {
+        return true;
+      }
+
+      /*
+       * Offer applies to selected products.
+       */
+
+      if (
+        offer.appliesTo === "products"
+      ) {
+        return offer.productIds.some(
+          (productId) =>
+            getEntityId(productId) ===
+            product._id,
+        );
+      }
+
+      /*
+       * Collection offers are intentionally
+       * not matched here because Product does
+       * not currently contain collection IDs.
+       */
+
+      return false;
+    });
+
+  if (applicableOffers.length === 0) {
+    return null;
+  }
+
+  /*
+   * If multiple offers apply, use the one
+   * giving the customer the lowest price.
+   */
+
+  return applicableOffers.reduce(
+    (bestOffer, currentOffer) => {
+      const getDiscountedPrice = (
+        offer: Offer,
+      ) => {
+        if (
+          offer.discountType ===
+          "percentage"
+        ) {
+          return Math.max(
+            0,
+            product.price -
+              (
+                product.price *
+                offer.discountValue
+              ) /
+                100,
+          );
+        }
+
+        return Math.max(
+          0,
+          product.price -
+            offer.discountValue,
+        );
+      };
+
+      return getDiscountedPrice(
+        currentOffer,
+      ) <
+        getDiscountedPrice(bestOffer)
+        ? currentOffer
+        : bestOffer;
+    },
+  );
+};
+
+const getDiscountedPrice = (
+  price: number,
+  offer: Offer | null,
+): number => {
+  if (!offer) {
+    return price;
+  }
+
+  if (
+    offer.discountType ===
+    "percentage"
+  ) {
+    return Math.max(
+      0,
+      price -
+        (price * offer.discountValue) /
+          100,
+    );
+  }
+
+  return Math.max(
+    0,
+    price - offer.discountValue,
+  );
+};
+
+const getOfferLabel = (
+  offer: Offer,
+): string => {
+  if (
+    offer.discountType ===
+    "percentage"
+  ) {
+    return `${offer.discountValue}% OFF`;
+  }
+
+  return `₹${offer.discountValue.toLocaleString(
+    "en-IN",
+  )} OFF`;
+};
+
+/*
+ * ========================================
+ * PRODUCT CARD
+ * ========================================
+ */
+
+type ProductCardProps = {
+  product: Product;
+  offers: Offer[];
+  mobile?: boolean;
+};
+
+const ProductCard = ({
+  product,
+  offers,
+  mobile = false,
+}: ProductCardProps) => {
+  const navigate = useNavigate();
+
+  const productType =
+    product.subcategory ||
+    product.category ||
+    "Furniture";
+
+  const productImage =
+    getProductImage(product);
+
+  const applicableOffer =
+    getApplicableOffer(
+      product,
+      offers,
+    );
+
+  const originalPrice =
+    Number(product.price);
+
+  const discountedPrice =
+    getDiscountedPrice(
+      originalPrice,
+      applicableOffer,
+    );
+
+  const hasOffer =
+    applicableOffer !== null &&
+    discountedPrice < originalPrice;
+
+  const handleProductClick = () => {
+    navigate(
+      `/products/${product.slug}`,
+    );
+  };
+
+  return (
+    <article
+      onClick={handleProductClick}
+      onKeyDown={(event) => {
+        if (
+          event.key === "Enter" ||
+          event.key === " "
+        ) {
+          event.preventDefault();
+
+          handleProductClick();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      className={`
+        group
+        relative
+        min-w-0
+        cursor-pointer
+        overflow-hidden
+        rounded-2xl
+        border
+        border-[#E5DED4]
+        bg-white
+        shadow-[0_4px_18px_rgba(45,37,29,0.035)]
+        transition-all
+        duration-500
+        hover:-translate-y-1
+        hover:border-[#D3C0A5]
+        hover:shadow-[0_18px_38px_rgba(54,43,31,0.09)]
+
+        ${
+          mobile
+            ? `
+              w-[72vw]
+              max-w-73
+              shrink-0
+              snap-start
+            `
+            : "w-full"
+        }
+      `}
+    >
+      <div
+        className={`
+          relative
+          w-full
+          overflow-hidden
+          bg-[#F4F0E9]
+
+          ${
+            mobile
+              ? "aspect-[4/4.4]"
+              : "aspect-square"
+          }
+        `}
+      >
+        <img
+          src={productImage}
+          alt={product.name}
+          loading="lazy"
+          className="
+            h-full
+            w-full
+            object-contain
+            object-center
+            p-2
+            transition-transform
+            duration-700
+            ease-out
+            group-hover:scale-[1.035]
+          "
+        />
+
+        <div
+          className="
+            pointer-events-none
+            absolute
+            inset-0
+            bg-linear-to-t
+            from-black/5
+            via-transparent
+            to-white/10
+          "
+        />
+
+        <div
+          className="
+            absolute
+            left-3
+            top-3
+            flex
+            flex-col
+            items-start
+            gap-1.5
+          "
+        >
+          {product.isNewProduct && (
+            <span
+              className="
+                rounded-full
+                bg-[#B7894A]
+                px-2.5
+                py-1
+                text-[8px]
+                font-semibold
+                uppercase
+                tracking-[0.14em]
+                text-white
+                shadow-sm
+              "
+            >
+              New
+            </span>
+          )}
+
+          {hasOffer &&
+            applicableOffer && (
+              <span
+                className="
+                  rounded-full
+                  bg-[#302B25]
+                  px-2.5
+                  py-1
+                  text-[8px]
+                  font-semibold
+                  uppercase
+                  tracking-[0.12em]
+                  text-white
+                  shadow-sm
+                "
+              >
+                {getOfferLabel(
+                  applicableOffer,
+                )}
+              </span>
+            )}
+        </div>
+
+        <button
+          type="button"
+          aria-label={`Add ${product.name} to wishlist`}
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+          className="
+            absolute
+            right-3
+            top-3
+            flex
+            h-9
+            w-9
+            items-center
+            justify-center
+            rounded-full
+            border
+            border-[#E4DBCF]
+            bg-white/90
+            text-[#62584D]
+            shadow-sm
+            backdrop-blur-md
+            transition-all
+            duration-300
+            hover:scale-105
+            hover:border-[#CDB48F]
+            hover:text-[#A47D3C]
+          "
+        >
+          <Heart
+            size={16}
+            strokeWidth={1.6}
+          />
+        </button>
+      </div>
+
+      <div
+        className="
+          min-w-0
+          px-4
+          pb-4
+          pt-3.5
+          sm:px-4
+          sm:pb-5
+        "
+      >
+        <p
+          className="
+            truncate
+            text-[8px]
+            font-medium
+            uppercase
+            tracking-[0.14em]
+            text-[#9A8F82]
+            sm:text-[9px]
+          "
+        >
+          {productType}
+        </p>
+
+        <h3
+          className="
+            mt-1.5
+            truncate
+            text-[14px]
+            font-semibold
+            leading-tight
+            tracking-[-0.01em]
+            text-[#24221F]
+            sm:text-[15px]
+          "
+        >
+          {product.name}
+        </h3>
+
+        {hasOffer ? (
+          <div className="mt-2.5">
+            <div
+              className="
+                flex
+                flex-wrap
+                items-center
+                gap-x-2
+                gap-y-1
+              "
+            >
+              <p
+                className="
+                  text-[14px]
+                  font-semibold
+                  tracking-[-0.01em]
+                  text-[#171614]
+                  sm:text-[15px]
+                "
+              >
+                ₹
+                {discountedPrice.toLocaleString(
+                  "en-IN",
+                )}
+              </p>
+
+              <p
+                className="
+                  text-[10px]
+                  text-[#9A8F82]
+                  line-through
+                  sm:text-[11px]
+                "
+              >
+                ₹
+                {originalPrice.toLocaleString(
+                  "en-IN",
+                )}
+              </p>
+            </div>
+
+            {applicableOffer && (
+              <p
+                className="
+                  mt-1
+                  text-[8px]
+                  font-semibold
+                  uppercase
+                  tracking-[0.08em]
+                  text-[#A4773E]
+                "
+              >
+                {getOfferLabel(
+                  applicableOffer,
+                )}
+              </p>
+            )}
+          </div>
+        ) : (
+          <p
+            className="
+              mt-2.5
+              text-[14px]
+              font-semibold
+              tracking-[-0.01em]
+              text-[#171614]
+              sm:text-[15px]
+            "
+          >
+            ₹
+            {originalPrice.toLocaleString(
+              "en-IN",
+            )}
+          </p>
+        )}
+      </div>
+    </article>
+  );
+};
+
+/*
+ * ========================================
+ * NEW ARRIVALS
  * ========================================
  */
 
@@ -108,6 +620,9 @@ const NewArrivals = () => {
   const [products, setProducts] =
     useState<Product[]>([]);
 
+  const [offers, setOffers] =
+    useState<Offer[]>([]);
+
   const [isLoading, setIsLoading] =
     useState(true);
 
@@ -116,33 +631,62 @@ const NewArrivals = () => {
 
   /*
    * ========================================
-   * Fetch New Arrivals
+   * FETCH PRODUCTS + ACTIVE OFFERS
    * ========================================
    */
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchNewArrivals =
       async () => {
         try {
           setIsLoading(true);
           setError(null);
 
-          const result =
-            await getProducts({
-              limit: 6,
+          const [
+            productResult,
+            activeOffers,
+          ] = await Promise.all([
+            getProducts({
+              page: 1,
+              limit: 12,
               sort: "newest",
-            });
+            }),
+            getActiveOffers(),
+          ]);
+
+          if (cancelled) {
+            return;
+          }
+
+          const newProducts =
+            productResult.products.filter(
+              (product) =>
+                product.isNewProduct,
+            );
 
           setProducts(
-            result.products.slice(0, 6),
+            (
+              newProducts.length > 0
+                ? newProducts
+                : productResult.products
+            ).slice(0, 6),
           );
+
+          setOffers(activeOffers);
         } catch (error) {
+          if (cancelled) {
+            return;
+          }
+
           console.error(
             "Failed to fetch new arrivals:",
             error,
           );
 
           setProducts([]);
+          setOffers([]);
 
           setError(
             error instanceof Error
@@ -150,18 +694,18 @@ const NewArrivals = () => {
               : "Failed to load new arrivals",
           );
         } finally {
-          setIsLoading(false);
+          if (!cancelled) {
+            setIsLoading(false);
+          }
         }
       };
 
     void fetchNewArrivals();
-  }, []);
 
-  /*
-   * ========================================
-   * View All
-   * ========================================
-   */
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleViewAll = () => {
     navigate(
@@ -175,9 +719,9 @@ const NewArrivals = () => {
         w-full
         overflow-hidden
         bg-[#FAF8F5]
-        py-4
-        sm:py-5
-        lg:py-5
+        py-10
+        sm:py-14
+        lg:py-16
       "
     >
       <div
@@ -192,18 +736,18 @@ const NewArrivals = () => {
       >
         <div
           className="
-            mb-6
+            mb-7
             flex
             items-end
             justify-between
-            sm:mb-8
-            lg:mb-9
+            gap-5
+            sm:mb-9
           "
         >
           <div>
             <div
               className="
-                mb-2
+                mb-2.5
                 flex
                 items-center
                 gap-2.5
@@ -211,10 +755,10 @@ const NewArrivals = () => {
             >
               <span
                 className="
-                  text-[8px]
+                  text-[9px]
                   font-semibold
                   uppercase
-                  tracking-[0.3em]
+                  tracking-[0.28em]
                   text-[#A4773E]
                   sm:text-[10px]
                 "
@@ -225,7 +769,7 @@ const NewArrivals = () => {
               <span
                 className="
                   h-px
-                  w-6
+                  w-7
                   bg-[#D2B27D]
                 "
               />
@@ -234,13 +778,13 @@ const NewArrivals = () => {
             <h2
               className="
                 font-serif
-                text-[29px]
+                text-[31px]
                 font-medium
                 leading-none
                 tracking-[-0.035em]
                 text-[#1C1B19]
-                sm:text-[37px]
-                lg:text-[41px]
+                sm:text-[40px]
+                lg:text-[44px]
               "
             >
               New Arrivals
@@ -258,7 +802,7 @@ const NewArrivals = () => {
               border-b
               border-transparent
               pb-1
-              text-[10px]
+              text-[11px]
               font-medium
               text-[#37332E]
               transition-all
@@ -266,7 +810,6 @@ const NewArrivals = () => {
               hover:border-[#B58A4A]
               hover:text-[#9A7138]
               sm:flex
-              sm:text-[11px]
               lg:text-[12px]
             "
           >
@@ -275,7 +818,7 @@ const NewArrivals = () => {
             </span>
 
             <ArrowRight
-              size={14}
+              size={15}
               strokeWidth={1.5}
               className="
                 transition-transform
@@ -291,9 +834,12 @@ const NewArrivals = () => {
             className="
               grid
               grid-cols-2
-              gap-4
-              sm:grid-cols-2
+              gap-3
+              sm:grid-cols-3
+              sm:gap-5
               lg:grid-cols-6
+              lg:gap-4
+              xl:gap-5
             "
           >
             {Array.from({
@@ -303,20 +849,17 @@ const NewArrivals = () => {
                 key={index}
                 className="
                   overflow-hidden
-                  rounded-[14px]
+                  rounded-2xl
                   border
-                  border-[#E4DCCF]
+                  border-[#E5DED4]
                   bg-white
                 "
               >
                 <div
                   className="
-                    h-52.5
+                    aspect-square
                     animate-pulse
                     bg-[#F0ECE5]
-                    sm:h-57.5
-                    lg:h-52.5
-                    xl:h-56.25
                   "
                 />
 
@@ -324,7 +867,7 @@ const NewArrivals = () => {
                   <div
                     className="
                       h-2
-                      w-20
+                      w-16
                       animate-pulse
                       rounded
                       bg-[#E8E0D5]
@@ -335,7 +878,7 @@ const NewArrivals = () => {
                     className="
                       mt-3
                       h-3
-                      w-32
+                      w-4/5
                       animate-pulse
                       rounded
                       bg-[#E8E0D5]
@@ -346,7 +889,7 @@ const NewArrivals = () => {
                     className="
                       mt-4
                       h-3
-                      w-20
+                      w-1/2
                       animate-pulse
                       rounded
                       bg-[#E8E0D5]
@@ -363,11 +906,11 @@ const NewArrivals = () => {
             <div
               className="
                 flex
-                min-h-45
+                min-h-48
                 flex-col
                 items-center
                 justify-center
-                rounded-[14px]
+                rounded-2xl
                 border
                 border-[#E4DCCF]
                 bg-white
@@ -378,7 +921,7 @@ const NewArrivals = () => {
               <p
                 className="
                   font-serif
-                  text-[22px]
+                  text-[23px]
                   text-[#302B25]
                 "
               >
@@ -389,7 +932,7 @@ const NewArrivals = () => {
                 className="
                   mt-2
                   max-w-md
-                  text-[10px]
+                  text-[11px]
                   leading-5
                   text-[#81776C]
                 "
@@ -399,11 +942,11 @@ const NewArrivals = () => {
 
               <button
                 type="button"
-                onClick={() =>
-                  window.location.reload()
-                }
+                onClick={() => {
+                  window.location.reload();
+                }}
                 className="
-                  mt-4
+                  mt-5
                   rounded-lg
                   bg-[#8F6B3F]
                   px-5
@@ -428,19 +971,20 @@ const NewArrivals = () => {
             <div
               className="
                 flex
-                min-h-45
+                min-h-48
                 items-center
                 justify-center
-                rounded-[14px]
+                rounded-2xl
                 border
                 border-[#E4DCCF]
                 bg-white
+                px-5
                 text-center
               "
             >
               <p
                 className="
-                  text-[11px]
+                  text-[12px]
                   text-[#81776C]
                 "
               >
@@ -454,12 +998,7 @@ const NewArrivals = () => {
           !error &&
           products.length > 0 && (
             <>
-              <div
-                className="
-                  relative
-                  sm:hidden
-                "
-              >
+              <div className="sm:hidden">
                 <div
                   className="
                     -mx-4
@@ -467,7 +1006,7 @@ const NewArrivals = () => {
                     gap-3
                     overflow-x-auto
                     px-4
-                    pb-3
+                    pb-4
                     scrollbar-none
                     snap-x
                     snap-mandatory
@@ -478,48 +1017,45 @@ const NewArrivals = () => {
                       <ProductCard
                         key={product._id}
                         product={product}
+                        offers={offers}
                         mobile
                       />
                     ),
                   )}
                 </div>
 
-                <div
+                <button
+                  type="button"
+                  onClick={handleViewAll}
                   className="
-                    mt-1
+                    mt-2
                     flex
+                    w-full
                     items-center
-                    justify-end
-                    gap-1.5
+                    justify-center
+                    gap-2
+                    py-3
+                    text-[10px]
+                    font-semibold
+                    uppercase
+                    tracking-[0.12em]
+                    text-[#8F6B3F]
                   "
                 >
-                  <span
-                    className="
-                      text-[7px]
-                      font-medium
-                      uppercase
-                      tracking-[0.14em]
-                      text-[#A0988D]
-                    "
-                  >
-                    Swipe to explore
-                  </span>
+                  View all new arrivals
 
                   <ArrowRight
-                    size={9}
+                    size={13}
                     strokeWidth={1.5}
-                    className="text-[#B7894A]"
                   />
-                </div>
+                </button>
               </div>
 
               <div
                 className="
                   hidden
-                  w-full
-                  min-w-0
-                  grid-cols-2
-                  gap-4
+                  grid-cols-3
+                  gap-5
                   sm:grid
                   lg:hidden
                 "
@@ -529,6 +1065,7 @@ const NewArrivals = () => {
                     <ProductCard
                       key={product._id}
                       product={product}
+                      offers={offers}
                     />
                   ),
                 )}
@@ -537,8 +1074,6 @@ const NewArrivals = () => {
               <div
                 className="
                   hidden
-                  w-full
-                  min-w-0
                   grid-cols-6
                   gap-4
                   lg:grid
@@ -550,6 +1085,7 @@ const NewArrivals = () => {
                     <ProductCard
                       key={product._id}
                       product={product}
+                      offers={offers}
                     />
                   ),
                 )}
@@ -561,13 +1097,13 @@ const NewArrivals = () => {
       <div
         className="
           mx-auto
-          mt-10
+          mt-12
           w-full
           max-w-350
           px-4
-          sm:mt-14
+          sm:mt-16
           sm:px-6
-          lg:mt-16
+          lg:mt-18
           lg:px-8
         "
       >
@@ -575,10 +1111,10 @@ const NewArrivals = () => {
           className="
             -mx-4
             flex
-            gap-2
+            gap-2.5
             overflow-x-auto
             px-4
-            pb-1
+            pb-2
             scrollbar-none
             sm:hidden
           "
@@ -593,23 +1129,22 @@ const NewArrivals = () => {
                   key={benefit.title}
                   className="
                     flex
-                    min-w-48
+                    min-w-53
                     items-center
                     gap-3
                     rounded-xl
                     border
                     border-[#E2D8CB]
                     bg-[#F4EEE5]
-                    px-3.5
-                    py-3
-                    shadow-[0_3px_12px_rgba(58,46,34,0.035)]
+                    px-4
+                    py-3.5
                   "
                 >
                   <div
                     className="
                       flex
-                      h-9
-                      w-9
+                      h-10
+                      w-10
                       shrink-0
                       items-center
                       justify-center
@@ -621,7 +1156,7 @@ const NewArrivals = () => {
                     "
                   >
                     <Icon
-                      size={17}
+                      size={18}
                       strokeWidth={1.5}
                     />
                   </div>
@@ -629,7 +1164,7 @@ const NewArrivals = () => {
                   <div className="min-w-0">
                     <p
                       className="
-                        text-[9px]
+                        text-[10px]
                         font-semibold
                         text-[#302C27]
                       "
@@ -639,9 +1174,9 @@ const NewArrivals = () => {
 
                     <p
                       className="
-                        mt-0.5
+                        mt-1
                         truncate
-                        text-[7px]
+                        text-[8px]
                         text-[#81776B]
                       "
                     >
@@ -657,9 +1192,8 @@ const NewArrivals = () => {
         <div
           className="
             hidden
-            w-full
             overflow-hidden
-            rounded-[14px]
+            rounded-2xl
             border
             border-[#E0D6C8]
             bg-[#F3EEE6]
@@ -670,14 +1204,12 @@ const NewArrivals = () => {
           <div
             className="
               grid
-              w-full
               grid-cols-2
               divide-y
               divide-[#DDD2C4]
-              sm:grid-cols-2
-              sm:divide-x
-              sm:divide-y-0
               lg:grid-cols-5
+              lg:divide-x
+              lg:divide-y-0
             "
           >
             {benefits.map(
@@ -695,15 +1227,10 @@ const NewArrivals = () => {
                       items-center
                       gap-3
                       px-5
-                      py-4
+                      py-5
                       transition-colors
                       duration-300
                       hover:bg-[#F8F4ED]
-                      sm:px-5
-                      sm:py-5
-                      lg:min-h-21
-                      lg:px-5
-                      xl:px-6
                     "
                   >
                     <div
@@ -766,261 +1293,6 @@ const NewArrivals = () => {
         </div>
       </div>
     </section>
-  );
-};
-
-type ProductCardProps = {
-  product: Product;
-  mobile?: boolean;
-};
-
-const ProductCard = ({
-  product,
-  mobile = false,
-}: ProductCardProps) => {
-  const navigate = useNavigate();
-
-  const productType =
-    product.subcategory ||
-    product.category ||
-    "Furniture";
-
-  const isNew =
-    product.isNewProduct ?? false;
-
-  const productImage =
-    getProductImage(product);
-
-  const handleProductClick =
-    () => {
-      navigate(
-        `/products/${product.slug}`,
-      );
-    };
-
-  return (
-    <article
-      onClick={handleProductClick}
-      onKeyDown={(event) => {
-        if (
-          event.key === "Enter" ||
-          event.key === " "
-        ) {
-          event.preventDefault();
-          handleProductClick();
-        }
-      }}
-      role="button"
-      tabIndex={0}
-      className={`
-        group
-        relative
-        min-w-0
-        cursor-pointer
-        overflow-hidden
-        rounded-[14px]
-        border
-        border-[#E4DCCF]
-        bg-white
-        shadow-[0_3px_12px_rgba(45,37,29,0.035)]
-        transition-all
-        duration-500
-        ease-out
-        hover:-translate-y-1
-        hover:border-[#D4C2A7]
-        hover:shadow-[0_16px_35px_rgba(54,43,31,0.09)]
-
-        ${
-          mobile
-            ? `
-              w-[79vw]
-              max-w-78
-              shrink-0
-              snap-start
-            `
-            : "w-full"
-        }
-      `}
-    >
-      <div
-        className={`
-          relative
-          w-full
-          overflow-hidden
-          bg-[#F4F0E9]
-
-          ${
-            mobile
-              ? "h-59"
-              : "h-52.5 sm:h-57.5 lg:h-52.5 xl:h-56.25"
-          }
-        `}
-      >
-        <img
-          src={productImage}
-          alt={product.name}
-          loading="lazy"
-          className="
-            block
-            h-full
-            w-full
-            object-contain
-            object-center
-            p-0
-            transition-transform
-            duration-700
-            ease-out
-            group-hover:scale-[1.025]
-          "
-        />
-
-        <div
-          className="
-            pointer-events-none
-            absolute
-            inset-0
-            bg-linear-to-t
-            from-[#6F5A43]/2.5
-            via-transparent
-            to-white/8
-          "
-        />
-
-        {isNew && (
-          <span
-            className="
-              absolute
-              left-3
-              top-3
-              rounded-full
-              border
-              border-white/40
-              bg-[#B7894A]
-              px-2.5
-              py-1.5
-              text-[7px]
-              font-semibold
-              uppercase
-              tracking-[0.14em]
-              text-white
-              shadow-[0_5px_14px_rgba(115,77,22,0.16)]
-              sm:text-[8px]
-            "
-          >
-            New
-          </span>
-        )}
-
-        <button
-          type="button"
-          aria-label={`Add ${product.name} to wishlist`}
-          onClick={(event) => {
-            event.stopPropagation();
-          }}
-          className="
-            absolute
-            right-3
-            top-3
-            flex
-            h-9
-            w-9
-            items-center
-            justify-center
-            rounded-full
-            border
-            border-[#E4DBCF]
-            bg-[#FAF8F5]/95
-            text-[#62584D]
-            shadow-[0_5px_16px_rgba(0,0,0,0.06)]
-            backdrop-blur-md
-            transition-all
-            duration-300
-            hover:scale-105
-            hover:border-[#CDB48F]
-            hover:bg-white
-            hover:text-[#A47D3C]
-          "
-        >
-          <Heart
-            size={16}
-            strokeWidth={1.6}
-          />
-        </button>
-      </div>
-
-      <div
-        className="
-          min-w-0
-          bg-white
-          px-4
-          pb-4
-          pt-4
-          sm:px-4
-          sm:pb-5
-          sm:pt-4
-        "
-      >
-        <p
-          className="
-            truncate
-            text-[8px]
-            font-medium
-            uppercase
-            tracking-[0.14em]
-            text-[#9A8F82]
-            sm:text-[9px]
-          "
-        >
-          {productType}
-        </p>
-
-        <h3
-          className="
-            mt-1.5
-            truncate
-            text-[13px]
-            font-semibold
-            leading-tight
-            tracking-[-0.01em]
-            text-[#24221F]
-            sm:text-[14px]
-          "
-        >
-          {product.name}
-        </h3>
-
-        <p
-          className="
-            mt-2.5
-            text-[14px]
-            font-semibold
-            tracking-[-0.01em]
-            text-[#171614]
-            sm:text-[15px]
-          "
-        >
-          ₹
-          {Number(
-            product.price,
-          ).toLocaleString("en-IN")}
-        </p>
-      </div>
-
-      <span
-        className="
-          absolute
-          bottom-0
-          left-0
-          h-0.5
-          w-full
-          bg-[#B99051]
-          opacity-0
-          transition-all
-          duration-500
-          group-hover:opacity-100
-        "
-      />
-    </article>
   );
 };
 

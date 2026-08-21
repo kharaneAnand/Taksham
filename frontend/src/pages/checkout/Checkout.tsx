@@ -4,10 +4,12 @@ import {
   ChevronRight,
   MapPin,
   ShieldCheck,
+  Sparkles,
   Truck,
 } from "lucide-react";
 
 import {
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -21,10 +23,18 @@ import toast from "react-hot-toast";
 import { useCart } from "../../context/CartContext";
 
 import {
+  getActiveOffers,
+} from "../../api/offer.api";
+
+import {
   createOrder,
   createPaymentOrder,
   verifyPayment,
 } from "../../api/order.api";
+
+import type {
+  Offer,
+} from "../../types/offer";
 
 import type {
   CreateOrderInput,
@@ -176,33 +186,12 @@ const RAZORPAY_SCRIPT_URL =
  * ========================================
  * Load Razorpay Script
  * ========================================
- *
- * Robust loader:
- *
- * 1. If Razorpay is already available,
- *    resolve immediately.
- *
- * 2. If a script already exists, check
- *    whether it has already loaded.
- *
- * 3. Otherwise create the script.
- *
- * This prevents the checkout from getting
- * stuck when the script's "load" event has
- * already fired.
- * ========================================
  */
 
 const loadRazorpayScript =
   (): Promise<boolean> => {
     return new Promise(
       (resolve) => {
-        /*
-         * ----------------------------------
-         * Already loaded
-         * ----------------------------------
-         */
-
         if (
           typeof window !==
             "undefined" &&
@@ -213,27 +202,12 @@ const loadRazorpayScript =
           return;
         }
 
-        /*
-         * ----------------------------------
-         * Find existing script
-         * ----------------------------------
-         */
-
         const existingScript =
           document.querySelector(
             `script[src="${RAZORPAY_SCRIPT_URL}"]`,
           ) as HTMLScriptElement | null;
 
         if (existingScript) {
-          /*
-           * Script may already have loaded
-           * but window.Razorpay may not have
-           * been available at the moment we
-           * checked.
-           *
-           * Check again immediately.
-           */
-
           if (
             window.Razorpay
           ) {
@@ -303,14 +277,6 @@ const loadRazorpayScript =
             },
           );
 
-          /*
-           * Safety fallback.
-           *
-           * If the script has already loaded
-           * but its load event was missed,
-           * check periodically for Razorpay.
-           */
-
           const startedAt =
             Date.now();
 
@@ -331,10 +297,6 @@ const loadRazorpayScript =
 
                 return;
               }
-
-              /*
-               * Give the script up to 10 seconds.
-               */
 
               if (
                 Date.now() -
@@ -360,12 +322,6 @@ const loadRazorpayScript =
 
           return;
         }
-
-        /*
-         * ----------------------------------
-         * Create Razorpay script
-         * ----------------------------------
-         */
 
         const script =
           document.createElement(
@@ -411,9 +367,14 @@ const Checkout = () => {
   const {
     items,
     totalItems,
-    subtotal,
     clearCart,
   } = useCart();
+
+  const [offers, setOffers] =
+    useState<Offer[]>([]);
+
+  const [isOffersLoading, setIsOffersLoading] =
+    useState(true);
 
   /*
    * ----------------------------------------
@@ -459,8 +420,299 @@ const Checkout = () => {
     >({});
 
   /*
+   * ========================================
+   * Fetch Active Offers
+   * ========================================
+   */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchOffers =
+      async () => {
+        try {
+          setIsOffersLoading(true);
+
+          const data =
+            await getActiveOffers();
+
+          if (!cancelled) {
+            setOffers(data);
+          }
+        } catch (error) {
+          console.error(
+            "Failed to fetch active offers:",
+            error,
+          );
+
+          if (!cancelled) {
+            setOffers([]);
+          }
+        } finally {
+          if (!cancelled) {
+            setIsOffersLoading(false);
+          }
+        }
+      };
+
+    void fetchOffers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /*
+   * ========================================
+   * OFFER HELPERS
+   * ========================================
+   */
+
+  const getOfferProductIds = (
+    offer: Offer,
+  ): string[] => {
+    return offer.productIds.map(
+      (product) =>
+        typeof product === "string"
+          ? product
+          : product._id,
+    );
+  };
+
+  const getOfferCollectionIds = (
+    offer: Offer,
+  ): string[] => {
+    return offer.collectionIds.map(
+      (collection) =>
+        typeof collection === "string"
+          ? collection
+          : collection._id,
+    );
+  };
+
+  const getApplicableOffer = (
+    productId: string,
+    collectionId?: string,
+  ): Offer | null => {
+    const now = new Date();
+
+    const applicableOffers =
+      offers.filter((offer) => {
+        if (!offer.isActive) {
+          return false;
+        }
+
+        const startDate =
+          new Date(
+            offer.startDate,
+          );
+
+        const endDate =
+          new Date(
+            offer.endDate,
+          );
+
+        if (
+          now < startDate ||
+          now > endDate
+        ) {
+          return false;
+        }
+
+        if (
+          offer.appliesTo ===
+          "all"
+        ) {
+          return true;
+        }
+
+        if (
+          offer.appliesTo ===
+          "products"
+        ) {
+          return getOfferProductIds(
+            offer,
+          ).includes(productId);
+        }
+
+        if (
+          offer.appliesTo ===
+          "collections"
+        ) {
+          if (!collectionId) {
+            return false;
+          }
+
+          return getOfferCollectionIds(
+            offer,
+          ).includes(
+            collectionId,
+          );
+        }
+
+        return false;
+      });
+
+    if (
+      applicableOffers.length === 0
+    ) {
+      return null;
+    }
+
+    return applicableOffers.reduce(
+      (
+        bestOffer,
+        currentOffer,
+      ) => {
+        const bestDiscount =
+          bestOffer.discountType ===
+          "percentage"
+            ? bestOffer.discountValue
+            : bestOffer.discountValue;
+
+        const currentDiscount =
+          currentOffer.discountType ===
+          "percentage"
+            ? currentOffer.discountValue
+            : currentOffer.discountValue;
+
+        return currentDiscount >
+          bestDiscount
+          ? currentOffer
+          : bestOffer;
+      },
+    );
+  };
+
+  const getDiscountedPrice = (
+    originalPrice: number,
+    productId: string,
+    collectionId?: string,
+  ): {
+    price: number;
+    offer: Offer | null;
+    discountAmount: number;
+  } => {
+    const offer =
+      getApplicableOffer(
+        productId,
+        collectionId,
+      );
+
+    if (!offer) {
+      return {
+        price: originalPrice,
+        offer: null,
+        discountAmount: 0,
+      };
+    }
+
+    let discountAmount = 0;
+
+    if (
+      offer.discountType ===
+      "percentage"
+    ) {
+      discountAmount =
+        (originalPrice *
+          offer.discountValue) /
+        100;
+    } else {
+      discountAmount =
+        offer.discountValue;
+    }
+
+    discountAmount = Math.min(
+      discountAmount,
+      originalPrice,
+    );
+
+    const discountedPrice =
+      Math.max(
+        0,
+        originalPrice -
+          discountAmount,
+      );
+
+    return {
+      price: Math.round(
+        discountedPrice,
+      ),
+      offer,
+      discountAmount:
+        Math.round(
+          discountAmount,
+        ),
+    };
+  };
+
+  /*
+   * ========================================
+   * CART CALCULATIONS
+   * ========================================
+   */
+
+  const cartCalculations =
+    useMemo(() => {
+      let originalSubtotal = 0;
+
+      let discountedSubtotal = 0;
+
+      items.forEach((item) => {
+        const originalPrice =
+          item.price;
+
+        const collectionId =
+          (
+            item.product as typeof item.product & {
+              collectionId?: string;
+            }
+          ).collectionId;
+
+        const {
+          price: discountedPrice,
+        } = getDiscountedPrice(
+          originalPrice,
+          item.product._id,
+          collectionId,
+        );
+
+        originalSubtotal +=
+          originalPrice *
+          item.quantity;
+
+        discountedSubtotal +=
+          discountedPrice *
+          item.quantity;
+      });
+
+      return {
+        originalSubtotal,
+        discountedSubtotal,
+        totalSavings:
+          originalSubtotal -
+          discountedSubtotal,
+      };
+    }, [
+      items,
+      offers,
+    ]);
+
+  const subtotal =
+    cartCalculations.discountedSubtotal;
+
+  const originalSubtotal =
+    cartCalculations.originalSubtotal;
+
+  const totalSavings =
+    cartCalculations.totalSavings;
+
+  /*
    * ----------------------------------------
    * Shipping
+   *
+   * Delivery logic stays here exactly as
+   * checkout logic.
    * ----------------------------------------
    */
 
@@ -530,43 +782,30 @@ const Checkout = () => {
           <div
             className="
               flex
-              h-20
-              w-20
+              h-16
+              w-16
               items-center
               justify-center
               rounded-full
               border
-              border-[#DCCDBA]
-              bg-[#F3ECE3]
-              text-[#9A7138]
+              border-[#DCCFC0]
+              bg-[#F4EEE5]
             "
           >
-            <MapPin
-              size={28}
-              strokeWidth={1.3}
+            <Truck
+              size={25}
+              strokeWidth={1.4}
+              className="text-[#A4773E]"
             />
           </div>
 
-          <p
-            className="
-              mt-7
-              text-[10px]
-              font-semibold
-              uppercase
-              tracking-[0.22em]
-              text-[#A4773E]
-            "
-          >
-            Checkout
-          </p>
-
           <h1
             className="
-              mt-3
+              mt-6
               font-serif
-              text-[38px]
-              tracking-tight
+              text-[34px]
               text-[#302B25]
+              sm:text-[44px]
             "
           >
             Your cart is empty.
@@ -574,45 +813,41 @@ const Checkout = () => {
 
           <p
             className="
-              mt-4
+              mt-3
               max-w-md
-              text-[13px]
+              text-[12px]
               leading-6
               text-[#81776C]
             "
           >
-            Add something you
-            love to your cart
-            before continuing
-            to checkout.
+            Add something to your cart before
+            continuing to checkout.
           </p>
 
           <button
             type="button"
             onClick={() =>
-              navigate(
-                "/products",
-              )
+              navigate("/products")
             }
             className="
-              mt-8
-              flex
+              mt-7
+              inline-flex
               items-center
               gap-2
-              rounded-xl
-              bg-[#29251F]
+              rounded-lg
+              bg-[#8F6B3F]
               px-6
-              py-3.5
-              text-[10px]
+              py-3
+              text-[9px]
               font-semibold
               uppercase
-              tracking-[0.12em]
+              tracking-[0.15em]
               text-white
-              transition-all
-              hover:bg-[#3A342D]
+              transition
+              hover:bg-[#795832]
             "
           >
-            Explore Products
+            Continue Shopping
 
             <ChevronRight
               size={14}
@@ -625,30 +860,31 @@ const Checkout = () => {
 
   /*
    * ----------------------------------------
-   * Address Change
+   * Update Address
    * ----------------------------------------
    */
 
-  const handleAddressChange = (
-    field: keyof AddressForm,
-    value: string,
-  ) => {
-    setAddress(
-      (current) => ({
-        ...current,
+  const handleAddressChange =
+    (
+      field: keyof AddressForm,
+      value: string,
+    ) => {
+      setAddress(
+        (currentAddress) => ({
+          ...currentAddress,
+          [field]: value,
+        }),
+      );
 
-        [field]: value,
-      }),
-    );
-
-    setErrors(
-      (current) => ({
-        ...current,
-
-        [field]: undefined,
-      }),
-    );
-  };
+      if (errors[field]) {
+        setErrors(
+          (currentErrors) => ({
+            ...currentErrors,
+            [field]: undefined,
+          }),
+        );
+      }
+    };
 
   /*
    * ----------------------------------------
@@ -658,69 +894,68 @@ const Checkout = () => {
 
   const validateAddress =
     (): boolean => {
-      const newErrors: Partial<
-        Record<
-          keyof AddressForm,
-          string
-        >
-      > = {};
+      const nextErrors:
+        Partial<
+          Record<
+            keyof AddressForm,
+            string
+          >
+        > = {};
 
       if (
         !address.firstName.trim()
       ) {
-        newErrors.firstName =
+        nextErrors.firstName =
           "First name is required";
       }
 
       if (
         !address.lastName.trim()
       ) {
-        newErrors.lastName =
+        nextErrors.lastName =
           "Last name is required";
       }
 
       if (
-        !/^[6-9]\d{9}$/.test(
-          address.phone.trim(),
-        )
+        !address.phone.trim()
       ) {
-        newErrors.phone =
-          "Enter a valid 10-digit phone number";
+        nextErrors.phone =
+          "Phone number is required";
       }
 
       if (
         !address.address.trim()
       ) {
-        newErrors.address =
+        nextErrors.address =
           "Address is required";
       }
 
-      if (!address.city.trim()) {
-        newErrors.city =
+      if (
+        !address.city.trim()
+      ) {
+        nextErrors.city =
           "City is required";
       }
 
-      if (!address.state.trim()) {
-        newErrors.state =
+      if (
+        !address.state.trim()
+      ) {
+        nextErrors.state =
           "State is required";
       }
 
       if (
-        !/^\d{6}$/.test(
-          address.pincode.trim(),
-        )
+        !address.pincode.trim()
       ) {
-        newErrors.pincode =
-          "Enter a valid 6-digit pincode";
+        nextErrors.pincode =
+          "Pincode is required";
       }
 
-      setErrors(
-        newErrors,
-      );
+      setErrors(nextErrors);
 
       return (
         Object.keys(
-          newErrors,
+          nextErrors,
         ).length === 0
       );
     };
@@ -735,16 +970,9 @@ const Checkout = () => {
     async (
       order: {
         _id: string;
-
         orderNumber: string;
       },
     ) => {
-      /*
-       * ------------------------------------
-       * 1. Validate Key
-       * ------------------------------------
-       */
-
       if (
         !RAZORPAY_KEY_ID
       ) {
@@ -752,12 +980,6 @@ const Checkout = () => {
           "Razorpay Key ID is not configured. Check VITE_RAZORPAY_KEY_ID in the frontend .env file.",
         );
       }
-
-      /*
-       * ------------------------------------
-       * 2. Load Razorpay
-       * ------------------------------------
-       */
 
       const isLoaded =
         await loadRazorpayScript();
@@ -771,25 +993,10 @@ const Checkout = () => {
         );
       }
 
-      /*
-       * ------------------------------------
-       * 3. Create Razorpay Order
-       * ------------------------------------
-       */
-
-      console.log(
-        "Creating Razorpay payment order...",
-      );
-
       const paymentOrder =
         await createPaymentOrder(
           order._id,
         );
-
-      console.log(
-        "Razorpay payment order created:",
-        paymentOrder,
-      );
 
       if (
         !paymentOrder
@@ -807,12 +1014,6 @@ const Checkout = () => {
           "Invalid Razorpay payment amount.",
         );
       }
-
-      /*
-       * ------------------------------------
-       * 4. Create Checkout Instance
-       * ------------------------------------
-       */
 
       const razorpay =
         new window.Razorpay({
@@ -851,27 +1052,11 @@ const Checkout = () => {
               "#9A7138",
           },
 
-          /*
-           * --------------------------------
-           * Payment Success
-           * --------------------------------
-           */
-
           handler:
             async (
               response,
             ) => {
               try {
-                console.log(
-                  "Razorpay payment successful:",
-                  response,
-                );
-
-                /*
-                 * Verify payment with
-                 * backend.
-                 */
-
                 await verifyPayment(
                   {
                     orderId:
@@ -887,11 +1072,6 @@ const Checkout = () => {
                       response.razorpay_signature,
                   },
                 );
-
-                /*
-                 * Backend verified the
-                 * payment and deducted stock.
-                 */
 
                 clearCart();
 
@@ -921,19 +1101,9 @@ const Checkout = () => {
               }
             },
 
-          /*
-           * --------------------------------
-           * Checkout Closed
-           * --------------------------------
-           */
-
           modal: {
             ondismiss:
               () => {
-                console.log(
-                  "Razorpay checkout dismissed",
-                );
-
                 toast.error(
                   "Payment cancelled. You can try again.",
                 );
@@ -944,12 +1114,6 @@ const Checkout = () => {
               },
           },
         });
-
-      /*
-       * ------------------------------------
-       * Payment Failed Listener
-       * ------------------------------------
-       */
 
       razorpay.on(
         "payment.failed",
@@ -971,16 +1135,6 @@ const Checkout = () => {
         },
       );
 
-      /*
-       * ------------------------------------
-       * Open Razorpay
-       * ------------------------------------
-       */
-
-      console.log(
-        "Opening Razorpay Checkout...",
-      );
-
       razorpay.open();
     };
 
@@ -998,12 +1152,6 @@ const Checkout = () => {
         return;
       }
 
-      /*
-       * ------------------------------------
-       * Validate Address
-       * ------------------------------------
-       */
-
       if (
         !validateAddress()
       ) {
@@ -1014,13 +1162,6 @@ const Checkout = () => {
         return;
       }
 
-      /*
-       * ------------------------------------
-       * Validate Razorpay BEFORE creating
-       * the Taksham order.
-       * ------------------------------------
-       */
-
       if (
         paymentMethod ===
           "online" &&
@@ -1030,10 +1171,6 @@ const Checkout = () => {
           "Online payment is not configured. Please check the Razorpay Key ID.",
         );
 
-        console.error(
-          "VITE_RAZORPAY_KEY_ID is missing from the frontend environment.",
-        );
-
         return;
       }
 
@@ -1041,12 +1178,6 @@ const Checkout = () => {
         setIsPlacingOrder(
           true,
         );
-
-        /*
-         * ------------------------------------
-         * Order Data
-         * ------------------------------------
-         */
 
         const orderData: CreateOrderInput =
           {
@@ -1085,31 +1216,10 @@ const Checkout = () => {
             paymentMethod,
           };
 
-        /*
-         * ------------------------------------
-         * Create Taksham Order
-         * ------------------------------------
-         */
-
-        console.log(
-          "Creating Taksham order...",
-        );
-
         const order =
           await createOrder(
             orderData,
           );
-
-        console.log(
-          "Taksham order created:",
-          order,
-        );
-
-        /*
-         * ------------------------------------
-         * COD
-         * ------------------------------------
-         */
 
         if (
           paymentMethod ===
@@ -1128,35 +1238,9 @@ const Checkout = () => {
           return;
         }
 
-        /*
-         * ------------------------------------
-         * ONLINE PAYMENT
-         * ------------------------------------
-         */
-
         await openRazorpayCheckout(
-          {
-            _id:
-              order._id,
-
-            orderNumber:
-              order.orderNumber,
-          },
+          order,
         );
-
-        /*
-         * Do NOT set isPlacingOrder(false)
-         * here.
-         *
-         * Razorpay is now open.
-         *
-         * It will be reset by:
-         *
-         * - payment success
-         * - payment failure
-         * - checkout dismissal
-         */
-
       } catch (error) {
         console.error(
           "Failed to place order:",
@@ -1175,1184 +1259,1224 @@ const Checkout = () => {
       }
     };
 
-  /*
-   * ----------------------------------------
-   * Render
-   * ----------------------------------------
-   */
-
   return (
     <main
       className="
         min-h-screen
         bg-[#FAF8F5]
-        px-5
-        py-10
-        sm:px-8
-        sm:py-14
-        lg:px-12
+        text-[#302B25]
       "
     >
-      <div className="mx-auto max-w-7xl">
-        {/* ===================================
-            HEADER
-        =================================== */}
-
-        <div
+      <div
+        className="
+          mx-auto
+          max-w-7xl
+          px-5
+          py-8
+          sm:px-8
+          sm:py-10
+          lg:px-12
+          lg:py-12
+        "
+      >
+        <button
+          type="button"
+          onClick={() =>
+            navigate("/cart")
+          }
           className="
-            border-b
-            border-[#E3DBD0]
-            pb-7
+            group
+            mb-7
+            flex
+            items-center
+            gap-2
+            text-[9px]
+            font-semibold
+            uppercase
+            tracking-[0.15em]
+            text-[#81776C]
+            transition-colors
+            hover:text-[#9A7138]
           "
         >
-          <button
-            type="button"
-            onClick={() =>
-              navigate(
-                "/cart",
-              )
-            }
+          <ArrowLeft
+            size={14}
+            strokeWidth={1.5}
             className="
-              flex
-              items-center
-              gap-2
-              text-[9px]
-              font-semibold
-              uppercase
-              tracking-[0.14em]
-              text-[#7B7065]
-              transition-colors
-              hover:text-[#9A7138]
+              transition-transform
+              duration-300
+              group-hover:-translate-x-1
             "
-          >
-            <ArrowLeft
-              size={13}
-              strokeWidth={1.5}
-            />
+          />
 
-            Back to Cart
-          </button>
-
-          <div className="mt-7">
-            <p
-              className="
-                text-[9px]
-                font-semibold
-                uppercase
-                tracking-[0.22em]
-                text-[#A4773E]
-              "
-            >
-              Secure checkout
-            </p>
-
-            <h1
-              className="
-                mt-2
-                font-serif
-                text-[40px]
-                tracking-tight
-                text-[#302B25]
-                sm:text-[50px]
-              "
-            >
-              Checkout
-            </h1>
-
-            <p
-              className="
-                mt-2
-                text-[12px]
-                text-[#81776C]
-              "
-            >
-              {totalItems}{" "}
-              {totalItems === 1
-                ? "item"
-                : "items"}{" "}
-              in your order
-            </p>
-          </div>
-        </div>
-
-        {/* ===================================
-            MAIN
-        =================================== */}
+          Back to Cart
+        </button>
 
         <div
           className="
-            mt-10
             grid
-            gap-10
+            gap-8
             lg:grid-cols-[minmax(0,1fr)_390px]
-            lg:items-start
+            lg:gap-10
           "
         >
-          {/* =================================
-              LEFT
-          ================================= */}
-
-          <div className="space-y-8">
-            {/* =================================
-                ADDRESS
-            ================================= */}
-
-            <section
+          <section>
+            <div
               className="
-                rounded-2xl
+                mb-7
+                border-b
+                border-[#E2D8CC]
+                pb-6
+              "
+            >
+              <div
+                className="
+                  flex
+                  items-center
+                  gap-2
+                "
+              >
+                <span
+                  className="
+                    h-px
+                    w-6
+                    bg-[#B7894A]
+                  "
+                />
+
+                <p
+                  className="
+                    text-[8px]
+                    font-semibold
+                    uppercase
+                    tracking-[0.22em]
+                    text-[#A4773E]
+                  "
+                >
+                  Secure Checkout
+                </p>
+              </div>
+
+              <h1
+                className="
+                  mt-3
+                  font-serif
+                  text-[36px]
+                  tracking-[-0.04em]
+                  text-[#302B25]
+                  sm:text-[46px]
+                "
+              >
+                Delivery Details
+              </h1>
+            </div>
+
+            <div
+              className="
+                rounded-[20px]
                 border
-                border-[#E3DBD0]
+                border-[#E2D8CC]
                 bg-white
                 p-5
+                shadow-[0_10px_35px_rgba(65,50,35,0.035)]
                 sm:p-7
               "
             >
-              <CheckoutSectionHeader
-                number="01"
-                title="Delivery Address"
-                description="Where should we deliver your order?"
-              />
+              <div
+                className="
+                  flex
+                  items-center
+                  gap-2
+                "
+              >
+                <MapPin
+                  size={17}
+                  strokeWidth={1.4}
+                  className="text-[#A4773E]"
+                />
+
+                <h2
+                  className="
+                    font-serif
+                    text-[23px]
+                    text-[#302B25]
+                  "
+                >
+                  Delivery Address
+                </h2>
+              </div>
 
               <div
                 className="
-                  mt-7
+                  mt-6
                   grid
                   gap-4
                   sm:grid-cols-2
                 "
               >
-                <InputField
-                  label="First Name"
-                  value={
-                    address.firstName
-                  }
-                  error={
-                    errors.firstName
-                  }
-                  onChange={(value) =>
-                    handleAddressChange(
+                {(
+                  [
+                    [
                       "firstName",
-                      value,
-                    )
-                  }
-                />
-
-                <InputField
-                  label="Last Name"
-                  value={
-                    address.lastName
-                  }
-                  error={
-                    errors.lastName
-                  }
-                  onChange={(value) =>
-                    handleAddressChange(
+                      "First Name",
+                    ],
+                    [
                       "lastName",
-                      value,
-                    )
-                  }
-                />
-
-                <InputField
-                  label="Phone Number"
-                  value={
-                    address.phone
-                  }
-                  error={
-                    errors.phone
-                  }
-                  type="tel"
-                  onChange={(value) =>
-                    handleAddressChange(
+                      "Last Name",
+                    ],
+                    [
                       "phone",
-                      value,
-                    )
-                  }
-                />
-
-                <InputField
-                  label="Pincode"
-                  value={
-                    address.pincode
-                  }
-                  error={
-                    errors.pincode
-                  }
-                  type="tel"
-                  onChange={(value) =>
-                    handleAddressChange(
+                      "Phone Number",
+                    ],
+                    [
+                      "city",
+                      "City",
+                    ],
+                    [
+                      "state",
+                      "State",
+                    ],
+                    [
                       "pincode",
-                      value,
-                    )
-                  }
-                />
+                      "Pincode",
+                    ],
+                  ] as Array<
+                    [
+                      keyof AddressForm,
+                      string,
+                    ]
+                  >
+                ).map(
+                  ([
+                    field,
+                    label,
+                  ]) => (
+                    <div
+                      key={field}
+                    >
+                      <label
+                        className="
+                          mb-1.5
+                          block
+                          text-[8px]
+                          font-semibold
+                          uppercase
+                          tracking-[0.14em]
+                          text-[#81776C]
+                        "
+                      >
+                        {label}
+                      </label>
 
-                <div className="sm:col-span-2">
-                  <InputField
-                    label="Address"
+                      <input
+                        type="text"
+                        value={
+                          address[field]
+                        }
+                        onChange={(
+                          event,
+                        ) =>
+                          handleAddressChange(
+                            field,
+                            event.target.value,
+                          )
+                        }
+                        className="
+                          h-11
+                          w-full
+                          rounded-[10px]
+                          border
+                          border-[#DED4C7]
+                          bg-[#FCFAF7]
+                          px-3.5
+                          text-[11px]
+                          text-[#302B25]
+                          outline-none
+                          transition
+                          focus:border-[#B7894A]
+                          focus:ring-2
+                          focus:ring-[#B7894A]/10
+                        "
+                      />
+
+                      {errors[field] && (
+                        <p
+                          className="
+                            mt-1
+                            text-[8px]
+                            text-red-500
+                          "
+                        >
+                          {
+                            errors[
+                              field
+                            ]
+                          }
+                        </p>
+                      )}
+                    </div>
+                  ),
+                )}
+
+                <div
+                  className="
+                    sm:col-span-2
+                  "
+                >
+                  <label
+                    className="
+                      mb-1.5
+                      block
+                      text-[8px]
+                      font-semibold
+                      uppercase
+                      tracking-[0.14em]
+                      text-[#81776C]
+                    "
+                  >
+                    Full Address
+                  </label>
+
+                  <textarea
                     value={
                       address.address
                     }
-                    error={
-                      errors.address
-                    }
-                    onChange={(value) =>
+                    onChange={(
+                      event,
+                    ) =>
                       handleAddressChange(
                         "address",
-                        value,
+                        event.target.value,
                       )
                     }
+                    rows={4}
+                    className="
+                      w-full
+                      resize-none
+                      rounded-[10px]
+                      border
+                      border-[#DED4C7]
+                      bg-[#FCFAF7]
+                      px-3.5
+                      py-3
+                      text-[11px]
+                      text-[#302B25]
+                      outline-none
+                      transition
+                      focus:border-[#B7894A]
+                      focus:ring-2
+                      focus:ring-[#B7894A]/10
+                    "
                   />
+
+                  {errors.address && (
+                    <p
+                      className="
+                        mt-1
+                        text-[8px]
+                        text-red-500
+                      "
+                    >
+                      {
+                        errors.address
+                      }
+                    </p>
+                  )}
                 </div>
 
-                <InputField
-                  label="City"
-                  value={
-                    address.city
-                  }
-                  error={
-                    errors.city
-                  }
-                  onChange={(value) =>
-                    handleAddressChange(
-                      "city",
-                      value,
-                    )
-                  }
-                />
+                <div
+                  className="
+                    sm:col-span-2
+                  "
+                >
+                  <label
+                    className="
+                      mb-1.5
+                      block
+                      text-[8px]
+                      font-semibold
+                      uppercase
+                      tracking-[0.14em]
+                      text-[#81776C]
+                    "
+                  >
+                    Landmark
+                    <span
+                      className="
+                        ml-1
+                        normal-case
+                        tracking-normal
+                        text-[#AAA095]
+                      "
+                    >
+                      (Optional)
+                    </span>
+                  </label>
 
-                <InputField
-                  label="State"
-                  value={
-                    address.state
-                  }
-                  error={
-                    errors.state
-                  }
-                  onChange={(value) =>
-                    handleAddressChange(
-                      "state",
-                      value,
-                    )
-                  }
-                />
-
-                <div className="sm:col-span-2">
-                  <InputField
-                    label="Landmark (Optional)"
+                  <input
+                    type="text"
                     value={
                       address.landmark
                     }
-                    onChange={(value) =>
+                    onChange={(
+                      event,
+                    ) =>
                       handleAddressChange(
                         "landmark",
-                        value,
+                        event.target.value,
                       )
                     }
+                    className="
+                      h-11
+                      w-full
+                      rounded-[10px]
+                      border
+                      border-[#DED4C7]
+                      bg-[#FCFAF7]
+                      px-3.5
+                      text-[11px]
+                      text-[#302B25]
+                      outline-none
+                      transition
+                      focus:border-[#B7894A]
+                      focus:ring-2
+                      focus:ring-[#B7894A]/10
+                    "
                   />
                 </div>
               </div>
-            </section>
+            </div>
 
-            {/* =================================
-                SHIPPING
-            ================================= */}
-
-            <section
+            <div
               className="
-                rounded-2xl
+                mt-6
+                rounded-[20px]
                 border
-                border-[#E3DBD0]
+                border-[#E2D8CC]
                 bg-white
                 p-5
+                shadow-[0_10px_35px_rgba(65,50,35,0.035)]
                 sm:p-7
               "
             >
-              <CheckoutSectionHeader
-                number="02"
-                title="Shipping Method"
-                description="Choose how you'd like your order delivered."
-              />
+              <div
+                className="
+                  flex
+                  items-center
+                  gap-2
+                "
+              >
+                <Truck
+                  size={17}
+                  strokeWidth={1.4}
+                  className="text-[#A4773E]"
+                />
 
-              <div className="mt-7 space-y-3">
-                <ShippingOption
-                  selected={
-                    shippingMethod ===
-                    "standard"
-                  }
-                  title="Standard Delivery"
-                  description="5–7 business days"
-                  price={
-                    subtotal >= 999
-                      ? "FREE"
-                      : "₹99"
-                  }
-                  icon={
-                    <Truck
-                      size={17}
-                      strokeWidth={1.5}
-                    />
-                  }
+                <h2
+                  className="
+                    font-serif
+                    text-[23px]
+                    text-[#302B25]
+                  "
+                >
+                  Shipping Method
+                </h2>
+              </div>
+
+              <div
+                className="
+                  mt-5
+                  space-y-3
+                "
+              >
+                <button
+                  type="button"
                   onClick={() =>
                     setShippingMethod(
                       "standard",
                     )
                   }
-                />
-
-                <ShippingOption
-                  selected={
-                    shippingMethod ===
-                    "express"
-                  }
-                  title="Express Delivery"
-                  description="2–3 business days"
-                  price="₹199"
-                  icon={
-                    <Truck
-                      size={17}
-                      strokeWidth={1.5}
-                    />
-                  }
-                  onClick={() =>
-                    setShippingMethod(
-                      "express",
-                    )
-                  }
-                />
-              </div>
-            </section>
-
-            {/* =================================
-                PAYMENT
-            ================================= */}
-
-            <section
-              className="
-                rounded-2xl
-                border
-                border-[#E3DBD0]
-                bg-white
-                p-5
-                sm:p-7
-              "
-            >
-              <CheckoutSectionHeader
-                number="03"
-                title="Payment Method"
-                description="Choose your preferred payment method."
-              />
-
-              <div className="mt-7 space-y-3">
-                <PaymentOption
-                  selected={
-                    paymentMethod ===
-                    "cod"
-                  }
-                  title="Cash on Delivery"
-                  description="Pay when your order arrives."
-                  onClick={() =>
-                    setPaymentMethod(
-                      "cod",
-                    )
-                  }
-                />
-
-                <PaymentOption
-                  selected={
-                    paymentMethod ===
-                    "online"
-                  }
-                  title="Online Payment"
-                  description="UPI, cards and other secure payment methods."
-                  onClick={() =>
-                    setPaymentMethod(
-                      "online",
-                    )
-                  }
-                />
-              </div>
-
-              {/* =================================
-                  NO-CANCELLATION POLICY
-              ================================= */}
-
-              <div
-                className="
-                  mt-4
-                  rounded-xl
-                  border
-                  border-[#E5D6C2]
-                  bg-[#FBF6EE]
-                  px-4
-                  py-3.5
-                "
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className="
-                      mt-0.5
-                      flex
-                      h-5
-                      w-5
-                      shrink-0
-                      items-center
-                      justify-center
-                      rounded-full
-                      bg-[#EADBC5]
-                      text-[11px]
-                      font-bold
-                      text-[#9A7138]
-                    "
-                  >
-                    !
-                  </div>
-
+                  className={`
+                    flex
+                    w-full
+                    items-center
+                    justify-between
+                    rounded-xl
+                    border
+                    p-4
+                    text-left
+                    transition
+                    ${
+                      shippingMethod ===
+                      "standard"
+                        ? "border-[#B7894A] bg-[#FBF6EF]"
+                        : "border-[#E2D8CC] hover:border-[#D1B890]"
+                    }
+                  `}
+                >
                   <div>
                     <p
                       className="
-                        text-[10px]
+                        text-[11px]
                         font-semibold
-                        uppercase
-                        tracking-[0.08em]
-                        text-[#6E563A]
+                        text-[#302B25]
                       "
                     >
-                      Important
+                      Standard Delivery
                     </p>
 
                     <p
                       className="
                         mt-1
-                        text-[10px]
-                        leading-5
+                        text-[9px]
                         text-[#81776C]
                       "
                     >
-                      Once your order is
-                      placed, it cannot be
-                      cancelled. Please review
-                      your items, delivery
-                      address and payment
-                      method carefully before
-                      placing your order.
+                      Delivered in 4–7 business days
                     </p>
                   </div>
-                </div>
-              </div>
-            </section>
-          </div>
 
-          {/* =================================
-              RIGHT — ORDER SUMMARY
-          ================================= */}
+                  <span
+                    className="
+                      text-[10px]
+                      font-semibold
+                      text-[#A4773E]
+                    "
+                  >
+                    {subtotal >= 999
+                      ? "Free"
+                      : "₹99"}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShippingMethod(
+                      "express",
+                    )
+                  }
+                  className={`
+                    flex
+                    w-full
+                    items-center
+                    justify-between
+                    rounded-xl
+                    border
+                    p-4
+                    text-left
+                    transition
+                    ${
+                      shippingMethod ===
+                      "express"
+                        ? "border-[#B7894A] bg-[#FBF6EF]"
+                        : "border-[#E2D8CC] hover:border-[#D1B890]"
+                    }
+                  `}
+                >
+                  <div>
+                    <p
+                      className="
+                        text-[11px]
+                        font-semibold
+                        text-[#302B25]
+                      "
+                    >
+                      Express Delivery
+                    </p>
+
+                    <p
+                      className="
+                        mt-1
+                        text-[9px]
+                        text-[#81776C]
+                      "
+                    >
+                      Faster delivery where available
+                    </p>
+                  </div>
+
+                  <span
+                    className="
+                      text-[10px]
+                      font-semibold
+                      text-[#A4773E]
+                    "
+                  >
+                    ₹199
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div
+              className="
+                mt-6
+                rounded-[20px]
+                border
+                border-[#E2D8CC]
+                bg-white
+                p-5
+                shadow-[0_10px_35px_rgba(65,50,35,0.035)]
+                sm:p-7
+              "
+            >
+              <div
+                className="
+                  flex
+                  items-center
+                  gap-2
+                "
+              >
+                <ShieldCheck
+                  size={17}
+                  strokeWidth={1.4}
+                  className="text-[#A4773E]"
+                />
+
+                <h2
+                  className="
+                    font-serif
+                    text-[23px]
+                    text-[#302B25]
+                  "
+                >
+                  Payment Method
+                </h2>
+              </div>
+
+              <div
+                className="
+                  mt-5
+                  space-y-3
+                "
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPaymentMethod(
+                      "cod",
+                    )
+                  }
+                  className={`
+                    flex
+                    w-full
+                    items-center
+                    justify-between
+                    rounded-xl
+                    border
+                    p-4
+                    text-left
+                    transition
+                    ${
+                      paymentMethod ===
+                      "cod"
+                        ? "border-[#B7894A] bg-[#FBF6EF]"
+                        : "border-[#E2D8CC] hover:border-[#D1B890]"
+                    }
+                  `}
+                >
+                  <div>
+                    <p
+                      className="
+                        text-[11px]
+                        font-semibold
+                        text-[#302B25]
+                      "
+                    >
+                      Cash on Delivery
+                    </p>
+
+                    <p
+                      className="
+                        mt-1
+                        text-[9px]
+                        text-[#81776C]
+                      "
+                    >
+                      Pay when your order arrives
+                    </p>
+                  </div>
+
+                  {paymentMethod ===
+                    "cod" && (
+                    <Check
+                      size={17}
+                      className="text-[#A4773E]"
+                    />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPaymentMethod(
+                      "online",
+                    )
+                  }
+                  className={`
+                    flex
+                    w-full
+                    items-center
+                    justify-between
+                    rounded-xl
+                    border
+                    p-4
+                    text-left
+                    transition
+                    ${
+                      paymentMethod ===
+                      "online"
+                        ? "border-[#B7894A] bg-[#FBF6EF]"
+                        : "border-[#E2D8CC] hover:border-[#D1B890]"
+                    }
+                  `}
+                >
+                  <div>
+                    <p
+                      className="
+                        text-[11px]
+                        font-semibold
+                        text-[#302B25]
+                      "
+                    >
+                      Pay Online
+                    </p>
+
+                    <p
+                      className="
+                        mt-1
+                        text-[9px]
+                        text-[#81776C]
+                      "
+                    >
+                      Secure payment powered by Razorpay
+                    </p>
+                  </div>
+
+                  {paymentMethod ===
+                    "online" && (
+                    <Check
+                      size={17}
+                      className="text-[#A4773E]"
+                    />
+                  )}
+                </button>
+              </div>
+            </div>
+          </section>
 
           <aside
             className="
+              h-fit
+              overflow-hidden
+              rounded-[22px]
+              border
+              border-[#DCD1C4]
+              bg-[#F4EDE3]
+              p-5
+              shadow-[0_14px_50px_rgba(68,51,34,0.05)]
               lg:sticky
               lg:top-24
+              sm:p-6
             "
           >
             <div
               className="
-                overflow-hidden
-                rounded-2xl
-                border
-                border-[#E3DBD0]
-                bg-white
+                flex
+                items-center
+                justify-between
               "
             >
-              <div className="p-5 sm:p-6">
-                <h2
+              <div>
+                <p
                   className="
-                    font-serif
-                    text-[24px]
-                    text-[#302B25]
+                    text-[8px]
+                    font-semibold
+                    uppercase
+                    tracking-[0.22em]
+                    text-[#A4773E]
                   "
                 >
                   Order Summary
-                </h2>
+                </p>
 
-                <div
+                <h2
                   className="
-                    mt-6
-                    space-y-5
+                    mt-2
+                    font-serif
+                    text-[29px]
+                    text-[#302B25]
                   "
                 >
-                  {items.map(
-                    (item) => (
+                  Your Order
+                </h2>
+              </div>
+
+              <span
+                className="
+                  rounded-full
+                  border
+                  border-[#DED1C1]
+                  bg-white/70
+                  px-3
+                  py-1.5
+                  text-[8px]
+                  font-semibold
+                  uppercase
+                  tracking-[0.12em]
+                  text-[#75695D]
+                "
+              >
+                {totalItems} Items
+              </span>
+            </div>
+
+            <div
+              className="
+                mt-6
+                space-y-4
+                border-b
+                border-[#D8CCBE]
+                pb-5
+              "
+            >
+              {items.map(
+                (item) => {
+                  const collectionId =
+                    (
+                      item.product as typeof item.product & {
+                        collectionId?: string;
+                      }
+                    ).collectionId;
+
+                  const {
+                    price: discountedPrice,
+                    offer,
+                  } =
+                    getDiscountedPrice(
+                      item.price,
+                      item.product._id,
+                      collectionId,
+                    );
+
+                  const itemOriginalTotal =
+                    item.price *
+                    item.quantity;
+
+                  const itemDiscountedTotal =
+                    discountedPrice *
+                    item.quantity;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="
+                        flex
+                        items-start
+                        justify-between
+                        gap-4
+                      "
+                    >
                       <div
-                        key={item.id}
-                        className="
-                          flex
-                          gap-3
-                        "
+                        className="min-w-0"
                       >
-                        <div
+                        <p
                           className="
-                            h-16
-                            w-16
-                            shrink-0
-                            overflow-hidden
-                            rounded-lg
-                            bg-[#F1ECE4]
+                            truncate
+                            text-[10px]
+                            font-medium
+                            text-[#302B25]
                           "
                         >
-                          <img
-                            src={
-                              item.variant
-                                ?.images?.[0] ||
-                              item.product
-                                .image
-                            }
-                            alt={
-                              item.product
-                                .name
-                            }
-                            className="
-                              h-full
-                              w-full
-                              object-contain
-                              p-1.5
-                            "
-                          />
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className="
-                              truncate
-                              text-[12px]
-                              font-medium
-                              text-[#302B25]
-                            "
-                          >
-                            {
-                              item.product
-                                .name
-                            }
-                          </p>
-
-                          <p
-                            className="
-                              mt-1
-                              text-[10px]
-                              text-[#8A8178]
-                            "
-                          >
-                            Qty:{" "}
-                            {
-                              item.quantity
-                            }
-                          </p>
-
-                          {item.variant && (
-                            <p
-                              className="
-                                mt-1
-                                text-[9px]
-                                text-[#A4773E]
-                              "
-                            >
-                              {item.variant
-                                .color ||
-                                item.variant
-                                  .material ||
-                                "Variant"}
-                            </p>
-                          )}
-                        </div>
+                          {
+                            item.product.name
+                          }
+                        </p>
 
                         <p
                           className="
-                            shrink-0
-                            text-[12px]
+                            mt-1
+                            text-[8px]
+                            text-[#81776C]
+                          "
+                        >
+                          Qty:{" "}
+                          {
+                            item.quantity
+                          }
+                        </p>
+
+                        {offer && (
+                          <p
+                            className="
+                              mt-1
+                              text-[8px]
+                              font-medium
+                              text-[#A4773E]
+                            "
+                          >
+                            {
+                              offer.name
+                            }
+                          </p>
+                        )}
+                      </div>
+
+                      <div
+                        className="
+                          shrink-0
+                          text-right
+                        "
+                      >
+                        {offer && (
+                          <p
+                            className="
+                              text-[8px]
+                              text-[#A0988D]
+                              line-through
+                            "
+                          >
+                            ₹
+                            {itemOriginalTotal.toLocaleString(
+                              "en-IN",
+                            )}
+                          </p>
+                        )}
+
+                        <p
+                          className="
+                            mt-0.5
+                            text-[10px]
                             font-semibold
                             text-[#302B25]
                           "
                         >
                           ₹
-                          {(
-                            item.price *
-                            item.quantity
-                          ).toLocaleString(
+                          {itemDiscountedTotal.toLocaleString(
                             "en-IN",
                           )}
                         </p>
                       </div>
-                    ),
-                  )}
-                </div>
+                    </div>
+                  );
+                },
+              )}
+            </div>
 
-                <div
-                  className="
-                    my-6
-                    h-px
-                    bg-[#E9E2D9]
-                  "
-                />
+            {isOffersLoading && (
+              <p
+                className="
+                  mt-3
+                  text-[8px]
+                  text-[#978D82]
+                "
+              >
+                Checking available offers...
+              </p>
+            )}
 
-                <div className="space-y-3">
-                  <SummaryRow
-                    label="Subtotal"
-                    value={`₹${subtotal.toLocaleString(
-                      "en-IN",
-                    )}`}
-                  />
-
-                  <SummaryRow
-                    label="Shipping"
-                    value={
-                      shippingCost ===
-                      0
-                        ? "FREE"
-                        : `₹${shippingCost.toLocaleString(
-                            "en-IN",
-                          )}`
-                    }
-                  />
-
+            <div
+              className="
+                mt-5
+                space-y-3
+                border-b
+                border-[#D8CCBE]
+                pb-5
+              "
+            >
+              {totalSavings > 0 && (
+                <>
                   <div
                     className="
-                      mt-4
                       flex
                       items-center
                       justify-between
-                      border-t
-                      border-[#E9E2D9]
-                      pt-4
+                      text-[11px]
                     "
                   >
                     <span
                       className="
-                        text-[11px]
-                        font-semibold
-                        uppercase
-                        tracking-widest
-                        text-[#5F564D]
+                        text-[#81776C]
                       "
                     >
-                      Total
+                      Original Subtotal
                     </span>
 
                     <span
                       className="
-                        font-serif
-                        text-[24px]
-                        text-[#302B25]
+                        font-medium
+                        text-[#81776C]
+                        line-through
                       "
                     >
                       ₹
-                      {total.toLocaleString(
+                      {originalSubtotal.toLocaleString(
                         "en-IN",
                       )}
                     </span>
                   </div>
-                </div>
 
-                <button
-                  type="button"
-                  onClick={
-                    handlePlaceOrder
-                  }
-                  disabled={
-                    isPlacingOrder
-                  }
+                  <div
+                    className="
+                      flex
+                      items-center
+                      justify-between
+                      text-[11px]
+                    "
+                  >
+                    <span
+                      className="
+                        text-[#A4773E]
+                      "
+                    >
+                      Offer Savings
+                    </span>
+
+                    <span
+                      className="
+                        font-semibold
+                        text-[#A4773E]
+                      "
+                    >
+                      −₹
+                      {totalSavings.toLocaleString(
+                        "en-IN",
+                      )}
+                    </span>
+                  </div>
+                </>
+              )}
+
+              <div
+                className="
+                  flex
+                  items-center
+                  justify-between
+                  text-[11px]
+                "
+              >
+                <span
                   className="
-                    mt-7
-                    flex
-                    h-12
-                    w-full
-                    items-center
-                    justify-center
-                    gap-2
-                    rounded-xl
-                    bg-[#29251F]
-                    text-[10px]
-                    font-semibold
-                    uppercase
-                    tracking-[0.15em]
-                    text-white
-                    transition-all
-                    hover:bg-[#3A342D]
-                    active:scale-[0.985]
-                    disabled:cursor-not-allowed
-                    disabled:opacity-60
+                    text-[#81776C]
                   "
                 >
-                  {isPlacingOrder
-                    ? paymentMethod ===
-                      "online"
-                      ? "Opening Payment..."
-                      : "Placing Order..."
-                    : paymentMethod ===
-                        "online"
-                      ? "Pay Securely"
-                      : "Place Order"}
+                  Subtotal
+                </span>
 
-                  {!isPlacingOrder && (
-                    <ChevronRight
-                      size={15}
-                      strokeWidth={1.5}
-                    />
+                <span
+                  className="
+                    font-semibold
+                    text-[#302B25]
+                  "
+                >
+                  ₹
+                  {subtotal.toLocaleString(
+                    "en-IN",
                   )}
-                </button>
+                </span>
+              </div>
 
+              <div
+                className="
+                  flex
+                  items-center
+                  justify-between
+                  text-[11px]
+                "
+              >
+                <span
+                  className="
+                    text-[#81776C]
+                  "
+                >
+                  Delivery
+                </span>
+
+                <span
+                  className="
+                    font-medium
+                    text-[#302B25]
+                  "
+                >
+                  {shippingCost === 0
+                    ? "Free"
+                    : `₹${shippingCost.toLocaleString(
+                        "en-IN",
+                      )}`}
+                </span>
+              </div>
+            </div>
+
+            {totalSavings > 0 && (
+              <div
+                className="
+                  mt-4
+                  rounded-[11px]
+                  border
+                  border-[#DCC8AA]
+                  bg-[#F7EDDF]
+                  px-3
+                  py-3
+                "
+              >
                 <div
                   className="
-                    mt-5
                     flex
                     items-center
-                    justify-center
                     gap-2
-                    text-center
-                    text-[9px]
-                    text-[#8A8178]
                   "
                 >
-                  <ShieldCheck
+                  <Sparkles
                     size={14}
                     strokeWidth={1.4}
+                    className="
+                      shrink-0
+                      text-[#A4773E]
+                    "
                   />
 
-                  Secure & protected
-                  checkout
+                  <p
+                    className="
+                      text-[9px]
+                      leading-4
+                      text-[#725F49]
+                    "
+                  >
+                    Great choice! You are saving{" "}
+                    <span
+                      className="
+                        font-semibold
+                        text-[#9A7138]
+                      "
+                    >
+                      ₹
+                      {totalSavings.toLocaleString(
+                        "en-IN",
+                      )}
+                    </span>{" "}
+                    with active offers.
+                  </p>
                 </div>
               </div>
+            )}
+
+            <div
+              className="
+                mt-5
+                flex
+                items-end
+                justify-between
+              "
+            >
+              <div>
+                <p
+                  className="
+                    text-[8px]
+                    font-semibold
+                    uppercase
+                    tracking-[0.16em]
+                    text-[#7C7063]
+                  "
+                >
+                  Grand Total
+                </p>
+
+                <p
+                  className="
+                    mt-1
+                    text-[8px]
+                    text-[#A0988D]
+                  "
+                >
+                  Inclusive of applicable taxes
+                </p>
+              </div>
+
+              <span
+                className="
+                  font-serif
+                  text-[28px]
+                  tracking-tight
+                  text-[#302B25]
+                "
+              >
+                ₹
+                {total.toLocaleString(
+                  "en-IN",
+                )}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={
+                handlePlaceOrder
+              }
+              disabled={
+                isPlacingOrder
+              }
+              className="
+                mt-6
+                flex
+                h-12
+                w-full
+                items-center
+                justify-center
+                gap-3
+                rounded-[10px]
+                bg-[#8F6B3F]
+                text-[9px]
+                font-semibold
+                uppercase
+                tracking-[0.18em]
+                text-white
+                shadow-[0_10px_25px_rgba(143,107,63,0.18)]
+                transition-all
+                duration-300
+                hover:bg-[#795832]
+                disabled:cursor-not-allowed
+                disabled:opacity-60
+              "
+            >
+              {isPlacingOrder
+                ? "Processing..."
+                : paymentMethod ===
+                    "online"
+                  ? "Pay Securely"
+                  : "Place Order"}
+
+              <ChevronRight
+                size={14}
+                strokeWidth={1.5}
+              />
+            </button>
+
+            <div
+              className="
+                mt-5
+                flex
+                items-center
+                justify-center
+                gap-2
+                text-[7px]
+                uppercase
+                tracking-[0.13em]
+                text-[#95897C]
+              "
+            >
+              <ShieldCheck
+                size={12}
+                strokeWidth={1.4}
+                className="text-[#A4773E]"
+              />
+
+              Secure checkout
             </div>
           </aside>
         </div>
       </div>
     </main>
-  );
-};
-
-/*
- * ========================================
- * Input Field
- * ========================================
- */
-
-interface InputFieldProps {
-  label: string;
-
-  value: string;
-
-  error?: string;
-
-  type?: string;
-
-  onChange: (
-    value: string,
-  ) => void;
-}
-
-const InputField = ({
-  label,
-  value,
-  error,
-  type = "text",
-  onChange,
-}: InputFieldProps) => {
-  return (
-    <div>
-      <label
-        className="
-          mb-2
-          block
-          text-[9px]
-          font-semibold
-          uppercase
-          tracking-[0.12em]
-          text-[#71675D]
-        "
-      >
-        {label}
-      </label>
-
-      <input
-        type={type}
-        value={value}
-        onChange={(event) =>
-          onChange(
-            event.target.value,
-          )
-        }
-        className={`
-          h-11
-          w-full
-          rounded-lg
-          border
-          bg-[#FCFAF7]
-          px-3.5
-          text-[12px]
-          text-[#302B25]
-          outline-none
-          transition-all
-          placeholder:text-[#B2A89D]
-          focus:bg-white
-          ${
-            error
-              ? "border-[#B66B5E] focus:border-[#B66B5E]"
-              : "border-[#E2D9CE] focus:border-[#B99A6B]"
-          }
-        `}
-      />
-
-      {error && (
-        <p
-          className="
-            mt-1.5
-            text-[9px]
-            text-[#B66B5E]
-          "
-        >
-          {error}
-        </p>
-      )}
-    </div>
-  );
-};
-
-/*
- * ========================================
- * Section Header
- * ========================================
- */
-
-interface CheckoutSectionHeaderProps {
-  number: string;
-
-  title: string;
-
-  description: string;
-}
-
-const CheckoutSectionHeader = ({
-  number,
-  title,
-  description,
-}: CheckoutSectionHeaderProps) => {
-  return (
-    <div className="flex items-start gap-4">
-      <div
-        className="
-          flex
-          h-9
-          w-9
-          shrink-0
-          items-center
-          justify-center
-          rounded-full
-          bg-[#F3ECE3]
-          text-[#9A7138]
-        "
-      >
-        <span
-          className="
-            text-[11px]
-            font-semibold
-          "
-        >
-          {number}
-        </span>
-      </div>
-
-      <div>
-        <h2
-          className="
-            font-serif
-            text-[22px]
-            text-[#302B25]
-          "
-        >
-          {title}
-        </h2>
-
-        <p
-          className="
-            mt-1
-            text-[11px]
-            text-[#8A8178]
-          "
-        >
-          {description}
-        </p>
-      </div>
-    </div>
-  );
-};
-
-/*
- * ========================================
- * Shipping Option
- * ========================================
- */
-
-interface ShippingOptionProps {
-  selected: boolean;
-
-  title: string;
-
-  description: string;
-
-  price: string;
-
-  icon: React.ReactNode;
-
-  onClick: () => void;
-}
-
-const ShippingOption = ({
-  selected,
-  title,
-  description,
-  price,
-  icon,
-  onClick,
-}: ShippingOptionProps) => {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`
-        flex
-        w-full
-        items-center
-        gap-4
-        rounded-xl
-        border
-        p-4
-        text-left
-        transition-all
-        ${
-          selected
-            ? "border-[#B99A6B] bg-[#FAF5ED]"
-            : "border-[#E4DCD2] bg-white hover:bg-[#FCFAF7]"
-        }
-      `}
-    >
-      <div
-        className={`
-          flex
-          h-9
-          w-9
-          shrink-0
-          items-center
-          justify-center
-          rounded-full
-          ${
-            selected
-              ? "bg-[#EADCC8] text-[#9A7138]"
-              : "bg-[#F4F0EB] text-[#81776C]"
-          }
-        `}
-      >
-        {icon}
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <p
-          className="
-            text-[11px]
-            font-semibold
-            text-[#302B25]
-          "
-        >
-          {title}
-        </p>
-
-        <p
-          className="
-            mt-1
-            text-[9px]
-            text-[#8A8178]
-          "
-        >
-          {description}
-        </p>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <span
-          className="
-            text-[10px]
-            font-semibold
-            text-[#302B25]
-          "
-        >
-          {price}
-        </span>
-
-        <div
-          className={`
-            flex
-            h-4
-            w-4
-            items-center
-            justify-center
-            rounded-full
-            border
-            ${
-              selected
-                ? "border-[#9A7138] bg-[#9A7138]"
-                : "border-[#CFC5B9]"
-            }
-          `}
-        >
-          {selected && (
-            <Check
-              size={10}
-              strokeWidth={2.5}
-              className="text-white"
-            />
-          )}
-        </div>
-      </div>
-    </button>
-  );
-};
-
-/*
- * ========================================
- * Payment Option
- * ========================================
- */
-
-interface PaymentOptionProps {
-  selected: boolean;
-
-  title: string;
-
-  description: string;
-
-  onClick: () => void;
-}
-
-const PaymentOption = ({
-  selected,
-  title,
-  description,
-  onClick,
-}: PaymentOptionProps) => {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`
-        flex
-        w-full
-        items-center
-        gap-4
-        rounded-xl
-        border
-        p-4
-        text-left
-        transition-all
-        ${
-          selected
-            ? "border-[#B99A6B] bg-[#FAF5ED]"
-            : "border-[#E4DCD2] bg-white hover:bg-[#FCFAF7]"
-        }
-      `}
-    >
-      <div
-        className={`
-          flex
-          h-4
-          w-4
-          shrink-0
-          items-center
-          justify-center
-          rounded-full
-          border
-          ${
-            selected
-              ? "border-[#9A7138] bg-[#9A7138]"
-              : "border-[#CFC5B9]"
-          }
-        `}
-      >
-        {selected && (
-          <div
-            className="
-              h-1.5
-              w-1.5
-              rounded-full
-              bg-white
-            "
-          />
-        )}
-      </div>
-
-      <div>
-        <p
-          className="
-            text-[11px]
-            font-semibold
-            text-[#302B25]
-          "
-        >
-          {title}
-        </p>
-
-        <p
-          className="
-            mt-1
-            text-[9px]
-            text-[#8A8178]
-          "
-        >
-          {description}
-        </p>
-      </div>
-    </button>
-  );
-};
-
-/*
- * ========================================
- * Summary Row
- * ========================================
- */
-
-interface SummaryRowProps {
-  label: string;
-
-  value: string;
-}
-
-const SummaryRow = ({
-  label,
-  value,
-}: SummaryRowProps) => {
-  return (
-    <div
-      className="
-        flex
-        items-center
-        justify-between
-      "
-    >
-      <span
-        className="
-          text-[10px]
-          text-[#81776C]
-        "
-      >
-        {label}
-      </span>
-
-      <span
-        className="
-          text-[11px]
-          font-medium
-          text-[#403A33]
-        "
-      >
-        {value}
-      </span>
-    </div>
   );
 };
 
