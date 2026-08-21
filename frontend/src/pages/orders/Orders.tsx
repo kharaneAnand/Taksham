@@ -24,6 +24,13 @@ import type {
   Order,
 } from "../../types/order";
 
+const formatPrice = (
+  price: number,
+) =>
+  price.toLocaleString(
+    "en-IN",
+  );
+
 const Orders = () => {
   const navigate = useNavigate();
 
@@ -36,13 +43,12 @@ const Orders = () => {
   const [error, setError] =
     useState("");
 
- 
-
   useEffect(() => {
     const loadOrders =
       async () => {
         try {
           setLoading(true);
+
           setError("");
 
           const result =
@@ -71,8 +77,6 @@ const Orders = () => {
     loadOrders();
   }, []);
 
-
-
   if (loading) {
     return (
       <main className="min-h-screen bg-[#F7F5F1]">
@@ -88,8 +92,6 @@ const Orders = () => {
       </main>
     );
   }
-
- 
 
   if (error) {
     return (
@@ -129,8 +131,6 @@ const Orders = () => {
       </main>
     );
   }
-
- 
 
   if (orders.length === 0) {
     return (
@@ -178,8 +178,6 @@ const Orders = () => {
       </main>
     );
   }
-
-
 
   return (
     <main className="min-h-screen bg-[#F7F5F1]">
@@ -235,10 +233,9 @@ const Orders = () => {
   );
 };
 
-
-
 interface OrderCardProps {
   order: Order;
+
   onView: () => void;
 }
 
@@ -264,6 +261,57 @@ const OrderCard = ({
         total + item.quantity,
       0,
     );
+
+  /*
+   * ========================================
+   * ORIGINAL PRODUCTS TOTAL
+   *
+   * This is the total before automatic
+   * product offers are applied.
+   * ========================================
+   */
+
+  const originalItemsTotal =
+    order.items.reduce(
+      (total, item) =>
+        total +
+        (item.originalPrice ??
+          item.price) *
+          item.quantity,
+      0,
+    );
+
+  /*
+   * ========================================
+   * FINAL PRODUCTS TOTAL
+   *
+   * price is the final price after
+   * automatic product offers.
+   * ========================================
+   */
+
+  const discountedItemsTotal =
+    order.items.reduce(
+      (total, item) =>
+        total +
+        item.price *
+          item.quantity,
+      0,
+    );
+
+  /*
+   * Automatic offer savings.
+   */
+
+  const offerSavings =
+    Math.max(
+      originalItemsTotal -
+        discountedItemsTotal,
+      0,
+    );
+
+  const hasOfferDiscount =
+    offerSavings > 0;
 
   const statusLabel =
     order.orderStatus.replace(
@@ -315,15 +363,26 @@ const OrderCard = ({
 
           <div>
             <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#9A9288]">
-              Total
+              Total Paid
             </p>
 
-            <p className="mt-1 text-sm font-semibold text-[#29251F]">
-              ₹
-              {order.total.toLocaleString(
-                "en-IN",
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-[#29251F]">
+                ₹
+                {formatPrice(
+                  order.total,
+                )}
+              </p>
+
+              {hasOfferDiscount && (
+                <span className="text-[10px] font-medium text-[#8A8176]">
+                  Saved ₹
+                  {formatPrice(
+                    offerSavings,
+                  )}
+                </span>
               )}
-            </p>
+            </div>
           </div>
         </div>
       </div>
@@ -388,12 +447,42 @@ const OrderCard = ({
                 </p>
               )}
 
-              <p className="mt-2 text-xs text-[#8A8176]">
-                {itemCount}{" "}
-                {itemCount === 1
-                  ? "item"
-                  : "items"}
-              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <p className="text-xs text-[#8A8176]">
+                  {itemCount}{" "}
+                  {itemCount === 1
+                    ? "item"
+                    : "items"}
+                </p>
+
+                {hasOfferDiscount && (
+                  <>
+                    <span className="text-[#C8C1B8]">
+                      •
+                    </span>
+
+                    <p className="text-xs font-medium text-[#6F675E]">
+                      ₹
+                      {formatPrice(
+                        originalItemsTotal,
+                      )}
+
+                      <span className="ml-1 text-[#9A9288] line-through">
+                        original
+                      </span>
+
+                      <span className="mx-1">
+                        →
+                      </span>
+
+                      ₹
+                      {formatPrice(
+                        discountedItemsTotal,
+                      )}
+                    </p>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 

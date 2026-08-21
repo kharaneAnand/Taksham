@@ -16,9 +16,10 @@ export interface OrderItem {
   };
 
   quantity: number;
+  originalPrice: number;
 
   price: number;
-
+  discountAmount: number;
   subtotal: number;
 }
 

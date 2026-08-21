@@ -4,6 +4,12 @@ import mongoose, {
   type Model,
 } from "mongoose";
 
+/*
+ * ========================================
+ * Order Item
+ * ========================================
+ */
+
 export interface IOrderItem {
   productId: string;
 
@@ -21,10 +27,35 @@ export interface IOrderItem {
 
   quantity: number;
 
+  /*
+   * Original product/variant price
+   * before applying an automatic offer.
+   */
+  originalPrice: number;
+
+  /*
+   * Discount received from the
+   * automatic product offer.
+   */
+  offerDiscountAmount: number;
+
+  /*
+   * Final price after applying
+   * the automatic offer.
+   */
   price: number;
 
+  /*
+   * Final item price × quantity.
+   */
   subtotal: number;
 }
+
+/*
+ * ========================================
+ * Shipping Address
+ * ========================================
+ */
 
 export interface IShippingAddress {
   firstName: string;
@@ -44,6 +75,12 @@ export interface IShippingAddress {
   landmark?: string;
 }
 
+/*
+ * ========================================
+ * Order Status
+ * ========================================
+ */
+
 export type OrderStatus =
   | "pending"
   | "confirmed"
@@ -53,9 +90,21 @@ export type OrderStatus =
   | "delivered"
   | "cancelled";
 
+/*
+ * ========================================
+ * Payment Method
+ * ========================================
+ */
+
 export type PaymentMethod =
   | "cod"
   | "online";
+
+/*
+ * ========================================
+ * Payment Status
+ * ========================================
+ */
 
 export type PaymentStatus =
   | "pending"
@@ -63,9 +112,21 @@ export type PaymentStatus =
   | "failed"
   | "refunded";
 
+/*
+ * ========================================
+ * Shipping Method
+ * ========================================
+ */
+
 export type ShippingMethod =
   | "standard"
   | "express";
+
+/*
+ * ========================================
+ * Order Interface
+ * ========================================
+ */
 
 export interface IOrder
   extends Document {
@@ -97,6 +158,16 @@ export interface IOrder
 
   orderStatus: OrderStatus;
 
+  /*
+   * ----------------------------------------
+   * Price Details
+   * ----------------------------------------
+   */
+
+  /*
+   * Sum of all item prices after
+   * automatic product offers.
+   */
   subtotal: number;
 
   shippingCost: number;
@@ -109,14 +180,26 @@ export interface IOrder
 
   couponCode?: string;
 
+  /*
+   * Discount received from coupon.
+   */
   discountAmount: number;
 
+  /*
+   * Final amount payable.
+   */
   total: number;
 
   createdAt: Date;
 
   updatedAt: Date;
 }
+
+/*
+ * ========================================
+ * Order Item Schema
+ * ========================================
+ */
 
 const orderItemSchema =
   new Schema<IOrderItem>(
@@ -167,6 +250,39 @@ const orderItemSchema =
         min: 1,
       },
 
+      /*
+       * Original product/variant price
+       * before automatic offer.
+       */
+
+      originalPrice: {
+        type: Number,
+
+        required: true,
+
+        min: 0,
+      },
+
+      /*
+       * Automatic offer discount
+       * per product item.
+       */
+
+      offerDiscountAmount: {
+        type: Number,
+
+        required: true,
+
+        default: 0,
+
+        min: 0,
+      },
+
+      /*
+       * Final product/variant price
+       * after automatic offer.
+       */
+
       price: {
         type: Number,
 
@@ -174,6 +290,10 @@ const orderItemSchema =
 
         min: 0,
       },
+
+      /*
+       * Final price × quantity.
+       */
 
       subtotal: {
         type: Number,
@@ -188,6 +308,12 @@ const orderItemSchema =
       _id: false,
     },
   );
+
+/*
+ * ========================================
+ * Shipping Address Schema
+ * ========================================
+ */
 
 const shippingAddressSchema =
   new Schema<IShippingAddress>(
@@ -259,6 +385,12 @@ const shippingAddressSchema =
       _id: false,
     },
   );
+
+/*
+ * ========================================
+ * Order Schema
+ * ========================================
+ */
 
 const orderSchema =
   new Schema<IOrder>(
@@ -358,6 +490,12 @@ const orderSchema =
         type: String,
       },
 
+      /*
+       * ----------------------------------------
+       * Order Status
+       * ----------------------------------------
+       */
+
       orderStatus: {
         type: String,
 
@@ -373,6 +511,12 @@ const orderSchema =
 
         default: "pending",
       },
+
+      /*
+       * ----------------------------------------
+       * Price Details
+       * ----------------------------------------
+       */
 
       subtotal: {
         type: Number,
@@ -414,6 +558,12 @@ const orderSchema =
         min: 0,
       },
 
+      /*
+       * ----------------------------------------
+       * Final Payable Amount
+       * ----------------------------------------
+       */
+
       total: {
         type: Number,
 
@@ -428,11 +578,23 @@ const orderSchema =
     },
   );
 
+/*
+ * ========================================
+ * Indexes
+ * ========================================
+ */
+
 orderSchema.index({
   userId: 1,
 
   createdAt: -1,
 });
+
+/*
+ * ========================================
+ * Order Model
+ * ========================================
+ */
 
 const Order: Model<IOrder> =
   mongoose.models.Order ||

@@ -1,7 +1,7 @@
 import type {
   NextFunction,
   Request,
-  Response,
+ Response,
 } from "express";
 
 import type {
@@ -34,10 +34,30 @@ const validate = (
       );
 
     if (!result.success) {
+      console.error(
+        `Validation failed for ${target}:`,
+        result.error.issues,
+      );
+
+      const validationMessage =
+        result.error.issues
+          .map(
+            (issue) => {
+              const field =
+                issue.path.length > 0
+                  ? issue.path.join(".")
+                  : "request";
+
+              return `${field}: ${issue.message}`;
+            },
+          )
+          .join(", ");
+
       next(
         new ApiError(
           StatusCodes.BAD_REQUEST,
-          "Validation failed",
+          validationMessage ||
+            "Validation failed",
           result.error.issues,
         ),
       );

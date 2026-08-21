@@ -30,6 +30,12 @@ import type {
  * ========================================
  */
 
+interface ProductImageResponse {
+  url: string;
+
+  publicId?: string;
+}
+
 interface CartItemResponse {
   productId: string;
 
@@ -57,7 +63,9 @@ interface ProductVariantResponse {
 
   stock?: number;
 
-  images?: string[];
+  images?: Array<
+    ProductImageResponse | string
+  >;
 }
 
 interface ProductResponse {
@@ -69,11 +77,72 @@ interface ProductResponse {
 
   stock: number;
 
-  image: string;
+  image:
+    | ProductImageResponse
+    | string;
 
-  images?: string[];
+  images?: Array<
+    ProductImageResponse | string
+  >;
 
   variants?: ProductVariantResponse[];
+}
+
+/*
+ * ========================================
+ * Offer Types
+ * ========================================
+ */
+
+type OfferDiscountType =
+  | "percentage"
+  | "fixed";
+
+type OfferAppliesTo =
+  | "all"
+  | "products"
+  | "collections";
+
+interface OfferReference {
+  _id?: string;
+}
+
+interface OfferResponse {
+  _id: string;
+
+  discountType:
+    OfferDiscountType;
+
+  discountValue: number;
+
+  appliesTo:
+    OfferAppliesTo;
+
+  productIds?: Array<
+    string | OfferReference
+  >;
+
+  collectionIds?: Array<
+    string | OfferReference
+  >;
+
+  isActive: boolean;
+
+  startDate: string;
+
+  endDate: string;
+}
+
+interface CollectionProductReference {
+  _id?: string;
+}
+
+interface CollectionResponse {
+  _id: string;
+
+  products?: Array<
+    string | CollectionProductReference
+  >;
 }
 
 interface StockItem {
@@ -91,6 +160,49 @@ interface CouponDiscountResult {
 
   coupon?: ICoupon;
 }
+
+/*
+ * ========================================
+ * Helpers
+ * ========================================
+ */
+
+const getImageUrl = (
+  image:
+    | ProductImageResponse
+    | string
+    | undefined
+    | null,
+): string => {
+  if (!image) {
+    return "";
+  }
+
+  if (
+    typeof image ===
+    "string"
+  ) {
+    return image;
+  }
+
+  return image.url || "";
+};
+
+const getReferenceId = (
+  value:
+    | string
+    | OfferReference
+    | CollectionProductReference,
+): string => {
+  if (
+    typeof value ===
+    "string"
+  ) {
+    return value;
+  }
+
+  return value._id || "";
+};
 
 /*
  * ========================================
@@ -241,7 +353,351 @@ class OrderService {
 
   /*
    * ========================================
-   * VALIDATE AND CALCULATE COUPON
+   * Get All Offers
+   * ========================================
+   */
+
+  private async getAllOffers(): Promise<
+    OfferResponse[]
+  > {
+    const url =
+      `${env.UTILS_SERVICE_URL}/offers`;
+
+    let response: Response;
+
+    try {
+      response =
+        await fetch(
+          url,
+          {
+            method: "GET",
+
+            headers: {
+              Accept:
+                "application/json",
+            },
+          },
+        );
+    } catch (error) {
+      console.error(
+        "Unable to connect to Utils Service:",
+        {
+          url,
+          error,
+        },
+      );
+
+      throw new ApiError(
+        StatusCodes.INTERNAL_SERVER_ERROR,
+        "Unable to connect to Utils Service",
+      );
+    }
+
+    let result:
+      | {
+          success?: boolean;
+          message?: string;
+          data?: OfferResponse[];
+        }
+      | null = null;
+
+    try {
+      result =
+        (await response.json()) as {
+          success?: boolean;
+          message?: string;
+          data?: OfferResponse[];
+        };
+    } catch {
+      result = null;
+    }
+
+    if (!response.ok) {
+      throw new ApiError(
+        response.status >= 400 &&
+          response.status < 500
+          ? response.status
+          : StatusCodes.INTERNAL_SERVER_ERROR,
+
+        result?.message ||
+          "Failed to fetch offers",
+      );
+    }
+
+    if (!result?.success) {
+      throw new ApiError(
+        StatusCodes.INTERNAL_SERVER_ERROR,
+        result?.message ||
+          "Invalid offers response",
+      );
+    }
+
+    return result.data || [];
+  }
+
+  /*
+   * ========================================
+   * Get All Collections
+   * ========================================
+   */
+
+  private async getAllCollections(): Promise<
+    CollectionResponse[]
+  > {
+    const response =
+      await fetch(
+        `${env.UTILS_SERVICE_URL}/collections`,
+        {
+          method: "GET",
+
+          headers: {
+            Accept:
+              "application/json",
+
+            "x-internal-service-secret":
+              env.INTERNAL_SERVICE_SECRET,
+          },
+        },
+      );
+
+    let result:
+      | {
+          success?: boolean;
+          message?: string;
+          data?: CollectionResponse[];
+          collections?: CollectionResponse[];
+        }
+      | null = null;
+
+    try {
+      result =
+        (await response.json()) as {
+          success?: boolean;
+          message?: string;
+          data?: CollectionResponse[];
+          collections?: CollectionResponse[];
+        };
+    } catch {
+      result = null;
+    }
+
+    if (!response.ok) {
+      return [];
+    }
+
+    return (
+      result?.data ||
+      result?.collections ||
+      []
+    );
+  }
+
+  /*
+   * ========================================
+   * Check Offer Date
+   * ========================================
+   */
+
+  private isOfferCurrentlyValid(
+    offer: OfferResponse,
+  ): boolean {
+    if (!offer.isActive) {
+      return false;
+    }
+
+    const now =
+      new Date();
+
+    const startDate =
+      new Date(
+        offer.startDate,
+      );
+
+    const endDate =
+      new Date(
+        offer.endDate,
+      );
+
+    if (
+      Number.isNaN(
+        startDate.getTime(),
+      ) ||
+      Number.isNaN(
+        endDate.getTime(),
+      )
+    ) {
+      return false;
+    }
+
+    return (
+      now >= startDate &&
+      now <= endDate
+    );
+  }
+
+  /*
+   * ========================================
+   * Check Whether Offer Applies
+   * ========================================
+   */
+
+  private doesOfferApplyToProduct(
+    offer: OfferResponse,
+    productId: string,
+    collections: CollectionResponse[],
+  ): boolean {
+    if (
+      offer.appliesTo ===
+      "all"
+    ) {
+      return true;
+    }
+
+    if (
+      offer.appliesTo ===
+      "products"
+    ) {
+      return (
+        offer.productIds?.some(
+          (item) =>
+            getReferenceId(
+              item,
+            ) === productId,
+        ) || false
+      );
+    }
+
+    if (
+      offer.appliesTo ===
+      "collections"
+    ) {
+      const offerCollectionIds =
+        (offer.collectionIds || []).map(
+          (item) =>
+            getReferenceId(item),
+        );
+
+      return collections.some(
+        (collection) => {
+          if (
+            !offerCollectionIds.includes(
+              collection._id,
+            )
+          ) {
+            return false;
+          }
+
+          return (
+            collection.products?.some(
+              (item) =>
+                getReferenceId(
+                  item,
+                ) === productId,
+            ) || false
+          );
+        },
+      );
+    }
+
+    return false;
+  }
+
+  /*
+   * ========================================
+   * Calculate Offer Discount
+   * ========================================
+   */
+
+  private calculateOfferDiscount(
+    price: number,
+    offer: OfferResponse,
+  ): number {
+    if (
+      offer.discountType ===
+      "percentage"
+    ) {
+      return (
+        price *
+        (offer.discountValue / 100)
+      );
+    }
+
+    return offer.discountValue;
+  }
+
+  /*
+   * ========================================
+   * Get Best Offer For Product
+   * ========================================
+   */
+
+  private getBestOfferForProduct(
+    productId: string,
+    price: number,
+    offers: OfferResponse[],
+    collections: CollectionResponse[],
+  ): {
+    finalPrice: number;
+    discountAmount: number;
+  } {
+    const applicableOffers =
+      offers.filter(
+        (offer) =>
+          this.isOfferCurrentlyValid(
+            offer,
+          ) &&
+          this.doesOfferApplyToProduct(
+            offer,
+            productId,
+            collections,
+          ),
+      );
+
+    let highestDiscount = 0;
+
+    for (
+      const offer of applicableOffers
+    ) {
+      const discount =
+        this.calculateOfferDiscount(
+          price,
+          offer,
+        );
+
+      const validDiscount =
+        Math.min(
+          Math.max(
+            discount,
+            0,
+          ),
+          price,
+        );
+
+      if (
+        validDiscount >
+        highestDiscount
+      ) {
+        highestDiscount =
+          validDiscount;
+      }
+    }
+
+    return {
+      finalPrice:
+        Math.max(
+          price -
+            highestDiscount,
+          0,
+        ),
+
+      discountAmount:
+        highestDiscount,
+    };
+  }
+
+  /*
+   * ========================================
+   * Validate And Calculate Coupon
    * ========================================
    */
 
@@ -312,7 +768,8 @@ class OrderService {
     }
 
     if (
-      coupon.usageLimit !== undefined &&
+      coupon.usageLimit !==
+        undefined &&
       coupon.usedCount >=
         coupon.usageLimit
     ) {
@@ -346,11 +803,6 @@ class OrderService {
       discountAmount =
         coupon.discountValue;
     }
-
-    /*
-     * Discount can never be greater
-     * than the cart subtotal.
-     */
 
     discountAmount =
       Math.min(
@@ -515,21 +967,19 @@ class OrderService {
 
   /*
    * ========================================
-   * STOCK FOR COMPLETE ORDER
+   * Stock For Complete Order
    * ========================================
    */
 
   private async decreaseStockForOrder(
     items: Array<{
       productId: string;
-
       quantity: number;
-
       variantId?: string;
     }>,
   ): Promise<StockItem[]> {
-    const deductedItems: StockItem[] =
-      [];
+    const deductedItems:
+      StockItem[] = [];
 
     try {
       for (
@@ -537,9 +987,7 @@ class OrderService {
       ) {
         await this.decreaseProductStock(
           item.productId,
-
           item.quantity,
-
           item.variantId,
         );
 
@@ -562,8 +1010,7 @@ class OrderService {
       return deductedItems;
     } catch (error) {
       if (
-        deductedItems.length >
-        0
+        deductedItems.length > 0
       ) {
         try {
           await this.restoreStock(
@@ -572,7 +1019,6 @@ class OrderService {
         } catch {
           throw new ApiError(
             StatusCodes.INTERNAL_SERVER_ERROR,
-
             "Stock update failed and inventory rollback also failed. Manual inventory reconciliation is required.",
           );
         }
@@ -606,9 +1052,7 @@ class OrderService {
 
       await this.increaseProductStock(
         item.productId,
-
         item.quantity,
-
         item.variantId,
       );
     }
@@ -616,7 +1060,7 @@ class OrderService {
 
   /*
    * ========================================
-   * CART
+   * Clear Cart
    * ========================================
    */
 
@@ -657,7 +1101,6 @@ class OrderService {
     if (!response.ok) {
       throw new ApiError(
         StatusCodes.INTERNAL_SERVER_ERROR,
-
         result?.message ||
           "Failed to clear cart",
       );
@@ -686,12 +1129,56 @@ class OrderService {
     ) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-
         ORDER_MESSAGES.CART_EMPTY,
       );
     }
 
-    const orderItems = [];
+    const [
+      offers,
+      collections,
+    ] =
+      await Promise.all([
+        this.getAllOffers(),
+        this.getAllCollections(),
+      ]);
+
+    /*
+     * Each order item now stores:
+     *
+     * originalPrice:
+     * Product price before automatic offer
+     *
+     * price:
+     * Final price after automatic offer
+     *
+     * discountAmount:
+     * Automatic discount for ONE quantity
+     *
+     * subtotal:
+     * Final price × quantity
+     */
+
+    const orderItems: Array<{
+      productId: string;
+      productName: string;
+      productImage: string;
+      variantId?: string;
+      variant?: {
+        color?: string;
+        material?: string;
+        image?: string;
+      };
+      quantity: number;
+      originalPrice: number;
+      price: number;
+      discountAmount: number;
+      subtotal: number;
+    }> = [];
+
+    /*
+     * subtotal = total after automatic
+     * product offers but before coupon.
+     */
 
     let subtotal = 0;
 
@@ -703,21 +1190,21 @@ class OrderService {
           cartItem.productId,
         );
 
-      let price =
+      let originalPrice =
         product.price;
 
       let availableStock =
         product.stock;
 
       let productImage =
-        product.image;
+        getImageUrl(
+          product.image,
+        );
 
       let variantSnapshot:
         | {
             color?: string;
-
             material?: string;
-
             image?: string;
           }
         | undefined;
@@ -733,12 +1220,11 @@ class OrderService {
         if (!variant) {
           throw new ApiError(
             StatusCodes.NOT_FOUND,
-
             "Product variant not found",
           );
         }
 
-        price =
+        originalPrice =
           variant.price ??
           product.price;
 
@@ -746,8 +1232,13 @@ class OrderService {
           variant.stock ??
           product.stock;
 
+        const variantImage =
+          getImageUrl(
+            variant.images?.[0],
+          );
+
         productImage =
-          variant.images?.[0] ??
+          variantImage ||
           productImage;
 
         variantSnapshot = {
@@ -780,13 +1271,34 @@ class OrderService {
       ) {
         throw new ApiError(
           StatusCodes.BAD_REQUEST,
-
           `Insufficient stock for ${product.name}`,
         );
       }
 
+      /*
+       * Apply automatic product offer.
+       */
+
+      const offerResult =
+        this.getBestOfferForProduct(
+          product._id,
+          originalPrice,
+          offers,
+          collections,
+        );
+
+      const finalPrice =
+        offerResult.finalPrice;
+
+      const productDiscountAmount =
+        offerResult.discountAmount;
+
+      /*
+       * Final subtotal for this item.
+       */
+
       const itemSubtotal =
-        price *
+        finalPrice *
         cartItem.quantity;
 
       subtotal +=
@@ -818,7 +1330,32 @@ class OrderService {
         quantity:
           cartItem.quantity,
 
-        price,
+        /*
+         * IMPORTANT:
+         * Original price before offer.
+         * Frontend uses this as the
+         * cut/strikethrough price.
+         */
+
+        originalPrice,
+
+        /*
+         * Final price after offer.
+         */
+
+        price:
+          finalPrice,
+
+        /*
+         * Discount for one item.
+         */
+
+        discountAmount:
+          productDiscountAmount,
+
+        /*
+         * Final price × quantity.
+         */
 
         subtotal:
           itemSubtotal,
@@ -841,8 +1378,11 @@ class OrderService {
       couponResult.discountAmount;
 
     const amountAfterDiscount =
-      subtotal -
-      discountAmount;
+      Math.max(
+        subtotal -
+          discountAmount,
+        0,
+      );
 
     /*
      * ====================================
@@ -857,6 +1397,12 @@ class OrderService {
         : amountAfterDiscount >= 999
           ? 0
           : 99;
+
+    /*
+     * ====================================
+     * FINAL TOTAL
+     * ====================================
+     */
 
     const total =
       amountAfterDiscount +
@@ -910,7 +1456,8 @@ class OrderService {
 
         orderNumber,
 
-        items: orderItems,
+        items:
+          orderItems,
 
         shippingAddress,
 
@@ -929,7 +1476,16 @@ class OrderService {
             ? "confirmed"
             : "pending",
 
+        /*
+         * Product total after automatic
+         * product-level offers.
+         */
+
         subtotal,
+
+        /*
+         * Additional coupon discount.
+         */
 
         discountAmount,
 
@@ -942,15 +1498,16 @@ class OrderService {
 
         shippingCost,
 
+        /*
+         * Final payable amount.
+         */
+
         total,
       });
 
     /*
      * ====================================
      * INCREASE COUPON USAGE
-     *
-     * Only after the order has been
-     * successfully created.
      * ====================================
      */
 
@@ -1015,11 +1572,6 @@ class OrderService {
         await Order.findByIdAndDelete(
           order._id,
         );
-
-        /*
-         * Roll back coupon usage if
-         * stock deduction fails.
-         */
 
         if (couponResult.coupon) {
           const couponModel =
@@ -1102,7 +1654,6 @@ class OrderService {
     if (!order) {
       throw new ApiError(
         StatusCodes.NOT_FOUND,
-
         ORDER_MESSAGES.ORDER_NOT_FOUND,
       );
     }
@@ -1129,10 +1680,11 @@ class OrderService {
       sort = "newest",
     } = query;
 
-    const filter: Record<
-      string,
-      unknown
-    > = {};
+    const filter:
+      Record<
+        string,
+        unknown
+      > = {};
 
     if (search) {
       const escapedSearch =
@@ -1152,22 +1704,18 @@ class OrderService {
           orderNumber:
             searchRegex,
         },
-
         {
           userId:
             searchRegex,
         },
-
         {
           "shippingAddress.firstName":
             searchRegex,
         },
-
         {
           "shippingAddress.lastName":
             searchRegex,
         },
-
         {
           "shippingAddress.phone":
             searchRegex,
@@ -1276,9 +1824,6 @@ class OrderService {
    * ========================================
    * UPDATE ORDER STATUS
    * ========================================
-   *
-   * ADMIN ONLY
-   * ========================================
    */
 
   async updateOrderStatus(
@@ -1293,7 +1838,6 @@ class OrderService {
     if (!order) {
       throw new ApiError(
         StatusCodes.NOT_FOUND,
-
         ORDER_MESSAGES.ORDER_NOT_FOUND,
       );
     }
@@ -1310,7 +1854,6 @@ class OrderService {
     ) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-
         "Delivered orders cannot be updated",
       );
     }
@@ -1332,7 +1875,6 @@ class OrderService {
     ) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-
         `Invalid current order status: ${currentStatus}`,
       );
     }
@@ -1342,7 +1884,6 @@ class OrderService {
     ) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-
         "Invalid order status",
       );
     }
@@ -1353,7 +1894,6 @@ class OrderService {
     ) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-
         `Invalid order status transition: ${currentStatus} → ${requestedStatus}`,
       );
     }
@@ -1372,7 +1912,6 @@ class OrderService {
       ) {
         throw new ApiError(
           StatusCodes.BAD_REQUEST,
-
           "Online payment must be completed before confirming the order",
         );
       }

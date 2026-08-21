@@ -1204,74 +1204,106 @@ const Checkout = () => {
     };
 
   const validateAddress =
-    (): boolean => {
-      const nextErrors:
-        Partial<
-          Record<
-            keyof AddressForm,
-            string
-          >
-        > = {};
+  (): boolean => {
+    const nextErrors:
+      Partial<
+        Record<
+          keyof AddressForm,
+          string
+        >
+      > = {};
 
-      if (
-        !address.firstName.trim()
-      ) {
-        nextErrors.firstName =
-          "First name is required";
-      }
+    if (
+      !address.firstName.trim()
+    ) {
+      nextErrors.firstName =
+        "First name is required";
+    }
 
-      if (
-        !address.lastName.trim()
-      ) {
-        nextErrors.lastName =
-          "Last name is required";
-      }
+    if (
+      !address.lastName.trim()
+    ) {
+      nextErrors.lastName =
+        "Last name is required";
+    }
 
-      if (
-        !address.phone.trim()
-      ) {
-        nextErrors.phone =
-          "Phone number is required";
-      }
+    if (
+      !address.phone.trim()
+    ) {
+      nextErrors.phone =
+        "Phone number is required";
+    } else if (
+      !/^[6-9]\d{9}$/.test(
+        address.phone.trim(),
+      )
+    ) {
+      nextErrors.phone =
+        "Enter a valid 10-digit phone number";
+    }
 
-      if (
-        !address.address.trim()
-      ) {
-        nextErrors.address =
-          "Address is required";
-      }
+    if (
+      !address.address.trim()
+    ) {
+      nextErrors.address =
+        "Address is required";
+    } else if (
+      address.address.trim().length < 5
+    ) {
+      nextErrors.address =
+        "Address is too short";
+    }
 
-      if (
-        !address.city.trim()
-      ) {
-        nextErrors.city =
-          "City is required";
-      }
+    if (
+      !address.city.trim()
+    ) {
+      nextErrors.city =
+        "City is required";
+    }
 
-      if (
-        !address.state.trim()
-      ) {
-        nextErrors.state =
-          "State is required";
-      }
+    if (
+      !address.state.trim()
+    ) {
+      nextErrors.state =
+        "State is required";
+    }
 
-      if (
-        !address.pincode.trim()
-      ) {
-        nextErrors.pincode =
-          "Pincode is required";
-      }
+    if (
+      !address.pincode.trim()
+    ) {
+      nextErrors.pincode =
+        "Pincode is required";
+    } else if (
+      !/^\d{6}$/.test(
+        address.pincode.trim(),
+      )
+    ) {
+      nextErrors.pincode =
+        "Enter a valid 6-digit pincode";
+    }
 
-      setErrors(
+    setErrors(
+      nextErrors,
+    );
+
+    const firstError =
+      Object.values(
         nextErrors,
-      );
+      )[0];
 
-      return (
-        Object.keys(
-          nextErrors,
-        ).length === 0
+    if (
+      firstError
+    ) {
+      toast.error(
+        firstError,
       );
-    };
+    }
+
+    return (
+      Object.keys(
+        nextErrors,
+      ).length === 0
+    );
+  };
 
   /* ========================================
    * RAZORPAY
@@ -1464,131 +1496,120 @@ const Checkout = () => {
    * ======================================== */
 
   const handlePlaceOrder =
-    async () => {
-      if (
-        isPlacingOrder
-      ) {
-        return;
-      }
+  async () => {
+    if (isPlacingOrder) {
+      return;
+    }
 
-      if (
-        !validateAddress()
-      ) {
-        toast.error(
-          "Please complete your delivery address.",
+    if (!validateAddress()) {
+      return;
+    }
+
+    if (
+      paymentMethod === "online" &&
+      !RAZORPAY_KEY_ID
+    ) {
+      toast.error(
+        "Online payment is not configured. Please check the Razorpay Key ID.",
+      );
+
+      return;
+    }
+
+    try {
+      setIsPlacingOrder(true);
+
+      const orderData: CreateOrderInput = {
+        shippingAddress: {
+          firstName:
+            address.firstName.trim(),
+
+          lastName:
+            address.lastName.trim(),
+
+          phone:
+            address.phone.trim(),
+
+          address:
+            address.address.trim(),
+
+          city:
+            address.city.trim(),
+
+          state:
+            address.state.trim(),
+
+          pincode:
+            address.pincode.trim(),
+
+          ...(address.landmark.trim()
+            ? {
+                landmark:
+                  address.landmark.trim(),
+              }
+            : {}),
+        },
+
+        shippingMethod:
+          shippingMethod === "express"
+            ? "express"
+            : "standard",
+
+        paymentMethod:
+          paymentMethod === "online"
+            ? "online"
+            : "cod",
+
+        ...(selectedCoupon?.code?.trim()
+          ? {
+              couponCode:
+                selectedCoupon.code
+                  .trim()
+                  .toUpperCase(),
+            }
+          : {}),
+      };
+
+      console.log(
+        "Creating order with payload:",
+        orderData,
+      );
+
+      const order =
+        await createOrder(orderData);
+
+      if (paymentMethod === "cod") {
+        await clearCart();
+
+        toast.success(
+          "Order placed successfully!",
+        );
+
+        navigate(
+          `/orders/${order._id}`,
         );
 
         return;
       }
 
-      if (
-        paymentMethod ===
-          "online" &&
-        !RAZORPAY_KEY_ID
-      ) {
-        toast.error(
-          "Online payment is not configured. Please check the Razorpay Key ID.",
-        );
+      await openRazorpayCheckout(
+        order,
+      );
+    } catch (error) {
+      console.error(
+        "Failed to place order:",
+        error,
+      );
 
-        return;
-      }
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to place order",
+      );
 
-      try {
-        setIsPlacingOrder(
-          true,
-        );
-
-        const orderData: CreateOrderInput =
-          {
-            shippingAddress: {
-              firstName:
-                address.firstName.trim(),
-
-              lastName:
-                address.lastName.trim(),
-
-              phone:
-                address.phone.trim(),
-
-              address:
-                address.address.trim(),
-
-              city:
-                address.city.trim(),
-
-              state:
-                address.state.trim(),
-
-              pincode:
-                address.pincode.trim(),
-
-              ...(address.landmark.trim()
-                ? {
-                    landmark:
-                      address.landmark.trim(),
-                  }
-                : {}),
-            },
-
-            shippingMethod,
-
-            paymentMethod,
-
-            ...(selectedCoupon
-              ? {
-                  couponCode:
-                    selectedCoupon.code
-                      .trim()
-                      .toUpperCase(),
-                }
-              : {}),
-          };
-
-        const order =
-          await createOrder(
-            orderData,
-          );
-
-        if (
-          paymentMethod ===
-          "cod"
-        ) {
-          clearCart();
-
-          toast.success(
-            "Order placed successfully!",
-          );
-
-          navigate(
-            `/orders/${order._id}`,
-          );
-
-          return;
-        }
-
-        await openRazorpayCheckout(
-          order,
-        );
-      } catch (
-        error
-      ) {
-        console.error(
-          "Failed to place order:",
-          error,
-        );
-
-        toast.error(
-          error instanceof
-            Error
-            ? error.message
-            : "Failed to place order",
-        );
-
-        setIsPlacingOrder(
-          false,
-        );
-      }
-    };
+      setIsPlacingOrder(false);
+    }
+  };
 
   return (
     <main

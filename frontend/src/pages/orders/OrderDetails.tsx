@@ -232,6 +232,16 @@ const OrderDetails = () => {
     order.orderStatus ===
       "delivered";
 
+  const isProcessing =
+    order.orderStatus ===
+      "processing" ||
+    order.orderStatus ===
+      "shipped" ||
+    order.orderStatus ===
+      "out_for_delivery" ||
+    order.orderStatus ===
+      "delivered";
+
   const isShipped =
     order.orderStatus ===
       "shipped" ||
@@ -250,6 +260,30 @@ const OrderDetails = () => {
       : `₹${order.shippingCost.toLocaleString(
           "en-IN",
         )}`;
+
+  /*
+   * ----------------------------------------
+   * Pricing
+   *
+   * subtotal = price after automatic
+   * product offers.
+   *
+   * Each item now contains:
+   * originalPrice
+   * price
+   * discountAmount
+   * subtotal
+   * ----------------------------------------
+   */
+
+  const productDiscount =
+    order.items.reduce(
+      (total, item) =>
+        total +
+        (item.discountAmount || 0) *
+          item.quantity,
+      0,
+    );
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#F7F4EF] text-[#29251F]">
@@ -358,10 +392,6 @@ const OrderDetails = () => {
 
       <section className="px-5 pb-20 sm:px-8 lg:px-10 lg:pb-28">
         <div className="mx-auto grid max-w-7xl gap-7 lg:grid-cols-[1.55fr_0.85fr] lg:items-start">
-          {/* =================================================
-              LEFT COLUMN
-          ================================================= */}
-
           <div className="space-y-6">
             {/* ORDER INFORMATION */}
 
@@ -413,112 +443,156 @@ const OrderDetails = () => {
 
               <div className="divide-y divide-[#EAE4DC]">
                 {order.items.map(
-                  (item) => (
-                    <div
-                      key={`${item.productId}-${item.variantId ?? "default"}`}
-                      className="
-                        group
-                        flex
-                        gap-4
-                        px-5
-                        py-5
-                        transition-colors
-                        duration-300
-                        hover:bg-[#FAF7F2]
-                        sm:gap-5
-                        sm:px-6
-                        sm:py-6
-                      "
-                    >
-                      <div className="relative h-23 w-23 shrink-0 overflow-hidden rounded-2xl bg-[#F0ECE5] ring-1 ring-inset ring-[#E3DBD0] sm:h-27 sm:w-27">
-                        {item.productImage ? (
-                          <img
-                            src={
-                              item.productImage
-                            }
-                            alt={
-                              item.productName
-                            }
-                            className="
-                              h-full
-                              w-full
-                              object-cover
-                              transition-transform
-                              duration-700
-                              ease-out
-                              group-hover:scale-[1.045]
-                            "
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center">
-                            <Package
-                              size={24}
-                              strokeWidth={1}
-                              className="text-[#AAA198]"
-                            />
-                          </div>
-                        )}
-                      </div>
+                  (item) => {
+                    const hasDiscount =
+                      item.discountAmount >
+                      0;
 
-                      <div className="flex min-w-0 flex-1 flex-col justify-between">
-                        <div>
-                          <div className="flex items-start justify-between gap-3">
-                            <h3 className="font-serif text-[17px] leading-tight tracking-[-0.015em] text-[#29251F] sm:text-xl">
-                              {
+                    return (
+                      <div
+                        key={`${item.productId}-${item.variantId ?? "default"}`}
+                        className="
+                          group
+                          flex
+                          gap-4
+                          px-5
+                          py-5
+                          transition-colors
+                          duration-300
+                          hover:bg-[#FAF7F2]
+                          sm:gap-5
+                          sm:px-6
+                          sm:py-6
+                        "
+                      >
+                        <div className="relative h-23 w-23 shrink-0 overflow-hidden rounded-2xl bg-[#F0ECE5] ring-1 ring-inset ring-[#E3DBD0] sm:h-27 sm:w-27">
+                          {item.productImage ? (
+                            <img
+                              src={
+                                item.productImage
+                              }
+                              alt={
                                 item.productName
                               }
-                            </h3>
-
-                            <ArrowUpRight
-                              size={15}
-                              strokeWidth={1.35}
-                              className="mt-0.5 shrink-0 text-[#B8AEA1] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[#A4773E]"
+                              className="
+                                h-full
+                                w-full
+                                object-cover
+                                transition-transform
+                                duration-700
+                                ease-out
+                                group-hover:scale-[1.045]
+                              "
                             />
-                          </div>
-
-                          {item.variant && (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {item.variant
-                                .color && (
-                                <span className="rounded-full border border-[#E1D9CE] bg-white px-2.5 py-1 text-[8px] font-medium text-[#766D63]">
-                                  {
-                                    item.variant
-                                      .color
-                                  }
-                                </span>
-                              )}
-
-                              {item.variant
-                                .material && (
-                                <span className="rounded-full border border-[#E1D9CE] bg-white px-2.5 py-1 text-[8px] font-medium text-[#766D63]">
-                                  {
-                                    item.variant
-                                      .material
-                                  }
-                                </span>
-                              )}
+                          ) : (
+                            <div className="flex h-full items-center justify-center">
+                              <Package
+                                size={24}
+                                strokeWidth={1}
+                                className="text-[#AAA198]"
+                              />
                             </div>
                           )}
                         </div>
 
-                        <div className="mt-4 flex items-end justify-between gap-3">
-                          <p className="text-[10px] uppercase tracking-widest text-[#8A8176]">
-                            Qty{" "}
-                            <span className="font-semibold text-[#5F584F]">
-                              {item.quantity}
-                            </span>
-                          </p>
+                        <div className="flex min-w-0 flex-1 flex-col justify-between">
+                          <div>
+                            <div className="flex items-start justify-between gap-3">
+                              <h3 className="font-serif text-[17px] leading-tight tracking-[-0.015em] text-[#29251F] sm:text-xl">
+                                {
+                                  item.productName
+                                }
+                              </h3>
 
-                          <p className="text-[15px] font-semibold tracking-[-0.01em] text-[#29251F] sm:text-base">
-                            ₹
-                            {item.subtotal.toLocaleString(
-                              "en-IN",
+                              <ArrowUpRight
+                                size={15}
+                                strokeWidth={1.35}
+                                className="mt-0.5 shrink-0 text-[#B8AEA1] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[#A4773E]"
+                              />
+                            </div>
+
+                            {item.variant && (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {item.variant
+                                  .color && (
+                                  <span className="rounded-full border border-[#E1D9CE] bg-white px-2.5 py-1 text-[8px] font-medium text-[#766D63]">
+                                    {
+                                      item.variant
+                                        .color
+                                    }
+                                  </span>
+                                )}
+
+                                {item.variant
+                                  .material && (
+                                  <span className="rounded-full border border-[#E1D9CE] bg-white px-2.5 py-1 text-[8px] font-medium text-[#766D63]">
+                                    {
+                                      item.variant
+                                        .material
+                                    }
+                                  </span>
+                                )}
+                              </div>
                             )}
-                          </p>
+
+                            {/* PRICE DETAILS */}
+
+                            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+                              {hasDiscount && (
+                                <span className="text-[11px] text-[#9A9288] line-through">
+                                  ₹
+                                  {item.originalPrice.toLocaleString(
+                                    "en-IN",
+                                  )}
+                                </span>
+                              )}
+
+                              <span className="text-[13px] font-semibold text-[#29251F]">
+                                ₹
+                                {item.price.toLocaleString(
+                                  "en-IN",
+                                )}
+                                <span className="ml-1 text-[10px] font-normal text-[#8A8176]">
+                                  each
+                                </span>
+                              </span>
+
+                              {hasDiscount && (
+                                <span className="rounded-full bg-[#EEF3EA] px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.08em] text-[#64754F]">
+                                  Save ₹
+                                  {item.discountAmount.toLocaleString(
+                                    "en-IN",
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="mt-4 flex items-end justify-between gap-3">
+                            <p className="text-[10px] uppercase tracking-widest text-[#8A8176]">
+                              Qty{" "}
+                              <span className="font-semibold text-[#5F584F]">
+                                {item.quantity}
+                              </span>
+                            </p>
+
+                            <div className="text-right">
+                              <p className="text-[9px] uppercase tracking-[0.12em] text-[#9A9288]">
+                                Item Total
+                              </p>
+
+                              <p className="mt-1 text-[15px] font-semibold tracking-[-0.01em] text-[#29251F] sm:text-base">
+                                ₹
+                                {item.subtotal.toLocaleString(
+                                  "en-IN",
+                                )}
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ),
+                    );
+                  },
                 )}
               </div>
             </section>
@@ -645,7 +719,7 @@ const OrderDetails = () => {
               ) : (
                 <div className="mt-8 space-y-7">
                   <TimelineItem
-                    active
+                    active={isConfirmed}
                     icon={
                       <Check
                         size={15}
@@ -657,7 +731,7 @@ const OrderDetails = () => {
                   />
 
                   <TimelineItem
-                    active={isConfirmed}
+                    active={isProcessing}
                     icon={
                       <Package
                         size={15}
@@ -665,7 +739,7 @@ const OrderDetails = () => {
                       />
                     }
                     title="Processing"
-                    description="Your order will be prepared shortly."
+                    description="Your order is being prepared."
                   />
 
                   <TimelineItem
@@ -721,12 +795,36 @@ const OrderDetails = () => {
 
               <div className="border-t border-white/10 px-6 py-6 sm:px-7">
                 <div className="space-y-4">
+                  {productDiscount > 0 && (
+                    <DarkSummaryRow
+                      label="Product Savings"
+                      value={`-₹${productDiscount.toLocaleString(
+                        "en-IN",
+                      )}`}
+                      accent
+                    />
+                  )}
+
                   <DarkSummaryRow
                     label="Subtotal"
                     value={`₹${order.subtotal.toLocaleString(
                       "en-IN",
                     )}`}
                   />
+
+                  {order.discountAmount > 0 && (
+                    <DarkSummaryRow
+                      label={
+                        order.couponCode
+                          ? `Coupon (${order.couponCode})`
+                          : "Coupon Discount"
+                      }
+                      value={`-₹${order.discountAmount.toLocaleString(
+                        "en-IN",
+                      )}`}
+                      accent
+                    />
+                  )}
 
                   <DarkSummaryRow
                     label="Shipping"

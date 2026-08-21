@@ -28,6 +28,10 @@ const env = {
   PRODUCT_SERVICE_URL:
     process.env.PRODUCT_SERVICE_URL ||
     "http://localhost:5002/api/v1/products",
+  
+   UTILS_SERVICE_URL:
+    process.env.UTILS_SERVICE_URL ||
+    "http://localhost:5005/api/v1",
 
   /*
    * ----------------------------------------

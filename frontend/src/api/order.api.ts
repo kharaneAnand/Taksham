@@ -42,8 +42,7 @@ const request = async <T>(
       credentials: "include",
 
       headers: {
-        Accept:
-          "application/json",
+        Accept: "application/json",
 
         "Content-Type":
           "application/json",
@@ -57,8 +56,43 @@ const request = async <T>(
     await response.json();
 
   if (!response.ok) {
+    console.error(
+      "Order API error:",
+      {
+        url,
+        status: response.status,
+        result,
+      },
+    );
+
+    const validationIssues =
+      result?.errors ||
+      result?.issues ||
+      result?.data;
+
+    const validationMessage =
+      Array.isArray(validationIssues)
+        ? validationIssues
+            .map(
+              (issue) => {
+                const field =
+                  Array.isArray(issue?.path)
+                    ? issue.path.join(".")
+                    : "";
+
+                return field
+                  ? `${field}: ${issue.message}`
+                  : issue.message;
+              },
+            )
+            .filter(Boolean)
+            .join(", ")
+        : "";
+
     throw new Error(
-      result?.message ||
+      validationMessage ||
+        result?.message ||
+        result?.error?.message ||
         "Something went wrong",
     );
   }
@@ -76,13 +110,6 @@ const request = async <T>(
  * Create Order
  *
  * POST /api/v1/orders
- *
- * CreateOrderInput includes:
- *
- * - shippingAddress
- * - shippingMethod
- * - paymentMethod
- * - couponCode (optional)
  */
 
 export const createOrder = (
