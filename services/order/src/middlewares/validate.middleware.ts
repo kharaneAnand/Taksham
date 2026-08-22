@@ -1,7 +1,7 @@
 import type {
   NextFunction,
   Request,
- Response,
+  Response,
 } from "express";
 
 import type {
@@ -65,8 +65,25 @@ const validate = (
       return;
     }
 
+    /*
+     * ========================================
+     * Store Validated Data
+     * ========================================
+     *
+     * Body:
+     * Keep existing behavior unchanged.
+     *
+     * Query and params:
+     * Store validated/coerced data in
+     * res.locals.validated.
+     * ========================================
+     */
+
     if (target === "body") {
       req.body = result.data;
+    } else {
+      _res.locals.validated =
+        result.data;
     }
 
     next();
