@@ -1924,6 +1924,22 @@ class OrderService {
 
     return order;
   }
+
+
+async getOrdersByUserId(
+  userId: string,
+) {
+  const orders =
+    await Order.find({
+      userId,
+    })
+      .sort({
+        createdAt: -1,
+      })
+      .lean();
+
+  return orders;
+}
 }
 
 export default new OrderService();

@@ -58,6 +58,14 @@ import crypto from "crypto";
 
 import MediaService from "./media.service.js";
 
+import type {
+  AdminCustomerQueryInput,
+} from "../validators/auth.validator.js";
+
+import {
+  UserRole,
+} from "../constants/role.js";
+
 
 class AuthService {
 
@@ -925,6 +933,258 @@ class AuthService {
 
     return userData;
   }
+
+
+
+/*
+ * ========================================
+ * Get All Customers
+ * Admin Only
+ * ========================================
+ *
+ * Supports:
+ *
+ * - Pagination
+ * - Search
+ * - Verification filter
+ * - Sorting
+ */
+
+async getAllCustomers(
+  query: AdminCustomerQueryInput,
+) {
+  const {
+    page,
+    limit,
+    search,
+    isVerified,
+    sort,
+  } = query;
+
+  /*
+   * ========================================
+   * Pagination
+   * ========================================
+   */
+
+  const skip =
+    (page - 1) *
+    limit;
+
+  /*
+   * ========================================
+   * Base Filter
+   * ========================================
+   *
+   * Only return CUSTOMER users.
+   */
+
+  const filter: Record<
+    string,
+    unknown
+  > = {
+    role: UserRole.CUSTOMER,
+  };
+
+  /*
+   * ========================================
+   * Search
+   * ========================================
+   *
+   * Search by:
+   *
+   * - First name
+   * - Last name
+   * - Email
+   * - Phone
+   */
+
+  if (
+    search &&
+    search.trim()
+  ) {
+    const searchRegex =
+      new RegExp(
+        search.trim(),
+        "i",
+      );
+
+    filter.$or = [
+      {
+        firstName:
+          searchRegex,
+      },
+      {
+        lastName:
+          searchRegex,
+      },
+      {
+        email:
+          searchRegex,
+      },
+      {
+        phone:
+          searchRegex,
+      },
+    ];
+  }
+
+  /*
+   * ========================================
+   * Verification Filter
+   * ========================================
+   */
+
+  if (
+    isVerified !==
+    undefined
+  ) {
+    filter.isVerified =
+      isVerified === "true";
+  }
+
+  /*
+   * ========================================
+   * Sorting
+   * ========================================
+   */
+
+  let sortOption:
+    Record<
+      string,
+      1 | -1
+    >;
+
+  switch (sort) {
+    case "oldest":
+      sortOption = {
+        createdAt: 1,
+      };
+      break;
+
+    case "name_asc":
+      sortOption = {
+        firstName: 1,
+        lastName: 1,
+      };
+      break;
+
+    case "name_desc":
+      sortOption = {
+        firstName: -1,
+        lastName: -1,
+      };
+      break;
+
+    case "newest":
+    default:
+      sortOption = {
+        createdAt: -1,
+      };
+      break;
+  }
+
+  /*
+   * ========================================
+   * Fetch Customers + Count
+   * ========================================
+   */
+
+  const [
+    customers,
+    totalCustomers,
+  ] =
+    await Promise.all([
+      User.find(
+        filter,
+      )
+        .select(
+          "-password -refreshToken",
+        )
+        .sort(
+          sortOption,
+        )
+        .skip(
+          skip,
+        )
+        .limit(
+          limit,
+        )
+        .lean(),
+
+      User.countDocuments(
+        filter,
+      ),
+    ]);
+
+  /*
+   * ========================================
+   * Pagination Data
+   * ========================================
+   */
+
+  const totalPages =
+    Math.ceil(
+      totalCustomers /
+        limit,
+    );
+
+  /*
+   * ========================================
+   * Response
+   * ========================================
+   */
+
+  return {
+    customers,
+
+    pagination: {
+      page,
+      limit,
+
+      totalCustomers,
+      totalPages,
+
+      hasNextPage:
+        page < totalPages,
+
+      hasPreviousPage:
+        page > 1,
+    },
+  };
+}
+
+/*
+ * ========================================
+ * ADMIN - Get Single Customer
+ * ========================================
+ */
+
+async getCustomerById(
+  customerId: string,
+) {
+  const customer =
+    await User.findOne({
+      _id: customerId,
+
+      role:
+        UserRole.CUSTOMER,
+    })
+      .select(
+        "-password -refreshToken",
+      )
+      .lean();
+
+  if (!customer) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      "Customer not found",
+    );
+  }
+
+  return customer;
+}
+
 }
 
 export default new AuthService();

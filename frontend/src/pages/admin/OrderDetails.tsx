@@ -848,7 +848,7 @@ const OrderDetails = () => {
                   </p>
                 </div>
 
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-[#D9B981]">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/6 text-[#D9B981]">
                   {getStatusIcon(
                     order.orderStatus,
                   )}
@@ -862,7 +862,7 @@ const OrderDetails = () => {
                   Current Status
                 </p>
 
-                <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-sm">
+                <div className="rounded-2xl border border-white/10 bg-white/6 p-4 backdrop-blur-sm">
                   <div className="flex items-center gap-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#C7A875] text-[#29251F] shadow-[0_8px_20px_rgba(199,168,117,0.18)]">
                       {getStatusIcon(
@@ -964,9 +964,9 @@ const OrderDetails = () => {
                   </div>
                 </div>
               ) : (
-                <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.05] p-4">
+                <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/[0.08] text-[#C7A875]">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/8 text-[#C7A875]">
                       <Check
                         size={18}
                         strokeWidth={1.8}

@@ -167,3 +167,51 @@ export interface VerifyPaymentInput {
 
   razorpaySignature: string;
 }
+
+/*
+ * ========================================
+ * Admin Order Types
+ * ========================================
+ */
+
+export type AdminOrderSort =
+  | "newest"
+  | "oldest"
+  | "total_asc"
+  | "total_desc";
+
+export interface GetAdminOrdersParams {
+  page?: number;
+
+  limit?: number;
+
+  search?: string;
+
+  orderStatus?: OrderStatus;
+
+  paymentStatus?: PaymentStatus;
+
+  paymentMethod?: PaymentMethod;
+
+  sort?: AdminOrderSort;
+}
+
+export interface AdminOrderPagination {
+  page: number;
+
+  limit: number;
+
+  totalOrders: number;
+
+  totalPages: number;
+
+  hasNextPage: boolean;
+
+  hasPreviousPage: boolean;
+}
+
+export interface AdminOrdersResponse {
+  orders: Order[];
+
+  pagination: AdminOrderPagination;
+}

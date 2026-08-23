@@ -50,6 +50,8 @@ import AddCoupon from "../pages/admin/AddCoupon";
 import EditCoupon from "../pages/admin/EditCoupon";
 import AdminOrders from "../pages/admin/Orders";
 import AdminOrderDetails from "../pages/admin/OrderDetails";
+import AdminCustomers from "../pages/admin/Customers";
+import AdminCustomerDetails from "../pages/admin/CustomerDetails";
 
 const AppRoutes = () => {
   return (
@@ -281,6 +283,15 @@ const AppRoutes = () => {
           <Route
             path="/admin/orders/:id"
             element={<AdminOrderDetails />}
+          />
+          <Route
+            path="/admin/customers"
+            element={<AdminCustomers />}
+          />
+
+          <Route
+            path="/admin/customers/:id"
+            element={<AdminCustomerDetails />}
           />
 
           </Route>

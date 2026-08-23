@@ -3,6 +3,8 @@ import type {
   CreatePaymentOrderResponse,
   Order,
   VerifyPaymentInput,
+  AdminOrdersResponse,
+  GetAdminOrdersParams,
 } from "../types/order";
 
 /*
@@ -221,6 +223,111 @@ export const verifyPayment = (
       body: JSON.stringify(
         data,
       ),
+    },
+  );
+};
+
+/*
+ * ========================================
+ * ADMIN - Get All Orders
+ *
+ * GET /api/v1/orders/admin
+ * ========================================
+ */
+
+export const getAllOrders = (
+  params: GetAdminOrdersParams = {},
+): Promise<AdminOrdersResponse> => {
+  const searchParams =
+    new URLSearchParams();
+
+  if (params.page) {
+    searchParams.set(
+      "page",
+      String(params.page),
+    );
+  }
+
+  if (params.limit) {
+    searchParams.set(
+      "limit",
+      String(params.limit),
+    );
+  }
+
+  if (
+    params.search &&
+    params.search.trim()
+  ) {
+    searchParams.set(
+      "search",
+      params.search.trim(),
+    );
+  }
+
+  if (params.orderStatus) {
+    searchParams.set(
+      "orderStatus",
+      params.orderStatus,
+    );
+  }
+
+  if (params.paymentStatus) {
+    searchParams.set(
+      "paymentStatus",
+      params.paymentStatus,
+    );
+  }
+
+  if (params.paymentMethod) {
+    searchParams.set(
+      "paymentMethod",
+      params.paymentMethod,
+    );
+  }
+
+  if (params.sort) {
+    searchParams.set(
+      "sort",
+      params.sort,
+    );
+  }
+
+  const queryString =
+    searchParams.toString();
+
+  const url =
+    `${ORDER_API_URL}/admin${
+      queryString
+        ? `?${queryString}`
+        : ""
+    }`;
+
+  return request<AdminOrdersResponse>(
+    url,
+    {
+      method: "GET",
+    },
+  );
+};
+
+/*
+ * ========================================
+ * Get Orders By User ID - ADMIN
+ *
+ * GET /api/v1/orders/admin/user/:userId
+ * ========================================
+ */
+
+export const getOrdersByUserId = (
+  userId: string,
+): Promise<Order[]> => {
+  return request<Order[]>(
+    `${ORDER_API_URL}/admin/user/${encodeURIComponent(
+      userId,
+    )}`,
+    {
+      method: "GET",
     },
   );
 };

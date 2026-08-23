@@ -116,5 +116,92 @@ export type ChangePasswordInput =
   }
 );
 
+
+
+
+
+export const adminCustomerQuerySchema =
+  z.object({
+    page: z
+      .coerce
+      .number()
+      .int()
+      .min(
+        1,
+        "Page must be at least 1",
+      )
+      .default(1),
+
+    limit: z
+      .coerce
+      .number()
+      .int()
+      .min(
+        1,
+        "Limit must be at least 1",
+      )
+      .max(
+        100,
+        "Limit cannot exceed 100",
+      )
+      .default(20),
+
+    search: z
+      .string()
+      .trim()
+      .max(
+        100,
+        "Search query is too long",
+      )
+      .optional(),
+
+    isVerified: z
+      .enum([
+        "true",
+        "false",
+      ])
+      .optional(),
+
+    sort: z
+      .enum([
+        "newest",
+        "oldest",
+        "name_asc",
+        "name_desc",
+      ])
+      .default(
+        "newest",
+      ),
+  });
+
+
+
+
+
+
+export const customerIdParamSchema =
+  z.object({
+    id: z
+      .string()
+      .trim()
+      .min(
+        1,
+        "Customer ID is required",
+      ),
+  });
+
+
+
+
+export type AdminCustomerQueryInput =
+  z.infer<
+    typeof adminCustomerQuerySchema
+  >;
+
+export type CustomerIdParam =
+  z.infer<
+    typeof customerIdParamSchema
+  >;
+
 export type UpdateProfileInput =
   z.infer<typeof updateProfileSchema>;

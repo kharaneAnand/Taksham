@@ -169,28 +169,27 @@ class OrderController {
    */
 
   getAllOrders = asyncHandler(
-    async (
-      req,
-      res,
-    ) => {
-      const query =
-        res.locals
-          .validated as AdminOrderQueryInput;
+  async (
+    _req,
+    res,
+  ) => {
+    const query =
+      res.locals
+        .validated as AdminOrderQueryInput;
 
-      const result =
-        await orderService.getAllOrders(
-          query,
-        );
-
-      successResponse(
-        res,
-        200,
-        ORDER_MESSAGES.ORDERS_FETCHED,
-        result,
+    const result =
+      await orderService.getAllOrders(
+        query,
       );
-    },
-  );
 
+    successResponse(
+      res,
+      200,
+      ORDER_MESSAGES.ORDERS_FETCHED,
+      result,
+    );
+  },
+);
   /*
    * ----------------------------------------
    * Update Order Status
@@ -237,6 +236,36 @@ class OrderController {
       );
     },
   );
+
+
+  /*
+ * ----------------------------------------
+ * Get Orders By Customer ID
+ *
+ * GET /api/v1/orders/admin/user/:userId
+ * ----------------------------------------
+ */
+
+getOrdersByUserId = asyncHandler<
+  { userId: string }
+>(
+  async (
+    req,
+    res,
+  ) => {
+    const orders =
+      await orderService.getOrdersByUserId(
+        req.params.userId,
+      );
+
+    successResponse(
+      res,
+      200,
+      ORDER_MESSAGES.ORDERS_FETCHED,
+      orders,
+    );
+  },
+);
 }
 
 export default new OrderController();

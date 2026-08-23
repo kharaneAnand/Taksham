@@ -8,7 +8,10 @@ import { COOKIE_NAMES } from "../constants/cookies.js";
 import authService from "../services/auth.service.js";
 import {accessTokenCookieOptions,refreshTokenCookieOptions,} from "../utils/cookie.js";
 import { ResendVerificationEmailInput, ForgotPasswordInput , ResetPasswordInput , ChangePasswordInput , UpdateProfileInput} from "../validators/auth.validator.js";
-
+import type {
+  AdminCustomerQueryInput,
+  CustomerIdParam,
+} from "../validators/auth.validator.js";
 
 class AuthController {
   register = asyncHandler(async (req: Request, res: Response) => {
@@ -305,6 +308,69 @@ deleteAvatar = asyncHandler(
 
   }
 );
+
+/*
+ * ========================================
+ * Get All Customers
+ * Admin Only
+ * ========================================
+ */
+
+getAllCustomers =
+  asyncHandler(
+    async (
+      _req,
+      res,
+    ) => {
+      const query =
+        res.locals.query as
+          AdminCustomerQueryInput;
+
+      const result =
+        await authService.getAllCustomers(
+          query,
+        );
+
+      successResponse(
+        res,
+        200,
+        "Customers fetched successfully",
+        result,
+      );
+    },
+  );
+
+/*
+ * ========================================
+ * Get Customer By ID
+ * Admin Only
+ * ========================================
+ */
+
+getCustomerById =
+  asyncHandler(
+    async (
+      _req,
+      res,
+    ) => {
+      const params =
+        res.locals
+          .params as CustomerIdParam;
+
+      const customer =
+        await authService.getCustomerById(
+          params.id,
+        );
+
+      successResponse(
+        res,
+        200,
+        "Customer fetched successfully",
+        customer,
+      );
+    },
+  );
+
 
 }
 

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import AuthController from "../controllers/auth.controller.js";
 import validate from "../middleware/validate.middleware.js";
-import { registerSchema , loginSchema , resendVerificationEmailSchema , forgotPasswordSchema , resetPasswordSchema , changePasswordSchema , updateProfileSchema} from "../validators/auth.validator.js";
+import { registerSchema , loginSchema , resendVerificationEmailSchema , forgotPasswordSchema , resetPasswordSchema , changePasswordSchema , updateProfileSchema , adminCustomerQuerySchema, customerIdParamSchema } from "../validators/auth.validator.js";
 import authenticate from "../middleware/auth.middleware.js";
 import authorize from "../middleware/authorize.middleware.js";
 import upload from "../utils/multer.js";
@@ -93,6 +93,57 @@ router.delete(
   "/profile/avatar",
   authenticate,
   AuthController.deleteAvatar
+);
+
+/*
+ * ========================================
+ * ADMIN - Get All Customers
+ *
+ * GET /api/v1/auth/admin/customers
+ * ========================================
+ */
+
+router.get(
+  "/admin/customers",
+
+  authenticate,
+
+  authorize(
+    UserRole.ADMIN,
+  ),
+
+  validate(
+    adminCustomerQuerySchema,
+    "query",
+  ),
+
+  AuthController.getAllCustomers,
+);
+
+
+/*
+ * ========================================
+ * ADMIN - Get Single Customer
+ *
+ * GET /api/v1/auth/admin/customers/:id
+ * ========================================
+ */
+
+router.get(
+  "/admin/customers/:id",
+
+  authenticate,
+
+  authorize(
+    UserRole.ADMIN,
+  ),
+
+  validate(
+    customerIdParamSchema,
+    "params",
+  ),
+
+  AuthController.getCustomerById,
 );
 
 
