@@ -42,6 +42,10 @@ import type {
   Offer,
 } from "../../types/offer";
 
+import type {
+  Settings,
+} from "../../api/settings.api";
+
 import {
   getAllCoupons,
 } from "../../api/coupon.api";
@@ -49,6 +53,10 @@ import {
 import {
   getActiveOffers,
 } from "../../api/offer.api";
+
+import {
+  getSettings,
+} from "../../api/settings.api";
 
 import {
   createOrder,
@@ -187,11 +195,20 @@ const initialAddress: AddressForm =
 
 const formatCurrency = (
   value: number,
-) =>
-  `₹${Math.max(
+  settings?: Settings | null,
+) => {
+  const safeValue = Math.max(
     0,
     Math.round(value),
-  ).toLocaleString("en-IN")}`;
+  );
+
+  const currencySymbol =
+    settings?.currencySymbol || "₹";
+
+  return `${currencySymbol}${safeValue.toLocaleString(
+    "en-IN",
+  )}`;
+};
 
 const getImageUrl = (
   image?:
@@ -304,6 +321,24 @@ const Checkout = () => {
   } = useCart();
 
   /* ========================================
+   * SETTINGS STATE
+   * ======================================== */
+
+  const [
+    settings,
+    setSettings,
+  ] =
+    useState<Settings | null>(
+      null,
+    );
+
+  const [
+    isSettingsLoading,
+    setIsSettingsLoading,
+  ] =
+    useState(true);
+
+  /* ========================================
    * OFFER STATE
    * ======================================== */
 
@@ -397,10 +432,138 @@ const Checkout = () => {
     >({});
 
   /* ========================================
+   * FETCH SETTINGS
+   * ======================================== */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchSettings =
+      async () => {
+        try {
+          setIsSettingsLoading(
+            true,
+          );
+
+          const response =
+            await getSettings();
+
+          if (
+            !cancelled
+          ) {
+            setSettings(
+              response,
+            );
+          }
+        } catch (
+          error
+        ) {
+          console.error(
+            "Failed to fetch settings:",
+            error,
+          );
+
+          if (
+            !cancelled
+          ) {
+            setSettings(
+              null,
+            );
+          }
+        } finally {
+          if (
+            !cancelled
+          ) {
+            setIsSettingsLoading(
+              false,
+            );
+          }
+        }
+      };
+
+    void fetchSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /* ========================================
+   * KEEP SHIPPING METHOD VALID
+   * ======================================== */
+
+  useEffect(() => {
+    if (
+      !settings
+    ) {
+      return;
+    }
+
+    if (
+      shippingMethod ===
+        "standard" &&
+      !settings.standardDeliveryEnabled &&
+      settings.expressDeliveryEnabled
+    ) {
+      setShippingMethod(
+        "express",
+      );
+    }
+
+    if (
+      shippingMethod ===
+        "express" &&
+      !settings.expressDeliveryEnabled &&
+      settings.standardDeliveryEnabled
+    ) {
+      setShippingMethod(
+        "standard",
+      );
+    }
+  }, [
+    settings,
+    shippingMethod,
+  ]);
+
+  /* ========================================
+   * KEEP PAYMENT METHOD VALID
+   * ======================================== */
+
+  useEffect(() => {
+    if (
+      !settings
+    ) {
+      return;
+    }
+
+    if (
+      paymentMethod ===
+        "cod" &&
+      !settings.codEnabled &&
+      settings.onlinePaymentEnabled
+    ) {
+      setPaymentMethod(
+        "online",
+      );
+    }
+
+    if (
+      paymentMethod ===
+        "online" &&
+      !settings.onlinePaymentEnabled &&
+      settings.codEnabled
+    ) {
+      setPaymentMethod(
+        "cod",
+      );
+    }
+  }, [
+    settings,
+    paymentMethod,
+  ]);
+
+  /* ========================================
    * FETCH ACTIVE OFFERS
-   *
-   * OFFERS ARE AUTOMATIC.
-   * USER DOES NOT ENTER ANY OFFER CODE.
    * ======================================== */
 
   useEffect(() => {
@@ -416,7 +579,9 @@ const Checkout = () => {
           const response =
             await getActiveOffers();
 
-          if (!cancelled) {
+          if (
+            !cancelled
+          ) {
             setOffers(
               Array.isArray(
                 response,
@@ -433,11 +598,15 @@ const Checkout = () => {
             error,
           );
 
-          if (!cancelled) {
+          if (
+            !cancelled
+          ) {
             setOffers([]);
           }
         } finally {
-          if (!cancelled) {
+          if (
+            !cancelled
+          ) {
             setIsOffersLoading(
               false,
             );
@@ -454,10 +623,6 @@ const Checkout = () => {
 
   /* ========================================
    * FETCH COUPONS
-   *
-   * COUPONS ARE NOT AUTOMATICALLY APPLIED.
-   * THEY ARE ONLY USED AFTER THE CUSTOMER
-   * ENTERS AND APPLIES A VALID CODE.
    * ======================================== */
 
   useEffect(() => {
@@ -473,7 +638,9 @@ const Checkout = () => {
           const response =
             await getAllCoupons();
 
-          if (!cancelled) {
+          if (
+            !cancelled
+          ) {
             setCoupons(
               Array.isArray(
                 response,
@@ -490,11 +657,15 @@ const Checkout = () => {
             error,
           );
 
-          if (!cancelled) {
+          if (
+            !cancelled
+          ) {
             setCoupons([]);
           }
         } finally {
-          if (!cancelled) {
+          if (
+            !cancelled
+          ) {
             setIsCouponsLoading(
               false,
             );
@@ -629,12 +800,6 @@ const Checkout = () => {
         return null;
       }
 
-      /*
-       * If multiple offers match,
-       * use the one giving the
-       * highest discount.
-       */
-
       return applicableOffers.reduce(
         (
           bestOffer,
@@ -677,7 +842,9 @@ const Checkout = () => {
       price: number,
       offer: Offer | null,
     ) => {
-      if (!offer) {
+      if (
+        !offer
+      ) {
         return 0;
       }
 
@@ -701,7 +868,7 @@ const Checkout = () => {
     };
 
   /* ========================================
-   * CART + AUTOMATIC OFFER CALCULATIONS
+   * CART SUMMARY
    * ======================================== */
 
   const cartSummary =
@@ -709,7 +876,6 @@ const Checkout = () => {
       return items.map(
         (item) => {
           const productId =
-            item.product._id ??
             item.product._id;
 
           const collectionId =
@@ -789,7 +955,9 @@ const Checkout = () => {
             item.originalTotal,
           0,
         ),
-      [cartSummary],
+      [
+        cartSummary,
+      ],
     );
 
   const offerDiscount =
@@ -804,15 +972,10 @@ const Checkout = () => {
             item.offerDiscount,
           0,
         ),
-      [cartSummary],
+      [
+        cartSummary,
+      ],
     );
-
-  /*
-   * This is the amount AFTER automatic
-   * product/collection offers.
-   *
-   * Coupon is calculated only on this amount.
-   */
 
   const subtotalAfterOffers =
     Math.max(
@@ -861,7 +1024,9 @@ const Checkout = () => {
             normalizedCode,
         );
 
-      if (!coupon) {
+      if (
+        !coupon
+      ) {
         toast.error(
           "Invalid coupon code",
         );
@@ -923,6 +1088,7 @@ const Checkout = () => {
           `Minimum order amount of ${formatCurrency(
             coupon.minimumOrderAmount ??
               0,
+            settings,
           )} is required`,
         );
 
@@ -967,28 +1133,19 @@ const Checkout = () => {
         "Coupon removed",
       );
     };
-
-  /* ========================================
+    /* ========================================
    * COUPON DISCOUNT
-   *
-   * ONLY RUNS WHEN selectedCoupon EXISTS.
-   * Typing a code alone does nothing.
    * ======================================== */
 
   const couponDiscount =
     useMemo(() => {
-      if (
-        !selectedCoupon
-      ) {
+      if (!selectedCoupon) {
         return 0;
       }
 
       if (
         subtotalAfterOffers <
-        (
-          selectedCoupon.minimumOrderAmount ??
-          0
-        )
+        (selectedCoupon.minimumOrderAmount ?? 0)
       ) {
         return 0;
       }
@@ -998,10 +1155,9 @@ const Checkout = () => {
         "percentage"
       ) {
         const calculatedDiscount =
-          (
-            subtotalAfterOffers *
-            selectedCoupon.discountValue
-          ) / 100;
+          (subtotalAfterOffers *
+            selectedCoupon.discountValue) /
+          100;
 
         const maximumDiscount =
           selectedCoupon.maximumDiscountAmount;
@@ -1032,15 +1188,59 @@ const Checkout = () => {
 
   /* ========================================
    * SHIPPING
+   *
+   * VALUES COME FROM ADMIN SETTINGS.
    * ======================================== */
 
   const shippingCost =
-    shippingMethod ===
-    "express"
-      ? 199
-      : amountAfterDiscounts >= 999
-        ? 0
-        : 99;
+    useMemo(() => {
+      if (!settings) {
+        return 0;
+      }
+
+      if (
+        shippingMethod === "express"
+      ) {
+        if (
+          !settings.expressDeliveryEnabled
+        ) {
+          return 0;
+        }
+
+        return Math.max(
+          0,
+          Number(
+            settings.expressDeliveryCharge,
+          ) || 0,
+        );
+      }
+
+      if (
+        !settings.standardDeliveryEnabled
+      ) {
+        return 0;
+      }
+
+      return Math.max(
+        0,
+        Number(
+          settings.standardDeliveryCharge,
+        ) || 0,
+      );
+    }, [
+      settings,
+      shippingMethod,
+    ]);
+
+  const selectedDeliveryMinDays =
+    shippingMethod === "express"
+      ? settings?.expressDeliveryMinDays ?? 0
+      : settings?.standardDeliveryMinDays ?? 0;
+
+  const selectedDeliveryMaxDays =
+    shippingMethod === "express"
+      ? settings?.expressDeliveryMaxDays ?? 0
+      : settings?.standardDeliveryMaxDays ?? 0;
 
   /* ========================================
    * FINAL TOTAL
@@ -1138,9 +1338,7 @@ const Checkout = () => {
           <button
             type="button"
             onClick={() =>
-              navigate(
-                "/products",
-              )
+              navigate("/products")
             }
             className="
               mt-7
@@ -1189,9 +1387,7 @@ const Checkout = () => {
         }),
       );
 
-      if (
-        errors[field]
-      ) {
+      if (errors[field]) {
         setErrors(
           (
             currentErrors,
@@ -1204,106 +1400,104 @@ const Checkout = () => {
     };
 
   const validateAddress =
-  (): boolean => {
-    const nextErrors:
-      Partial<
-        Record<
-          keyof AddressForm,
-          string
-        >
-      > = {};
+    (): boolean => {
+      const nextErrors:
+        Partial<
+          Record<
+            keyof AddressForm,
+            string
+          >
+        > = {};
 
-    if (
-      !address.firstName.trim()
-    ) {
-      nextErrors.firstName =
-        "First name is required";
-    }
+      if (
+        !address.firstName.trim()
+      ) {
+        nextErrors.firstName =
+          "First name is required";
+      }
 
-    if (
-      !address.lastName.trim()
-    ) {
-      nextErrors.lastName =
-        "Last name is required";
-    }
+      if (
+        !address.lastName.trim()
+      ) {
+        nextErrors.lastName =
+          "Last name is required";
+      }
 
-    if (
-      !address.phone.trim()
-    ) {
-      nextErrors.phone =
-        "Phone number is required";
-    } else if (
-      !/^[6-9]\d{9}$/.test(
-        address.phone.trim(),
-      )
-    ) {
-      nextErrors.phone =
-        "Enter a valid 10-digit phone number";
-    }
+      if (
+        !address.phone.trim()
+      ) {
+        nextErrors.phone =
+          "Phone number is required";
+      } else if (
+        !/^[6-9]\d{9}$/.test(
+          address.phone.trim(),
+        )
+      ) {
+        nextErrors.phone =
+          "Enter a valid 10-digit phone number";
+      }
 
-    if (
-      !address.address.trim()
-    ) {
-      nextErrors.address =
-        "Address is required";
-    } else if (
-      address.address.trim().length < 5
-    ) {
-      nextErrors.address =
-        "Address is too short";
-    }
+      if (
+        !address.address.trim()
+      ) {
+        nextErrors.address =
+          "Address is required";
+      } else if (
+        address.address
+          .trim()
+          .length < 5
+      ) {
+        nextErrors.address =
+          "Address is too short";
+      }
 
-    if (
-      !address.city.trim()
-    ) {
-      nextErrors.city =
-        "City is required";
-    }
+      if (
+        !address.city.trim()
+      ) {
+        nextErrors.city =
+          "City is required";
+      }
 
-    if (
-      !address.state.trim()
-    ) {
-      nextErrors.state =
-        "State is required";
-    }
+      if (
+        !address.state.trim()
+      ) {
+        nextErrors.state =
+          "State is required";
+      }
 
-    if (
-      !address.pincode.trim()
-    ) {
-      nextErrors.pincode =
-        "Pincode is required";
-    } else if (
-      !/^\d{6}$/.test(
-        address.pincode.trim(),
-      )
-    ) {
-      nextErrors.pincode =
-        "Enter a valid 6-digit pincode";
-    }
+      if (
+        !address.pincode.trim()
+      ) {
+        nextErrors.pincode =
+          "Pincode is required";
+      } else if (
+        !/^\d{6}$/.test(
+          address.pincode.trim(),
+        )
+      ) {
+        nextErrors.pincode =
+          "Enter a valid 6-digit pincode";
+      }
 
-    setErrors(
-      nextErrors,
-    );
+      setErrors(nextErrors);
 
-    const firstError =
-      Object.values(
-        nextErrors,
-      )[0];
+      const firstError =
+        Object.values(
+          nextErrors,
+        )[0];
 
-    if (
-      firstError
-    ) {
-      toast.error(
-        firstError,
+      if (firstError) {
+        toast.error(
+          firstError,
+        );
+      }
+
+      return (
+        Object.keys(
+          nextErrors,
+        ).length === 0
       );
-    }
-
-    return (
-      Object.keys(
-        nextErrors,
-      ).length === 0
-    );
-  };
+    };
 
   /* ========================================
    * RAZORPAY
@@ -1317,9 +1511,13 @@ const Checkout = () => {
         orderNumber: string;
       },
     ) => {
-      if (
-        !RAZORPAY_KEY_ID
-      ) {
+      if (!settings?.onlinePaymentEnabled) {
+        throw new Error(
+          "Online payment is currently unavailable.",
+        );
+      }
+
+      if (!RAZORPAY_KEY_ID) {
         throw new Error(
           "Razorpay Key ID is not configured.",
         );
@@ -1343,17 +1541,14 @@ const Checkout = () => {
         );
 
       if (
-        !paymentOrder
-          ?.razorpayOrderId
+        !paymentOrder?.razorpayOrderId
       ) {
         throw new Error(
           "Razorpay order ID was not returned by the server.",
         );
       }
 
-      if (
-        !paymentOrder.amount
-      ) {
+      if (!paymentOrder.amount) {
         throw new Error(
           "Invalid Razorpay payment amount.",
         );
@@ -1369,9 +1564,12 @@ const Checkout = () => {
 
           currency:
             paymentOrder.currency ||
+            settings.currency ||
             "INR",
 
-          name: "Taksham",
+          name:
+            settings.storeName ||
+            "Taksham",
 
           description:
             `Order ${order.orderNumber}`,
@@ -1402,21 +1600,19 @@ const Checkout = () => {
               response,
             ) => {
               try {
-                await verifyPayment(
-                  {
-                    orderId:
-                      order._id,
+                await verifyPayment({
+                  orderId:
+                    order._id,
 
-                    razorpayPaymentId:
-                      response.razorpay_payment_id,
+                  razorpayPaymentId:
+                    response.razorpay_payment_id,
 
-                    razorpayOrderId:
-                      response.razorpay_order_id,
+                  razorpayOrderId:
+                    response.razorpay_order_id,
 
-                    razorpaySignature:
-                      response.razorpay_signature,
-                  },
-                );
+                  razorpaySignature:
+                    response.razorpay_signature,
+                });
 
                 clearCart();
 
@@ -1436,8 +1632,7 @@ const Checkout = () => {
                 );
 
                 toast.error(
-                  error instanceof
-                    Error
+                  error instanceof Error
                     ? error.message
                     : "Payment verification failed",
                 );
@@ -1487,131 +1682,187 @@ const Checkout = () => {
 
   /* ========================================
    * PLACE ORDER
-   *
-   * couponCode is sent ONLY if the customer
-   * manually applied a coupon.
-   *
-   * Offers are automatic and the backend
-   * must calculate eligible offers again.
    * ======================================== */
 
   const handlePlaceOrder =
-  async () => {
-    if (isPlacingOrder) {
-      return;
-    }
+    async () => {
+      if (isPlacingOrder) {
+        return;
+      }
 
-    if (!validateAddress()) {
-      return;
-    }
-
-    if (
-      paymentMethod === "online" &&
-      !RAZORPAY_KEY_ID
-    ) {
-      toast.error(
-        "Online payment is not configured. Please check the Razorpay Key ID.",
-      );
-
-      return;
-    }
-
-    try {
-      setIsPlacingOrder(true);
-
-      const orderData: CreateOrderInput = {
-        shippingAddress: {
-          firstName:
-            address.firstName.trim(),
-
-          lastName:
-            address.lastName.trim(),
-
-          phone:
-            address.phone.trim(),
-
-          address:
-            address.address.trim(),
-
-          city:
-            address.city.trim(),
-
-          state:
-            address.state.trim(),
-
-          pincode:
-            address.pincode.trim(),
-
-          ...(address.landmark.trim()
-            ? {
-                landmark:
-                  address.landmark.trim(),
-              }
-            : {}),
-        },
-
-        shippingMethod:
-          shippingMethod === "express"
-            ? "express"
-            : "standard",
-
-        paymentMethod:
-          paymentMethod === "online"
-            ? "online"
-            : "cod",
-
-        ...(selectedCoupon?.code?.trim()
-          ? {
-              couponCode:
-                selectedCoupon.code
-                  .trim()
-                  .toUpperCase(),
-            }
-          : {}),
-      };
-
-      console.log(
-        "Creating order with payload:",
-        orderData,
-      );
-
-      const order =
-        await createOrder(orderData);
-
-      if (paymentMethod === "cod") {
-        await clearCart();
-
-        toast.success(
-          "Order placed successfully!",
-        );
-
-        navigate(
-          `/orders/${order._id}`,
+      if (!settings) {
+        toast.error(
+          "Store settings are still loading. Please try again.",
         );
 
         return;
       }
 
-      await openRazorpayCheckout(
-        order,
-      );
-    } catch (error) {
-      console.error(
-        "Failed to place order:",
-        error,
-      );
+      if (
+        !settings.standardDeliveryEnabled &&
+        !settings.expressDeliveryEnabled
+      ) {
+        toast.error(
+          "Delivery is currently unavailable.",
+        );
 
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to place order",
-      );
+        return;
+      }
 
-      setIsPlacingOrder(false);
-    }
-  };
+      if (
+        shippingMethod === "standard" &&
+        !settings.standardDeliveryEnabled
+      ) {
+        toast.error(
+          "Standard delivery is currently unavailable.",
+        );
 
-  return (
+        return;
+      }
+
+      if (
+        shippingMethod === "express" &&
+        !settings.expressDeliveryEnabled
+      ) {
+        toast.error(
+          "Express delivery is currently unavailable.",
+        );
+
+        return;
+      }
+
+      if (
+        paymentMethod === "cod" &&
+        !settings.codEnabled
+      ) {
+        toast.error(
+          "Cash on Delivery is currently unavailable.",
+        );
+
+        return;
+      }
+
+      if (
+        paymentMethod === "online" &&
+        !settings.onlinePaymentEnabled
+      ) {
+        toast.error(
+          "Online payment is currently unavailable.",
+        );
+
+        return;
+      }
+
+      if (!validateAddress()) {
+        return;
+      }
+
+      if (
+        paymentMethod === "online" &&
+        !RAZORPAY_KEY_ID
+      ) {
+        toast.error(
+          "Online payment is not configured. Please check the Razorpay Key ID.",
+        );
+
+        return;
+      }
+
+      try {
+        setIsPlacingOrder(true);
+
+        const orderData:
+          CreateOrderInput = {
+            shippingAddress: {
+              firstName:
+                address.firstName.trim(),
+
+              lastName:
+                address.lastName.trim(),
+
+              phone:
+                address.phone.trim(),
+
+              address:
+                address.address.trim(),
+
+              city:
+                address.city.trim(),
+
+              state:
+                address.state.trim(),
+
+              pincode:
+                address.pincode.trim(),
+
+              ...(address.landmark.trim()
+                ? {
+                    landmark:
+                      address.landmark.trim(),
+                  }
+                : {}),
+            },
+
+            shippingMethod:
+              shippingMethod === "express"
+                ? "express"
+                : "standard",
+
+            paymentMethod:
+              paymentMethod === "online"
+                ? "online"
+                : "cod",
+
+            ...(selectedCoupon?.code?.trim()
+              ? {
+                  couponCode:
+                    selectedCoupon.code
+                      .trim()
+                      .toUpperCase(),
+                }
+              : {}),
+          };
+
+        const order =
+          await createOrder(
+            orderData,
+          );
+
+        if (
+          paymentMethod === "cod"
+        ) {
+          await clearCart();
+
+          toast.success(
+            "Order placed successfully!",
+          );
+
+          navigate(
+            `/orders/${order._id}`,
+          );
+
+          return;
+        }
+
+        await openRazorpayCheckout(
+          order,
+        );
+      } catch (error) {
+        console.error(
+          "Failed to place order:",
+          error,
+        );
+
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Failed to place order",
+        );
+
+        setIsPlacingOrder(false);
+      }
+    };
+    return (
     <main
       className="
         min-h-screen
@@ -1682,9 +1933,7 @@ const Checkout = () => {
               sm:flex
             "
           >
-            <Package
-              size={14}
-            />
+            <Package size={14} />
 
             {totalItems} item
             {totalItems !== 1
@@ -1742,9 +1991,7 @@ const Checkout = () => {
                     text-[#9A7138]
                   "
                 >
-                  <MapPin
-                    size={16}
-                  />
+                  <MapPin size={16} />
                 </div>
 
                 <div>
@@ -1849,8 +2096,7 @@ const Checkout = () => {
                         ) =>
                           handleAddressChange(
                             field,
-                            event.target
-                              .value,
+                            event.target.value,
                           )
                         }
                         className={`
@@ -1865,18 +2111,14 @@ const Checkout = () => {
                           outline-none
                           transition
                           ${
-                            errors[
-                              field
-                            ]
+                            errors[field]
                               ? "border-red-400"
                               : "border-[#DDD2C5] focus:border-[#A4773E]"
                           }
                         `}
                       />
 
-                      {errors[
-                        field
-                      ] && (
+                      {errors[field] && (
                         <p
                           className="
                             mt-1
@@ -1884,11 +2126,7 @@ const Checkout = () => {
                             text-red-500
                           "
                         >
-                          {
-                            errors[
-                              field
-                            ]
-                          }
+                          {errors[field]}
                         </p>
                       )}
                     </label>
@@ -1956,9 +2194,7 @@ const Checkout = () => {
                         text-red-500
                       "
                     >
-                      {
-                        errors.address
-                      }
+                      {errors.address}
                     </p>
                   )}
                 </label>
@@ -1981,6 +2217,7 @@ const Checkout = () => {
                     "
                   >
                     Landmark
+
                     <span
                       className="
                         ml-1
@@ -2058,9 +2295,7 @@ const Checkout = () => {
                     text-[#9A7138]
                   "
                 >
-                  <Truck
-                    size={16}
-                  />
+                  <Truck size={16} />
                 </div>
 
                 <div>
@@ -2093,126 +2328,165 @@ const Checkout = () => {
                   sm:grid-cols-2
                 "
               >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShippingMethod(
-                      "standard",
-                    )
-                  }
-                  className={`
-                    rounded-xl
-                    border
-                    p-4
-                    text-left
-                    transition
-                    ${
-                      shippingMethod ===
-                      "standard"
-                        ? "border-[#A4773E] bg-[#FBF5ED]"
-                        : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
+                {settings?.standardDeliveryEnabled && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShippingMethod(
+                        "standard",
+                      )
                     }
-                  `}
-                >
-                  <div
-                    className="
-                      flex
-                      items-center
-                      justify-between
-                    "
+                    className={`
+                      rounded-xl
+                      border
+                      p-4
+                      text-left
+                      transition
+                      ${
+                        shippingMethod ===
+                        "standard"
+                          ? "border-[#A4773E] bg-[#FBF5ED]"
+                          : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
+                      }
+                    `}
                   >
-                    <span
+                    <div
                       className="
-                        text-[10px]
-                        font-semibold
-                        text-[#332D27]
+                        flex
+                        items-center
+                        justify-between
                       "
                     >
-                      Standard Delivery
-                    </span>
-
-                    {shippingMethod ===
-                      "standard" && (
-                      <Check
-                        size={15}
+                      <span
                         className="
-                          text-[#A4773E]
+                          text-[10px]
+                          font-semibold
+                          text-[#332D27]
                         "
-                      />
-                    )}
-                  </div>
+                      >
+                        Standard Delivery
+                      </span>
 
-                  <p
-                    className="
-                      mt-2
-                      text-[9px]
-                      text-[#8B8074]
-                    "
-                  >
-                    Free above ₹999
-                  </p>
-                </button>
+                      {shippingMethod ===
+                        "standard" && (
+                        <Check
+                          size={15}
+                          className="
+                            text-[#A4773E]
+                          "
+                        />
+                      )}
+                    </div>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShippingMethod(
-                      "express",
-                    )
-                  }
-                  className={`
-                    rounded-xl
-                    border
-                    p-4
-                    text-left
-                    transition
-                    ${
-                      shippingMethod ===
-                      "express"
-                        ? "border-[#A4773E] bg-[#FBF5ED]"
-                        : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
-                    }
-                  `}
-                >
-                  <div
-                    className="
-                      flex
-                      items-center
-                      justify-between
-                    "
-                  >
-                    <span
+                    <p
                       className="
-                        text-[10px]
-                        font-semibold
-                        text-[#332D27]
+                        mt-2
+                        text-[9px]
+                        text-[#8B8074]
                       "
                     >
-                      Express Delivery
-                    </span>
+                      {formatCurrency(
+                        Number(
+                          settings.standardDeliveryCharge,
+                        ) || 0,
+                      )}
 
-                    {shippingMethod ===
-                      "express" && (
-                      <Check
-                        size={15}
-                        className="
-                          text-[#A4773E]
-                        "
-                      />
-                    )}
-                  </div>
+                      {" · "}
 
-                  <p
-                    className="
-                      mt-2
-                      text-[9px]
-                      text-[#8B8074]
-                    "
+                      {settings.standardDeliveryMinDays ===
+                      settings.standardDeliveryMaxDays
+                        ? `${settings.standardDeliveryMinDays} day delivery`
+                        : `${settings.standardDeliveryMinDays}-${settings.standardDeliveryMaxDays} days delivery`}
+                    </p>
+                  </button>
+                )}
+
+                {settings?.expressDeliveryEnabled && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShippingMethod(
+                        "express",
+                      )
+                    }
+                    className={`
+                      rounded-xl
+                      border
+                      p-4
+                      text-left
+                      transition
+                      ${
+                        shippingMethod ===
+                        "express"
+                          ? "border-[#A4773E] bg-[#FBF5ED]"
+                          : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
+                      }
+                    `}
                   >
-                    ₹199 · Faster delivery
-                  </p>
-                </button>
+                    <div
+                      className="
+                        flex
+                        items-center
+                        justify-between
+                      "
+                    >
+                      <span
+                        className="
+                          text-[10px]
+                          font-semibold
+                          text-[#332D27]
+                        "
+                      >
+                        Express Delivery
+                      </span>
+
+                      {shippingMethod ===
+                        "express" && (
+                        <Check
+                          size={15}
+                          className="
+                            text-[#A4773E]
+                          "
+                        />
+                      )}
+                    </div>
+
+                    <p
+                      className="
+                        mt-2
+                        text-[9px]
+                        text-[#8B8074]
+                      "
+                    >
+                      {formatCurrency(
+                        Number(
+                          settings.expressDeliveryCharge,
+                        ) || 0,
+                      )}
+
+                      {" · "}
+
+                      {settings.expressDeliveryMinDays ===
+                      settings.expressDeliveryMaxDays
+                        ? `${settings.expressDeliveryMinDays} day delivery`
+                        : `${settings.expressDeliveryMinDays}-${settings.expressDeliveryMaxDays} days delivery`}
+                    </p>
+                  </button>
+                )}
               </div>
+
+              {!isSettingsLoading &&
+                !settings?.standardDeliveryEnabled &&
+                !settings?.expressDeliveryEnabled && (
+                  <p
+                    className="
+                      text-[10px]
+                      text-[#A05D52]
+                    "
+                  >
+                    Delivery is currently unavailable.
+                  </p>
+                )}
             </section>
 
             {/* PAYMENT */}
@@ -2248,9 +2522,7 @@ const Checkout = () => {
                     text-[#9A7138]
                   "
                 >
-                  <CreditCard
-                    size={16}
-                  />
+                  <CreditCard size={16} />
                 </div>
 
                 <div>
@@ -2283,126 +2555,143 @@ const Checkout = () => {
                   sm:grid-cols-2
                 "
               >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPaymentMethod(
-                      "cod",
-                    )
-                  }
-                  className={`
-                    rounded-xl
-                    border
-                    p-4
-                    text-left
-                    transition
-                    ${
-                      paymentMethod ===
-                      "cod"
-                        ? "border-[#A4773E] bg-[#FBF5ED]"
-                        : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
+                {settings?.codEnabled && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPaymentMethod(
+                        "cod",
+                      )
                     }
-                  `}
-                >
-                  <div
-                    className="
-                      flex
-                      items-center
-                      justify-between
-                    "
+                    className={`
+                      rounded-xl
+                      border
+                      p-4
+                      text-left
+                      transition
+                      ${
+                        paymentMethod ===
+                        "cod"
+                          ? "border-[#A4773E] bg-[#FBF5ED]"
+                          : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
+                      }
+                    `}
                   >
-                    <span
+                    <div
                       className="
-                        text-[10px]
-                        font-semibold
-                        text-[#332D27]
+                        flex
+                        items-center
+                        justify-between
                       "
                     >
-                      Cash on Delivery
-                    </span>
-
-                    {paymentMethod ===
-                      "cod" && (
-                      <Check
-                        size={15}
+                      <span
                         className="
-                          text-[#A4773E]
+                          text-[10px]
+                          font-semibold
+                          text-[#332D27]
                         "
-                      />
-                    )}
-                  </div>
+                      >
+                        Cash on Delivery
+                      </span>
 
-                  <p
-                    className="
-                      mt-2
-                      text-[9px]
-                      text-[#8B8074]
-                    "
-                  >
-                    Pay when your order arrives
-                  </p>
-                </button>
+                      {paymentMethod ===
+                        "cod" && (
+                        <Check
+                          size={15}
+                          className="
+                            text-[#A4773E]
+                          "
+                        />
+                      )}
+                    </div>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPaymentMethod(
-                      "online",
-                    )
-                  }
-                  className={`
-                    rounded-xl
-                    border
-                    p-4
-                    text-left
-                    transition
-                    ${
-                      paymentMethod ===
-                      "online"
-                        ? "border-[#A4773E] bg-[#FBF5ED]"
-                        : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
-                    }
-                  `}
-                >
-                  <div
-                    className="
-                      flex
-                      items-center
-                      justify-between
-                    "
-                  >
-                    <span
+                    <p
                       className="
-                        text-[10px]
-                        font-semibold
-                        text-[#332D27]
+                        mt-2
+                        text-[9px]
+                        text-[#8B8074]
                       "
                     >
-                      Pay Online
-                    </span>
+                      Pay when your order arrives
+                    </p>
+                  </button>
+                )}
 
-                    {paymentMethod ===
-                      "online" && (
-                      <Check
-                        size={15}
-                        className="
-                          text-[#A4773E]
-                        "
-                      />
-                    )}
-                  </div>
-
-                  <p
-                    className="
-                      mt-2
-                      text-[9px]
-                      text-[#8B8074]
-                    "
+                {settings?.onlinePaymentEnabled && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPaymentMethod(
+                        "online",
+                      )
+                    }
+                    className={`
+                      rounded-xl
+                      border
+                      p-4
+                      text-left
+                      transition
+                      ${
+                        paymentMethod ===
+                        "online"
+                          ? "border-[#A4773E] bg-[#FBF5ED]"
+                          : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
+                      }
+                    `}
                   >
-                    Secure payment with Razorpay
-                  </p>
-                </button>
+                    <div
+                      className="
+                        flex
+                        items-center
+                        justify-between
+                      "
+                    >
+                      <span
+                        className="
+                          text-[10px]
+                          font-semibold
+                          text-[#332D27]
+                        "
+                      >
+                        Pay Online
+                      </span>
+
+                      {paymentMethod ===
+                        "online" && (
+                        <Check
+                          size={15}
+                          className="
+                            text-[#A4773E]
+                          "
+                        />
+                      )}
+                    </div>
+
+                    <p
+                      className="
+                        mt-2
+                        text-[9px]
+                        text-[#8B8074]
+                      "
+                    >
+                      Secure payment with Razorpay
+                    </p>
+                  </button>
+                )}
               </div>
+
+              {!isSettingsLoading &&
+                !settings?.codEnabled &&
+                !settings?.onlinePaymentEnabled && (
+                  <p
+                    className="
+                      text-[10px]
+                      text-[#A05D52]
+                    "
+                  >
+                    Payment is currently unavailable.
+                  </p>
+                )}
             </section>
           </div>
 
@@ -2468,9 +2757,7 @@ const Checkout = () => {
                   text-[#9A7138]
                 "
               >
-                <Package
-                  size={16}
-                />
+                <Package size={16} />
               </div>
             </div>
 
@@ -2503,7 +2790,6 @@ const Checkout = () => {
                   return (
                     <div
                       key={
-                        item.product._id ??
                         item.product._id
                       }
                       className="
@@ -2528,9 +2814,7 @@ const Checkout = () => {
                       >
                         {imageUrl ? (
                           <img
-                            src={
-                              imageUrl
-                            }
+                            src={imageUrl}
                             alt={
                               item.product.name
                             }
@@ -2594,9 +2878,7 @@ const Checkout = () => {
                               text-[#587154]
                             "
                           >
-                            <Tag
-                              size={9}
-                            />
+                            <Tag size={9} />
 
                             {offer.name}
                           </div>
@@ -2902,9 +3184,7 @@ const Checkout = () => {
                     "
                     aria-label="Remove coupon"
                   >
-                    <X
-                      size={14}
-                    />
+                    <X size={14} />
                   </button>
                 </div>
               )}
@@ -2966,9 +3246,7 @@ const Checkout = () => {
                       text-[#65805F]
                     "
                   >
-                    <Tag
-                      size={12}
-                    />
+                    <Tag size={12} />
 
                     Product Offers
                   </span>
@@ -3004,9 +3282,7 @@ const Checkout = () => {
                       text-[#65805F]
                     "
                   >
-                    <Gift
-                      size={12}
-                    />
+                    <Gift size={12} />
 
                     Coupon (
                     {
@@ -3051,14 +3327,45 @@ const Checkout = () => {
                     text-[#403931]
                   "
                 >
-                  {shippingCost ===
-                  0
+                  {shippingCost === 0
                     ? "FREE"
                     : formatCurrency(
                         shippingCost,
                       )}
                 </span>
               </div>
+
+              {(selectedDeliveryMinDays > 0 ||
+                selectedDeliveryMaxDays > 0) && (
+                <div
+                  className="
+                    flex
+                    items-center
+                    justify-between
+                    text-[9px]
+                  "
+                >
+                  <span
+                    className="
+                      text-[#978D82]
+                    "
+                  >
+                    Estimated delivery
+                  </span>
+
+                  <span
+                    className="
+                      font-medium
+                      text-[#75695D]
+                    "
+                  >
+                    {selectedDeliveryMinDays ===
+                    selectedDeliveryMaxDays
+                      ? `${selectedDeliveryMinDays} day`
+                      : `${selectedDeliveryMinDays}-${selectedDeliveryMaxDays} days`}
+                  </span>
+                </div>
+              )}
 
               {totalSavings > 0 && (
                 <div
@@ -3150,7 +3457,13 @@ const Checkout = () => {
                 handlePlaceOrder
               }
               disabled={
-                isPlacingOrder
+                isPlacingOrder ||
+                isSettingsLoading ||
+                !settings ||
+                (!settings.standardDeliveryEnabled &&
+                  !settings.expressDeliveryEnabled) ||
+                (!settings.codEnabled &&
+                  !settings.onlinePaymentEnabled)
               }
               className="
                 mt-6
@@ -3174,7 +3487,8 @@ const Checkout = () => {
                 disabled:opacity-70
               "
             >
-              {isPlacingOrder ? (
+              {isPlacingOrder ||
+              isSettingsLoading ? (
                 <>
                   <Loader2
                     size={15}
@@ -3183,26 +3497,24 @@ const Checkout = () => {
                     "
                   />
 
-                  Processing...
+                  {isSettingsLoading
+                    ? "Loading..."
+                    : "Processing..."}
                 </>
               ) : paymentMethod ===
                 "online" ? (
                 <>
-                  <CreditCard
-                    size={15}
-                  />
+                  <CreditCard size={15} />
 
-                  Pay
-                  {" "}
+                  Pay{" "}
+
                   {formatCurrency(
                     estimatedTotal,
                   )}
                 </>
               ) : (
                 <>
-                  <Check
-                    size={15}
-                  />
+                  <Check size={15} />
 
                   Place Order
                 </>

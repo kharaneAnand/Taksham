@@ -8,7 +8,7 @@ import morgan from "morgan";
 import productRoutes from "./routes/product.routes.js";
 import categoryRoutes from "./routes/category.routes.js";
 import collectionRoutes from "./routes/collection.routes.js";
-
+import settingsRoutes from "./routes/settings.routes.js";
 import errorHandler from "./middleware/error.middleware.js";
 
 const app = express();
@@ -55,6 +55,10 @@ app.use(
   collectionRoutes,
 );
 
+app.use(
+  "/api/v1/settings",
+  settingsRoutes,
+);
 
 
 app.get("/", (_req, res) => {
