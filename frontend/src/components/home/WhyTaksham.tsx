@@ -4,6 +4,8 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import { useNavigate } from "react-router-dom";
+
 import brandImage from "../../assets/images/looks/whyTaksham.png";
 
 const highlights = [
@@ -34,6 +36,8 @@ const highlights = [
 ];
 
 const WhyTaksham = () => {
+
+   const navigate = useNavigate();
   return (
     <section className="relative w-full overflow-hidden bg-[#FAF8F4] py-8 sm:py-10 lg:py-11">
 
@@ -503,6 +507,7 @@ const WhyTaksham = () => {
                   </div>
 
                   <button
+                   onClick={() => navigate("/about")}
                     className="
                       group
                       flex

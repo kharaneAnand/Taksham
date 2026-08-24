@@ -163,6 +163,38 @@ interface CouponDiscountResult {
 
 /*
  * ========================================
+ * Notification Types
+ * ========================================
+ */
+
+type NotificationType =
+  | "order"
+  | "stock"
+  | "payment"
+  | "user"
+  | "system";
+
+interface CreateNotificationPayload {
+  recipientId?: string;
+
+  recipientRole:
+    | "admin"
+    | "user";
+
+  title: string;
+
+  message: string;
+
+  type: NotificationType;
+
+  metadata?: Record<
+    string,
+    string | number | boolean
+  >;
+}
+
+/*
+ * ========================================
  * Helpers
  * ========================================
  */
@@ -226,6 +258,78 @@ const ORDER_STATUS_FLOW = [
  */
 
 class OrderService {
+
+  /*
+ * ========================================
+ * Get Order Status Notification
+ * ========================================
+ */
+
+private getOrderStatusNotification(
+  orderNumber: string,
+  orderStatus: string,
+): {
+  title: string;
+
+  message: string;
+} {
+  switch (orderStatus) {
+    case "confirmed":
+      return {
+        title:
+          "Order confirmed",
+
+        message:
+          `Your order ${orderNumber} has been confirmed.`,
+      };
+
+    case "processing":
+      return {
+        title:
+          "Order is being prepared",
+
+        message:
+          `Your order ${orderNumber} is currently being prepared.`,
+      };
+
+    case "shipped":
+      return {
+        title:
+          "Order shipped",
+
+        message:
+          `Your order ${orderNumber} has been shipped and is on its way.`,
+      };
+
+    case "out_for_delivery":
+      return {
+        title:
+          "Out for delivery",
+
+        message:
+          `Your order ${orderNumber} is out for delivery.`,
+      };
+
+    case "delivered":
+      return {
+        title:
+          "Order delivered",
+
+        message:
+          `Your order ${orderNumber} has been delivered successfully.`,
+      };
+
+    default:
+      return {
+        title:
+          "Order updated",
+
+        message:
+          `Your order ${orderNumber} has been updated.`,
+      };
+  }
+}
+
   /*
    * ========================================
    * Get Cart
@@ -287,6 +391,52 @@ class OrderService {
 
     return result.data;
   }
+
+  /*
+ * ========================================
+ * Create Notification
+ * ========================================
+ */
+
+private async createNotification(
+  data: CreateNotificationPayload,
+): Promise<void> {
+  try {
+    const response =
+      await fetch(
+        `${env.UTILS_SERVICE_URL}/notifications`,
+        {
+          method: "POST",
+
+          headers: {
+            Accept:
+              "application/json",
+
+            "Content-Type":
+              "application/json",
+
+            "x-internal-service-secret":
+              env.INTERNAL_SERVICE_SECRET,
+          },
+
+          body:
+            JSON.stringify(data),
+        },
+      );
+
+    if (!response.ok) {
+      console.error(
+        "Failed to create notification:",
+        await response.text(),
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Notification service error:",
+      error,
+    );
+  }
+}
 
   /*
    * ========================================
@@ -1615,6 +1765,42 @@ class OrderService {
      * ====================================
      */
 
+    /*
+ * ====================================
+ * CREATE ADMIN NOTIFICATION
+ * ====================================
+ */
+
+    await this.createNotification({
+  recipientRole:
+    "admin",
+
+  title:
+    "New order received",
+
+  message:
+    `Order ${order.orderNumber} has been placed successfully.`,
+
+  type:
+    "order",
+
+  metadata: {
+    orderId:
+      order._id.toString(),
+
+    userId,
+
+    orderNumber:
+      order.orderNumber,
+
+    total:
+      order.total,
+
+    paymentMethod:
+      order.paymentMethod,
+  },
+});
+
     return order;
   }
 
@@ -1921,6 +2107,49 @@ class OrderService {
       requestedStatus;
 
     await order.save();
+
+    /*
+    * ====================================
+    * CREATE ORDER STATUS NOTIFICATION
+    * ====================================
+    */
+
+    const notification =
+      this.getOrderStatusNotification(
+        order.orderNumber,
+        requestedStatus,
+      );
+
+    await this.createNotification({
+  recipientId:
+    order.userId,
+
+  recipientRole:
+    "user",
+
+  title:
+    notification.title,
+
+  message:
+    notification.message,
+
+  type:
+    "order",
+
+  metadata: {
+    orderId:
+      order._id.toString(),
+
+    orderNumber:
+      order.orderNumber,
+
+    orderStatus:
+      requestedStatus,
+
+    userId:
+      order.userId,
+  },
+});
 
     return order;
   }

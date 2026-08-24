@@ -1,8 +1,23 @@
-import { useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
 import { useNavigate } from "react-router-dom";
 
 import { ArrowRight } from "lucide-react";
+
+import { getCategories } from "../../api/category.api";
+
+import type {
+  Category as BackendCategory,
+} from "../../types/category";
+
+/*
+ * ========================================
+ * ROOM IMAGES
+ * ========================================
+ */
 
 import livingRoom from "../../assets/images/rooms/living-room.png";
 import bedroom from "../../assets/images/rooms/bedroom.png";
@@ -13,6 +28,12 @@ import Study from "../../assets/images/rooms/Study.png";
 import Balcony from "../../assets/images/rooms/Balcony.png";
 import Entertainment from "../../assets/images/rooms/Entertainment.png";
 
+/*
+ * ========================================
+ * POPULAR CATEGORY IMAGES
+ * ========================================
+ */
+
 import sofa from "../../assets/images/categories/sofa.png";
 import chair from "../../assets/images/categories/chair.png";
 import table from "../../assets/images/categories/Table.png";
@@ -21,19 +42,11 @@ import beds from "../../assets/images/categories/beds.png";
 import lighting from "../../assets/images/categories/Lighting.png";
 import decor from "../../assets/images/categories/Dacore.png";
 import rugs from "../../assets/images/categories/Rugs.png";
-
-import wardrobes from "../../assets/images/categories/wardrobes.png";
-import dressers from "../../assets/images/categories/Dressers.png";
-import sideTable from "../../assets/images/categories/sidetable.png";
 import mirrors from "../../assets/images/categories/mirrors.png";
-import curtains from "../../assets/images/categories/curtains.png";
-import plants from "../../assets/images/categories/organizers.png";
-import shelves from "../../assets/images/categories/shalves.png";
-import organizers from "../../assets/images/categories/organizers.png";
 
 /*
  * ========================================
- * Room Type
+ * TYPES
  * ========================================
  */
 
@@ -43,35 +56,28 @@ interface Room {
   image: string;
 }
 
-/*
- * ========================================
- * Category Type
- * ========================================
- */
-
-interface Category {
+interface PopularCategory {
+  _id: string;
   name: string;
   slug: string;
   image: string;
 }
 
+interface PopularCategoryConfig {
+  name: string;
+  image: string;
+  aliases: string[];
+}
+
+interface CategoryItem {
+  _id?: string;
+  name?: string;
+  slug?: string;
+}
+
 /*
  * ========================================
- * Rooms
- * ========================================
- *
- * IMPORTANT:
- * The slug is the canonical value used
- * throughout the application.
- *
- * Example:
- *
- * Living Room
- *      ↓
- * living-room
- *
- * We NEVER generate the slug from the
- * display name at runtime.
+ * ROOMS
  * ========================================
  */
 
@@ -81,43 +87,36 @@ const rooms: Room[] = [
     slug: "living-room",
     image: livingRoom,
   },
-
   {
     name: "Bedroom",
     slug: "bedroom",
     image: bedroom,
   },
-
   {
     name: "Kitchen",
     slug: "kitchen",
     image: kitchen,
   },
-
   {
     name: "Dining Room",
     slug: "dining-room",
     image: diningRoom,
   },
-
   {
     name: "Home Office",
     slug: "home-office",
     image: homeOffice,
   },
-
   {
     name: "Study & Library",
     slug: "study-library",
     image: Study,
   },
-
   {
     name: "Balcony",
     slug: "balcony",
     image: Balcony,
   },
-
   {
     name: "Entertainment Room",
     slug: "entertainment-room",
@@ -127,184 +126,385 @@ const rooms: Room[] = [
 
 /*
  * ========================================
- * Categories
+ * FIXED POPULAR CATEGORIES
  * ========================================
  */
 
-const categories: Category[] = [
+const popularCategoryConfigs: PopularCategoryConfig[] = [
   {
     name: "Sofas",
-    slug: "sofas",
     image: sofa,
+    aliases: [
+      "sofa",
+      "sofas",
+    ],
   },
-
   {
     name: "Chairs",
-    slug: "chairs",
     image: chair,
+    aliases: [
+      "chair",
+      "chairs",
+    ],
   },
-
-  {
-    name: "Tables",
-    slug: "tables",
-    image: table,
-  },
-
-  {
-    name: "Storage",
-    slug: "storage",
-    image: storage,
-  },
-
   {
     name: "Beds",
-    slug: "beds",
     image: beds,
+    aliases: [
+      "bed",
+      "beds",
+    ],
   },
-
+  {
+    name: "Tables",
+    image: table,
+    aliases: [
+      "table",
+      "tables",
+    ],
+  },
+  {
+    name: "Storage",
+    image: storage,
+    aliases: [
+      "storage",
+    ],
+  },
   {
     name: "Lighting",
-    slug: "lighting",
     image: lighting,
+    aliases: [
+      "lighting",
+      "light",
+      "lights",
+    ],
   },
-
-  {
-    name: "Decor",
-    slug: "decor",
-    image: decor,
-  },
-
-  {
-    name: "Rugs",
-    slug: "rugs",
-    image: rugs,
-  },
-
-  {
-    name: "Wardrobes",
-    slug: "wardrobes",
-    image: wardrobes,
-  },
-
-  {
-    name: "Dressers",
-    slug: "dressers",
-    image: dressers,
-  },
-
-  {
-    name: "Side Tables",
-    slug: "side-tables",
-    image: sideTable,
-  },
-
   {
     name: "Mirrors",
-    slug: "mirrors",
     image: mirrors,
+    aliases: [
+      "mirror",
+      "mirrors",
+    ],
   },
-
   {
-    name: "Curtains",
-    slug: "curtains",
-    image: curtains,
+    name: "Decorative Objects",
+    image: decor,
+    aliases: [
+      "decor",
+      "decors",
+      "decorative-object",
+      "decorative-objects",
+      "decorativeobject",
+      "decorativeobjects",
+    ],
   },
-
   {
-    name: "Plants",
-    slug: "plants",
-    image: plants,
-  },
-
-  {
-    name: "Shelves",
-    slug: "shelves",
-    image: shelves,
-  },
-
-  {
-    name: "Organizers",
-    slug: "organizers",
-    image: organizers,
+    name: "Rugs",
+    image: rugs,
+    aliases: [
+      "rug",
+      "rugs",
+      "area-rug",
+      "area-rugs",
+      "floor-rug",
+      "floor-rugs",
+      "carpet",
+      "carpets",
+    ],
   },
 ];
 
 /*
  * ========================================
- * Component
+ * NORMALIZE CATEGORY VALUE
+ * ========================================
+ */
+
+const normalizeCategoryValue = (
+  value?: string,
+): string => {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-");
+};
+
+/*
+ * ========================================
+ * FIND MATCHING CATEGORY CONFIG
+ * ========================================
+ *
+ * This function accepts slug and name
+ * separately.
+ *
+ * So it works for both:
+ *
+ * category.slug, category.name
+ *
+ * and:
+ *
+ * subcategory.slug, subcategory.name
+ * ========================================
+ */
+
+const findPopularCategoryConfig = (
+  slug?: string,
+  name?: string,
+): PopularCategoryConfig | undefined => {
+  const normalizedSlug =
+    normalizeCategoryValue(slug);
+
+  const normalizedName =
+    normalizeCategoryValue(name);
+
+  return popularCategoryConfigs.find(
+    (config) =>
+      config.aliases.some(
+        (alias) => {
+          const normalizedAlias =
+            normalizeCategoryValue(alias);
+
+          return (
+            normalizedSlug === normalizedAlias ||
+            normalizedName === normalizedAlias
+          );
+        },
+      ),
+  );
+};
+
+/*
+ * ========================================
+ * COMPONENT
  * ========================================
  */
 
 const ShopByRoom = () => {
   const navigate = useNavigate();
 
-  const [showAllRooms, setShowAllRooms] =
-    useState(false);
-
   const [
-    showAllCategories,
-    setShowAllCategories,
+    showAllRooms,
+    setShowAllRooms,
   ] = useState(false);
 
+  const [
+    categories,
+    setCategories,
+  ] = useState<PopularCategory[]>([]);
+
+  const [
+    categoriesLoading,
+    setCategoriesLoading,
+  ] = useState(true);
+
   /*
-   * ----------------------------------------
-   * Visible Items
-   * ----------------------------------------
+   * ========================================
+   * FETCH POPULAR CATEGORIES
+   * ========================================
+   */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchCategories = async () => {
+      try {
+        setCategoriesLoading(true);
+
+        const backendCategories =
+          await getCategories();
+
+        if (cancelled) {
+          return;
+        }
+
+        const foundCategories = new Map<
+          string,
+          PopularCategory
+        >();
+
+        backendCategories.forEach(
+          (category: BackendCategory) => {
+            /*
+             * ========================================
+             * CHECK MAIN CATEGORY
+             * ========================================
+             */
+
+            const categoryConfig =
+              findPopularCategoryConfig(
+                category.slug,
+                category.name,
+              );
+
+            if (
+              categoryConfig &&
+              !foundCategories.has(
+                categoryConfig.name,
+              )
+            ) {
+              foundCategories.set(
+                categoryConfig.name,
+                {
+                  _id: category._id,
+                  name: categoryConfig.name,
+                  slug: category.slug,
+                  image: categoryConfig.image,
+                },
+              );
+            }
+
+            /*
+             * ========================================
+             * CHECK SUBCATEGORIES
+             * ========================================
+             *
+             * This is useful when the backend has
+             * some of our popular categories stored
+             * as subcategories.
+             */
+
+            const subcategories =
+              (
+                category as BackendCategory & {
+                  subcategories?: CategoryItem[];
+                }
+              ).subcategories ?? [];
+
+            subcategories.forEach(
+              (subcategory) => {
+                if (
+                  !subcategory._id ||
+                  !subcategory.slug ||
+                  !subcategory.name
+                ) {
+                  return;
+                }
+
+                const subcategoryConfig =
+                  findPopularCategoryConfig(
+                    subcategory.slug,
+                    subcategory.name,
+                  );
+
+                if (!subcategoryConfig) {
+                  return;
+                }
+
+                if (
+                  foundCategories.has(
+                    subcategoryConfig.name,
+                  )
+                ) {
+                  return;
+                }
+
+                foundCategories.set(
+                  subcategoryConfig.name,
+                  {
+                    _id: subcategory._id,
+                    name:
+                      subcategoryConfig.name,
+                    slug: subcategory.slug,
+                    image:
+                      subcategoryConfig.image,
+                  },
+                );
+              },
+            );
+          },
+        );
+
+        /*
+         * ========================================
+         * KEEP FIXED ORDER
+         * ========================================
+         *
+         * Sofas
+         * Chairs
+         * Beds
+         * Tables
+         * Storage
+         * Lighting
+         * Mirrors
+         * Decorative Objects
+         * Rugs
+         */
+
+        const orderedCategories =
+          popularCategoryConfigs
+            .map(
+              (config) =>
+                foundCategories.get(
+                  config.name,
+                ),
+            )
+            .filter(
+              (
+                category,
+              ): category is PopularCategory =>
+                Boolean(category),
+            );
+
+        if (!cancelled) {
+          setCategories(
+            orderedCategories,
+          );
+        }
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error(
+          "Failed to fetch categories:",
+          error,
+        );
+
+        setCategories([]);
+      } finally {
+        if (!cancelled) {
+          setCategoriesLoading(false);
+        }
+      }
+    };
+
+    void fetchCategories();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /*
+   * ========================================
+   * VISIBLE ROOMS
+   * ========================================
    */
 
   const visibleRooms = showAllRooms
     ? rooms
     : rooms.slice(0, 6);
 
-  const visibleCategories =
-    showAllCategories
-      ? categories
-      : categories.slice(0, 8);
-
   /*
    * ========================================
-   * Navigation
+   * NAVIGATION
    * ========================================
    */
 
   const handleRoomClick = (
     room: Room,
   ) => {
-    /*
-     * IMPORTANT:
-     *
-     * Do NOT navigate directly to:
-     *
-     * /products?room=living room
-     *
-     * The room page owns the room filtering
-     * flow.
-     *
-     * We first go to:
-     *
-     * /rooms/living-room
-     *
-     * RoomDetails then fetches products using
-     * the canonical room slug.
-     */
-
-    navigate(`/rooms/${room.slug}`);
+    navigate(
+      `/rooms/${encodeURIComponent(
+        room.slug,
+      )}`,
+    );
   };
 
   const handleCategoryClick = (
-    category: Category,
+    category: PopularCategory,
   ) => {
-    /*
-     * Categories go directly to the
-     * Products page.
-     *
-     * Example:
-     *
-     * Sofas
-     *   ↓
-     * /products?category=sofas
-     */
-
     navigate(
       `/products?category=${encodeURIComponent(
         category.slug,
@@ -314,81 +514,76 @@ const ShopByRoom = () => {
 
   return (
     <>
-      {/* =====================================================
+      {/* =====================================
           DESKTOP / TABLET
-      ===================================================== */}
+      ===================================== */}
 
       <section className="hidden bg-[#FAF8F5] py-12 sm:py-14 lg:block">
         <div className="mx-auto max-w-350 px-4 sm:px-6 lg:px-8">
-
-          {/* =================================================
-              SHOP BY ROOM HEADER
-          ================================================= */}
+          {/* SHOP BY ROOM HEADER */}
 
           <div className="mb-5 flex items-end justify-between">
-            <div>
-              <h2
-                className="
-                  font-serif
-                  text-[25px]
-                  font-medium
-                  leading-none
-                  tracking-tight
-                  text-[#1E1D1B]
-                  sm:text-[28px]
-                "
-              >
-                Shop by Room
-              </h2>
-            </div>
-
-            <button
-              type="button"
-              onClick={() =>
-                setShowAllRooms(
-                  (previous) =>
-                    !previous,
-                )
-              }
+            <h2
               className="
-                group
-                flex
-                items-center
-                gap-1.5
-                text-[11px]
+                font-serif
+                text-[25px]
                 font-medium
-                text-[#3A3733]
-                transition-colors
-                duration-300
-                hover:text-[#A47D3C]
-                sm:text-[12px]
+                leading-none
+                tracking-tight
+                text-[#1E1D1B]
+                sm:text-[28px]
               "
             >
-              <span>
-                {showAllRooms
-                  ? "View less"
-                  : "View all rooms"}
-              </span>
+              Shop by Room
+            </h2>
 
-              <ArrowRight
-                size={13}
-                strokeWidth={1.8}
-                className={`
-                  transition-transform
+            {rooms.length > 6 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setShowAllRooms(
+                    (previous) =>
+                      !previous,
+                  )
+                }
+                className="
+                  group
+                  flex
+                  items-center
+                  gap-1.5
+                  text-[11px]
+                  font-medium
+                  text-[#3A3733]
+                  transition-colors
                   duration-300
-                  ${
-                    showAllRooms
-                      ? "rotate-180"
-                      : "group-hover:translate-x-1"
-                  }
-                `}
-              />
-            </button>
+                  hover:text-[#A47D3C]
+                  sm:text-[12px]
+                "
+              >
+                <span>
+                  {showAllRooms
+                    ? "View less"
+                    : "View all rooms"}
+                </span>
+
+                <ArrowRight
+                  size={13}
+                  strokeWidth={1.8}
+                  className={`
+                    transition-transform
+                    duration-300
+                    ${
+                      showAllRooms
+                        ? "rotate-180"
+                        : "group-hover:translate-x-1"
+                    }
+                  `}
+                />
+              </button>
+            )}
           </div>
 
-          {/* =================================================
-              ROOM GRID
-          ================================================= */}
+          {/* ROOM GRID */}
 
           <div
             className="
@@ -407,9 +602,7 @@ const ShopByRoom = () => {
                   key={room.slug}
                   type="button"
                   onClick={() =>
-                    handleRoomClick(
-                      room,
-                    )
+                    handleRoomClick(room)
                   }
                   className="
                     group
@@ -540,9 +733,9 @@ const ShopByRoom = () => {
           </div>
         </div>
 
-        {/* =====================================================
+        {/* =====================================
             POPULAR CATEGORIES
-        ===================================================== */}
+        ===================================== */}
 
         <div
           className="
@@ -555,7 +748,7 @@ const ShopByRoom = () => {
             lg:px-8
           "
         >
-          <div className="mb-5 flex items-end justify-between">
+          <div className="mb-5">
             <h2
               className="
                 font-serif
@@ -569,209 +762,231 @@ const ShopByRoom = () => {
             >
               Popular Categories
             </h2>
+          </div>
 
-            <button
-              type="button"
-              onClick={() =>
-                setShowAllCategories(
-                  (previous) =>
-                    !previous,
-                )
-              }
+          {categoriesLoading && (
+            <div
               className="
-                group
-                flex
-                items-center
-                gap-1.5
-                text-[11px]
-                font-medium
-                text-[#3A3733]
-                transition-colors
-                duration-300
-                hover:text-[#A47D3C]
-                sm:text-[12px]
+                grid
+                grid-cols-2
+                gap-2.5
+                sm:grid-cols-4
+                lg:grid-cols-5
+                xl:grid-cols-9
+                lg:gap-3
+                xl:gap-4
               "
             >
-              <span>
-                {showAllCategories
-                  ? "View less"
-                  : "View all categories"}
-              </span>
+              {Array.from(
+                { length: 9 },
+                (_, index) => (
+                  <div
+                    key={index}
+                    className="
+                      h-29.5
+                      animate-pulse
+                      rounded-[9px]
+                      border
+                      border-[#E5DED4]
+                      bg-[#F1ECE5]
+                      sm:h-32
+                    "
+                  />
+                ),
+              )}
+            </div>
+          )}
 
-              <ArrowRight
-                size={13}
-                strokeWidth={1.8}
-                className={`
-                  transition-transform
-                  duration-300
-                  ${
-                    showAllCategories
-                      ? "rotate-180"
-                      : "group-hover:translate-x-1"
-                  }
-                `}
-              />
-            </button>
-          </div>
+          {!categoriesLoading &&
+            categories.length > 0 && (
+              <div
+                className="
+                  grid
+                  grid-cols-2
+                  gap-2.5
+                  sm:grid-cols-3
+                  md:grid-cols-5
+                  lg:grid-cols-5
+                  xl:grid-cols-9
+                  lg:gap-3
+                  xl:gap-4
+                "
+              >
+                {categories.map(
+                  (category) => (
+                    <button
+                      key={category._id}
+                      type="button"
+                      onClick={() =>
+                        handleCategoryClick(
+                          category,
+                        )
+                      }
+                      className="
+                        group
+                        relative
+                        flex
+                        h-29.5
+                        flex-col
+                        items-center
+                        justify-end
+                        overflow-hidden
+                        rounded-[9px]
+                        border
+                        border-[#E5DED4]
+                        bg-[#F9F6F1]
+                        pb-3
+                        transition-all
+                        duration-500
+                        ease-out
+                        hover:-translate-y-1
+                        hover:border-[#D6C2A3]
+                        hover:bg-[#FFFDF9]
+                        hover:shadow-[0_14px_30px_rgba(58,46,34,0.10)]
+                        sm:h-32
+                      "
+                    >
+                      <span
+                        className="
+                          pointer-events-none
+                          absolute
+                          left-1/2
+                          top-1/2
+                          h-20
+                          w-20
+                          -translate-x-1/2
+                          -translate-y-1/2
+                          rounded-full
+                          bg-[#EBDCC5]
+                          opacity-0
+                          blur-2xl
+                          transition-opacity
+                          duration-500
+                          group-hover:opacity-30
+                        "
+                      />
 
-          <div
-            className="
-              grid
-              grid-cols-2
-              gap-2.5
-              sm:grid-cols-4
-              lg:grid-cols-8
-              lg:gap-3
-              xl:gap-4
-            "
-          >
-            {visibleCategories.map(
-              (category) => (
-                <button
-                  key={category.slug}
-                  type="button"
-                  onClick={() =>
-                    handleCategoryClick(
-                      category,
-                    )
-                  }
+                      <div
+                        className="
+                          relative
+                          flex
+                          h-20.5
+                          w-full
+                          items-center
+                          justify-center
+                          overflow-hidden
+                          sm:h-22.5
+                        "
+                      >
+                        <img
+                          src={category.image}
+                          alt={category.name}
+                          loading="lazy"
+                          className="
+                            h-full
+                            w-full
+                            object-contain
+                            px-2
+                            transition-transform
+                            duration-700
+                            ease-out
+                            group-hover:scale-[1.08]
+                          "
+                        />
+                      </div>
+
+                      <span
+                        className="
+                          relative
+                          z-10
+                          max-w-[90%]
+                          truncate
+                          text-center
+                          text-[10px]
+                          font-medium
+                          tracking-[0.01em]
+                          text-[#302D29]
+                          transition-colors
+                          duration-300
+                          group-hover:text-[#A47D3C]
+                          sm:text-[11px]
+                        "
+                      >
+                        {category.name}
+                      </span>
+
+                      <span
+                        className="
+                          absolute
+                          bottom-0
+                          left-1/2
+                          h-0.5
+                          w-0
+                          -translate-x-1/2
+                          bg-[#C49A5A]
+                          transition-all
+                          duration-500
+                          group-hover:w-9
+                        "
+                      />
+                    </button>
+                  ),
+                )}
+              </div>
+            )}
+
+          {!categoriesLoading &&
+            categories.length === 0 && (
+              <div
+                className="
+                  flex
+                  min-h-32
+                  items-center
+                  justify-center
+                  rounded-[9px]
+                  border
+                  border-dashed
+                  border-[#DED5CA]
+                  bg-[#F7F2EA]
+                  px-4
+                  text-center
+                "
+              >
+                <p
                   className="
-                    group
-                    relative
-                    flex
-                    h-29.5
-                    flex-col
-                    items-center
-                    justify-end
-                    overflow-hidden
-                    rounded-[9px]
-                    border
-                    border-[#E5DED4]
-                    bg-[#F9F6F1]
-                    pb-3
-                    transition-all
-                    duration-500
-                    ease-out
-                    hover:-translate-y-1
-                    hover:border-[#D6C2A3]
-                    hover:bg-[#FFFDF9]
-                    hover:shadow-[0_14px_30px_rgba(58,46,34,0.10)]
-                    sm:h-32
+                    text-[11px]
+                    text-[#887D70]
                   "
                 >
-                  <span
-                    className="
-                      pointer-events-none
-                      absolute
-                      left-1/2
-                      top-1/2
-                      h-20
-                      w-20
-                      -translate-x-1/2
-                      -translate-y-1/2
-                      rounded-full
-                      bg-[#EBDCC5]
-                      opacity-0
-                      blur-2xl
-                      transition-opacity
-                      duration-500
-                      group-hover:opacity-30
-                    "
-                  />
-
-                  <div
-                    className="
-                      relative
-                      flex
-                      h-20.5
-                      w-full
-                      items-center
-                      justify-center
-                      overflow-hidden
-                      sm:h-22.5
-                    "
-                  >
-                    <img
-                      src={category.image}
-                      alt={category.name}
-                      loading="lazy"
-                      className="
-                        h-full
-                        w-full
-                        object-contain
-                        px-2
-                        transition-transform
-                        duration-700
-                        ease-out
-                        group-hover:scale-[1.08]
-                      "
-                    />
-                  </div>
-
-                  <span
-                    className="
-                      relative
-                      z-10
-                      text-[10px]
-                      font-medium
-                      tracking-[0.01em]
-                      text-[#302D29]
-                      transition-colors
-                      duration-300
-                      group-hover:text-[#A47D3C]
-                      sm:text-[11px]
-                    "
-                  >
-                    {category.name}
-                  </span>
-
-                  <span
-                    className="
-                      absolute
-                      bottom-0
-                      left-1/2
-                      h-0.5
-                      w-0
-                      -translate-x-1/2
-                      bg-[#C49A5A]
-                      transition-all
-                      duration-500
-                      group-hover:w-9
-                    "
-                  />
-                </button>
-              ),
+                  No matching popular categories
+                  available right now.
+                </p>
+              </div>
             )}
-          </div>
         </div>
       </section>
 
-      {/* =====================================================
+      {/* =====================================
           MOBILE
-      ===================================================== */}
+      ===================================== */}
 
       <section className="bg-[#FAF8F5] px-4 py-8 lg:hidden">
-
-        {/* ===================================================
-            MOBILE SHOP BY ROOM
-        =================================================== */}
+        {/* MOBILE ROOMS */}
 
         <div>
           <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h2
-                className="
-                  font-serif
-                  text-[18px]
-                  font-medium
-                  leading-none
-                  tracking-[-0.02em]
-                  text-[#1E1D1B]
-                "
-              >
-                Shop by Room
-              </h2>
-            </div>
+            <h2
+              className="
+                font-serif
+                text-[18px]
+                font-medium
+                leading-none
+                tracking-[-0.02em]
+                text-[#1E1D1B]
+              "
+            >
+              Shop by Room
+            </h2>
 
             <span
               className="
@@ -804,9 +1019,7 @@ const ShopByRoom = () => {
                 key={room.slug}
                 type="button"
                 onClick={() =>
-                  handleRoomClick(
-                    room,
-                  )
+                  handleRoomClick(room)
                 }
                 className="
                   group
@@ -841,35 +1054,6 @@ const ShopByRoom = () => {
                       h-full
                       w-full
                       object-cover
-                      transition-transform
-                      duration-500
-                      ease-out
-                      group-active:scale-[1.04]
-                    "
-                  />
-
-                  <div
-                    className="
-                      pointer-events-none
-                      absolute
-                      inset-0
-                      bg-linear-to-t
-                      from-black/10
-                      via-transparent
-                      to-transparent
-                    "
-                  />
-
-                  <span
-                    className="
-                      pointer-events-none
-                      absolute
-                      bottom-2
-                      left-2
-                      h-0.5
-                      w-5
-                      rounded-full
-                      bg-[#B7894A]
                     "
                   />
                 </div>
@@ -880,7 +1064,6 @@ const ShopByRoom = () => {
                       truncate
                       text-[10px]
                       font-semibold
-                      leading-tight
                       text-[#282623]
                     "
                   >
@@ -922,25 +1105,21 @@ const ShopByRoom = () => {
           </div>
         </div>
 
-        {/* ===================================================
-            MOBILE CATEGORIES
-        =================================================== */}
+        {/* MOBILE CATEGORIES */}
 
         <div className="mt-9">
           <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h2
-                className="
-                  font-serif
-                  text-[18px]
-                  font-medium
-                  leading-none
-                  text-[#1E1D1B]
-                "
-              >
-                Popular Categories
-              </h2>
-            </div>
+            <h2
+              className="
+                font-serif
+                text-[18px]
+                font-medium
+                leading-none
+                text-[#1E1D1B]
+              "
+            >
+              Popular Categories
+            </h2>
 
             <span
               className="
@@ -955,129 +1134,174 @@ const ShopByRoom = () => {
             </span>
           </div>
 
-          <div
-            className="
-              -mx-4
-              flex
-              gap-2
-              overflow-x-auto
-              px-4
-              pb-2
-              scrollbar-none
-              snap-x
-              snap-mandatory
-            "
-          >
-            {categories.map(
-              (category) => (
-                <button
-                  key={category.slug}
-                  type="button"
-                  onClick={() =>
-                    handleCategoryClick(
-                      category,
-                    )
-                  }
-                  className="
-                    group
-                    relative
-                    flex
-                    h-22
-                    w-20.5
-                    min-w-20.5
-                    snap-start
-                    flex-col
-                    items-center
-                    justify-between
-                    overflow-hidden
-                    rounded-[10px]
-                    border
-                    border-[#E5DED4]
-                    bg-[#F9F6F1]
-                    px-2
-                    py-2.5
-                    shadow-[0_2px_10px_rgba(58,46,34,0.025)]
-                    transition-all
-                    duration-300
-                    active:scale-[0.97]
-                  "
-                >
-                  <span
-                    className="
-                      pointer-events-none
-                      absolute
-                      -right-5
-                      -top-5
-                      h-12
-                      w-12
-                      rounded-full
-                      bg-[#D9B36A]/10
-                      blur-xl
-                    "
-                  />
-
-                  <div
-                    className="
-                      relative
-                      flex
-                      h-13.75
-                      w-full
-                      items-center
-                      justify-center
-                      overflow-hidden
-                    "
-                  >
-                    <img
-                      src={category.image}
-                      alt={category.name}
-                      loading="lazy"
-                      className="
-                        h-full
-                        w-full
-                        object-contain
-                        transition-transform
-                        duration-500
-                        ease-out
-                        group-active:scale-[1.06]
-                      "
-                    />
-                  </div>
-
-                  <span
-                    className="
-                      relative
-                      max-w-full
-                      truncate
-                      text-[8px]
-                      font-medium
-                      text-[#302D29]
-                    "
-                  >
-                    {category.name}
-                  </span>
-                </button>
-              ),
-            )}
-          </div>
-
-          <div className="mt-1.5 flex items-center justify-end gap-1.5">
-            <span
+          {categoriesLoading && (
+            <div
               className="
-                text-[7px]
-                font-medium
-                tracking-[0.12em]
-                text-[#A0988D]
+                -mx-4
+                flex
+                gap-2
+                overflow-hidden
+                px-4
               "
             >
-              SWIPE TO EXPLORE
-            </span>
+              {Array.from(
+                { length: 4 },
+                (_, index) => (
+                  <div
+                    key={index}
+                    className="
+                      h-22
+                      w-20.5
+                      min-w-20.5
+                      animate-pulse
+                      rounded-[10px]
+                      border
+                      border-[#E5DED4]
+                      bg-[#F1ECE5]
+                    "
+                  />
+                ),
+              )}
+            </div>
+          )}
 
-            <ArrowRight
-              size={9}
-              strokeWidth={1.5}
-              className="text-[#B7894A]"
-            />
-          </div>
+          {!categoriesLoading &&
+            categories.length > 0 && (
+              <>
+                <div
+                  className="
+                    -mx-4
+                    flex
+                    gap-2
+                    overflow-x-auto
+                    px-4
+                    pb-2
+                    scrollbar-none
+                    snap-x
+                    snap-mandatory
+                  "
+                >
+                  {categories.map(
+                    (category) => (
+                      <button
+                        key={category._id}
+                        type="button"
+                        onClick={() =>
+                          handleCategoryClick(
+                            category,
+                          )
+                        }
+                        className="
+                          group
+                          relative
+                          flex
+                          h-22
+                          w-20.5
+                          min-w-20.5
+                          snap-start
+                          flex-col
+                          items-center
+                          justify-between
+                          overflow-hidden
+                          rounded-[10px]
+                          border
+                          border-[#E5DED4]
+                          bg-[#F9F6F1]
+                          px-2
+                          py-2.5
+                          shadow-[0_2px_10px_rgba(58,46,34,0.025)]
+                          transition-all
+                          duration-300
+                          active:scale-[0.97]
+                        "
+                      >
+                        <div
+                          className="
+                            relative
+                            flex
+                            h-13.75
+                            w-full
+                            items-center
+                            justify-center
+                            overflow-hidden
+                          "
+                        >
+                          <img
+                            src={category.image}
+                            alt={category.name}
+                            loading="lazy"
+                            className="
+                              h-full
+                              w-full
+                              object-contain
+                            "
+                          />
+                        </div>
+
+                        <span
+                          className="
+                            relative
+                            max-w-full
+                            truncate
+                            text-center
+                            text-[8px]
+                            font-medium
+                            text-[#302D29]
+                          "
+                        >
+                          {category.name}
+                        </span>
+                      </button>
+                    ),
+                  )}
+                </div>
+
+                <div className="mt-1.5 flex items-center justify-end gap-1.5">
+                  <span
+                    className="
+                      text-[7px]
+                      font-medium
+                      tracking-[0.12em]
+                      text-[#A0988D]
+                    "
+                  >
+                    SWIPE TO EXPLORE
+                  </span>
+
+                  <ArrowRight
+                    size={9}
+                    strokeWidth={1.5}
+                    className="text-[#B7894A]"
+                  />
+                </div>
+              </>
+            )}
+
+          {!categoriesLoading &&
+            categories.length === 0 && (
+              <div
+                className="
+                  rounded-[10px]
+                  border
+                  border-dashed
+                  border-[#DED5CA]
+                  bg-[#F7F2EA]
+                  px-4
+                  py-6
+                  text-center
+                "
+              >
+                <p
+                  className="
+                    text-[10px]
+                    text-[#887D70]
+                  "
+                >
+                  No matching popular categories
+                  available right now.
+                </p>
+              </div>
+            )}
         </div>
       </section>
     </>

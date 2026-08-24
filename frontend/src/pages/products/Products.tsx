@@ -29,28 +29,107 @@ import livingRoomLook from "../../assets/images/looks/Hero_product_page.png";
 
 const PRODUCTS_PER_PAGE = 12;
 
-const CATEGORY_PARAM_MAP: Record<string, string> = {
-  sofas: "Sofas",
-  chairs: "Chairs",
-  tables: "Tables",
-  beds: "Beds",
-  storage: "Storage",
-  lighting: "Lighting",
-  decor: "Decor",
-  rugs: "Rugs",
+/*
+ * ========================================
+ * URL CATEGORY PARAMETER MAP
+ * ========================================
+ *
+ * URL values are converted to the exact
+ * values stored in the backend database.
+ *
+ * Example:
+ *
+ * ?category=sofa
+ *
+ * becomes:
+ *
+ * category=sofas
+ * ========================================
+ */
+
+const CATEGORY_PARAM_MAP: Record<
+  string,
+  string
+> = {
+  sofa: "sofas",
+  sofas: "sofas",
+
+  chair: "chairs",
+  chairs: "chairs",
+
+  table: "tables",
+  tables: "tables",
+
+  bed: "beds",
+  beds: "beds",
+
+  storage: "storage",
+
+  lamp: "lighting",
+  lamps: "lighting",
+  light: "lighting",
+  lights: "lighting",
+  lighting: "lighting",
+
+  mirror: "mirrors",
+  mirrors: "mirrors",
+
+  decor: "decor",
+  decors: "decor",
+
+  "decorative-object": "decor",
+  "decorative-objects": "decor",
+  decorativeobject: "decor",
+  decorativeobjects: "decor",
+
+  rug: "rugs",
+  rugs: "rugs",
 };
 
-const ROOM_PARAM_MAP: Record<string, string> = {
-  "living-room": "living-room",
+/*
+ * ========================================
+ * ROOM PARAMETER MAP
+ * ========================================
+ *
+ * These values must match the values stored
+ * in MongoDB exactly.
+ * ========================================
+ */
+
+const ROOM_PARAM_MAP: Record<
+  string,
+  string
+> = {
+  "living-room": "Living room",
+  "living room": "Living room",
+
   bedroom: "bedroom",
+
   kitchen: "kitchen",
-  "dining-room": "dining-room",
-  "home-office": "home-office",
-  "study-library": "study-library",
+
+  "dining-room": "Dining room",
+  "dining room": "Dining room",
+
+  "home-office": "Home office",
+  "home office": "Home office",
+
+  "study-library": "Study library",
+  "study library": "Study library",
+
   balcony: "balcony",
+
   "entertainment-room":
-    "entertainment-room",
+    "Entertainment room",
+
+  "entertainment room":
+    "Entertainment room",
 };
+
+/*
+ * ========================================
+ * INITIAL FILTERS
+ * ========================================
+ */
 
 const initialFilters: ProductFilterState = {
   category: "All Categories",
@@ -60,6 +139,12 @@ const initialFilters: ProductFilterState = {
   maxPrice: 100000,
   minRating: 0,
 };
+
+/*
+ * ========================================
+ * PAGINATION
+ * ========================================
+ */
 
 const getPaginationItems = (
   currentPage: number,
@@ -106,6 +191,71 @@ const getPaginationItems = (
     totalPages,
   ];
 };
+
+/*
+ * ========================================
+ * NORMALIZE CATEGORY PARAMETER
+ * ========================================
+ */
+
+const normalizeCategoryParam = (
+  value: string,
+): string => {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-");
+};
+
+/*
+ * ========================================
+ * GET CATEGORY FROM URL
+ * ========================================
+ */
+
+const getCategoryFromParam = (
+  categoryParam: string | null,
+): string | undefined => {
+  if (!categoryParam) {
+    return undefined;
+  }
+
+  const normalized =
+    normalizeCategoryParam(categoryParam);
+
+  if (CATEGORY_PARAM_MAP[normalized]) {
+    return CATEGORY_PARAM_MAP[normalized];
+  }
+
+  return normalized;
+};
+
+/*
+ * ========================================
+ * FORMAT CATEGORY FOR UI
+ * ========================================
+ */
+
+const formatCategoryName = (
+  value: string,
+): string => {
+  return value
+    .replace(/-/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map(
+      (word) =>
+        word.charAt(0).toUpperCase() +
+        word.slice(1),
+    )
+    .join(" ");
+};
+
+/*
+ * ========================================
+ * COMPONENT
+ * ========================================
+ */
 
 const Products = () => {
   const { addToCart } = useCart();
@@ -155,42 +305,72 @@ const Products = () => {
   const [error, setError] =
     useState<string | null>(null);
 
+  /*
+   * ========================================
+   * READ URL FILTERS
+   * ========================================
+   */
+
   useEffect(() => {
-    const params = new URLSearchParams(
-      window.location.search,
-    );
+    const applyUrlFilters = () => {
+      const params = new URLSearchParams(
+        window.location.search,
+      );
 
-    const categoryParam =
-      params.get("category");
+      const categoryParam =
+        params.get("category");
 
-    const roomParam =
-      params.get("room");
+      const roomParam =
+        params.get("room");
 
-    const category =
-      categoryParam
-        ? CATEGORY_PARAM_MAP[
-            categoryParam.toLowerCase()
-          ]
-        : undefined;
+      const category =
+        getCategoryFromParam(
+          categoryParam,
+        );
 
-    const room =
-      roomParam
-        ? ROOM_PARAM_MAP[
-            roomParam.toLowerCase()
-          ] || roomParam.toLowerCase()
-        : undefined;
+      const normalizedRoom =
+        roomParam
+          ? normalizeCategoryParam(roomParam)
+          : undefined;
 
-    if (category) {
+      const room =
+        normalizedRoom
+          ? ROOM_PARAM_MAP[
+              normalizedRoom
+            ] ?? normalizedRoom
+          : undefined;
+
       setFilters((current) => ({
         ...current,
-        category,
+        category:
+          category ?? "All Categories",
       }));
-    }
 
-    if (room) {
       setRoomFilter(room);
-    }
+
+      setCurrentPage(1);
+    };
+
+    applyUrlFilters();
+
+    window.addEventListener(
+      "popstate",
+      applyUrlFilters,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "popstate",
+        applyUrlFilters,
+      );
+    };
   }, []);
+
+  /*
+   * ========================================
+   * RESET PAGE ON FILTER CHANGE
+   * ========================================
+   */
 
   useEffect(() => {
     setCurrentPage(1);
@@ -200,22 +380,35 @@ const Products = () => {
     roomFilter,
   ]);
 
-  const getBackendSort = (): ProductSort => {
-    switch (sortBy) {
-      case "Price: Low to High":
-        return "price_asc";
+  /*
+   * ========================================
+   * BACKEND SORT
+   * ========================================
+   */
 
-      case "Price: High to Low":
-        return "price_desc";
+  const getBackendSort =
+    (): ProductSort => {
+      switch (sortBy) {
+        case "Price: Low to High":
+          return "price_asc";
 
-      case "Name":
-        return "popular";
+        case "Price: High to Low":
+          return "price_desc";
 
-      case "Featured":
-      default:
-        return "newest";
-    }
-  };
+        case "Name":
+          return "popular";
+
+        case "Featured":
+        default:
+          return "newest";
+      }
+    };
+
+  /*
+   * ========================================
+   * FETCH PRODUCTS
+   * ========================================
+   */
 
   useEffect(() => {
     let cancelled = false;
@@ -239,22 +432,34 @@ const Products = () => {
           await getProducts({
             page: currentPage,
             limit: PRODUCTS_PER_PAGE,
+
             room: roomFilter,
-            subcategory:
+
+            /*
+             * IMPORTANT:
+             *
+             * Send the selected category as
+             * "category", NOT "subcategory".
+             */
+            category:
               filters.category !==
               "All Categories"
                 ? filters.category
                 : undefined,
+
             material,
             color,
+
             minPrice:
               filters.minPrice > 0
                 ? filters.minPrice
                 : undefined,
+
             maxPrice:
               filters.maxPrice < 100000
                 ? filters.maxPrice
                 : undefined,
+
             sort: getBackendSort(),
           });
 
@@ -322,14 +527,31 @@ const Products = () => {
     roomFilter,
   ]);
 
+  /*
+   * ========================================
+   * FILTER OPTIONS
+   * ========================================
+   */
+
   const categories = Array.from(
     new Set(
-      products
-        .map((product) => product.category)
-        .filter(
-          (category): category is string =>
-            Boolean(category),
+      [
+        ...Object.values(
+          CATEGORY_PARAM_MAP,
         ),
+
+        ...products
+          .map(
+            (product) =>
+              product.category,
+          )
+          .filter(
+            (
+              category,
+            ): category is string =>
+              Boolean(category),
+          ),
+      ],
     ),
   );
 
@@ -338,15 +560,19 @@ const Products = () => {
       products.flatMap((product) => {
         const productMaterials = [
           product.material,
+
           ...(
             product.variants?.map(
-              (variant) => variant.material,
+              (variant) =>
+                variant.material,
             ) ?? []
           ),
         ];
 
         return productMaterials.filter(
-          (material): material is string =>
+          (
+            material,
+          ): material is string =>
             Boolean(material),
         );
       }),
@@ -355,18 +581,33 @@ const Products = () => {
 
   const colors = Array.from(
     new Set(
-      products.flatMap((product) =>
-        (
-          product.variants?.map(
-            (variant) => variant.color,
-          ) ?? []
-        ).filter(
-          (color): color is string =>
+      products.flatMap((product) => {
+        const productColors = [
+          ...(product.colors ?? []),
+
+          ...(
+            product.variants?.map(
+              (variant) =>
+                variant.color,
+            ) ?? []
+          ),
+        ];
+
+        return productColors.filter(
+          (
+            color,
+          ): color is string =>
             Boolean(color),
-        ),
-      ),
+        );
+      }),
     ),
   );
+
+  /*
+   * ========================================
+   * TOOLBAR VALUES
+   * ========================================
+   */
 
   const toolbarMaterial =
     filters.materials.length === 1
@@ -391,12 +632,23 @@ const Products = () => {
             ? "₹10,000 – ₹20,000"
             : "₹20,000 – ₹30,000";
 
+  /*
+   * ========================================
+   * FILTER HANDLERS
+   * ========================================
+   */
+
   const handleCategoryChange = (
     category: string,
   ) => {
     setFilters((current) => ({
       ...current,
-      category,
+      category:
+        category === "All Categories"
+          ? category
+          : normalizeCategoryParam(
+              category,
+            ),
     }));
 
     setCurrentPage(1);
@@ -480,25 +732,46 @@ const Products = () => {
   ) => {
     switch (value) {
       case "Under ₹10,000":
-        handlePriceChange(0, 10000);
+        handlePriceChange(
+          0,
+          10000,
+        );
         break;
 
       case "₹10,000 – ₹20,000":
-        handlePriceChange(10000, 20000);
+        handlePriceChange(
+          10000,
+          20000,
+        );
         break;
 
       case "₹20,000 – ₹30,000":
-        handlePriceChange(20000, 30000);
+        handlePriceChange(
+          20000,
+          30000,
+        );
         break;
 
       case "Above ₹30,000":
-        handlePriceChange(30000, 100000);
+        handlePriceChange(
+          30000,
+          100000,
+        );
         break;
 
       default:
-        handlePriceChange(0, 100000);
+        handlePriceChange(
+          0,
+          100000,
+        );
     }
   };
+
+  /*
+   * ========================================
+   * PAGINATION VALUES
+   * ========================================
+   */
 
   const firstResult =
     totalProducts === 0
@@ -519,23 +792,14 @@ const Products = () => {
       totalPages,
     );
 
-  const getRoomDisplayName = () => {
-    if (!roomFilter) {
-      return null;
-    }
-
-    return roomFilter
-      .split("-")
-      .map(
-        (word) =>
-          word.charAt(0).toUpperCase() +
-          word.slice(1),
-      )
-      .join(" ");
-  };
+  /*
+   * ========================================
+   * ROOM DISPLAY NAME
+   * ========================================
+   */
 
   const roomDisplayName =
-    getRoomDisplayName();
+    roomFilter ?? null;
 
   return (
     <main
@@ -740,7 +1004,9 @@ const Products = () => {
                     </>
                   ) : (
                     <>
-                      {filters.category}
+                      {formatCategoryName(
+                        filters.category,
+                      )}
                       <span className="text-[#9A7138]">
                         .
                       </span>
@@ -1028,7 +1294,9 @@ const Products = () => {
                     "All Categories"
                     ? roomDisplayName ||
                       "All Products"
-                    : filters.category}
+                    : formatCategoryName(
+                        filters.category,
+                      )}
                 </h2>
 
                 <p

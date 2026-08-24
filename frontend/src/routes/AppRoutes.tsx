@@ -53,6 +53,8 @@ import AdminOrderDetails from "../pages/admin/OrderDetails";
 import AdminCustomers from "../pages/admin/Customers";
 import AdminCustomerDetails from "../pages/admin/CustomerDetails";
 import Settings from "../pages/admin/Settings";
+import AdminNotifications from "../pages/admin/AdminNotifications";
+import Notifications from "../pages/notifications/Notifications";
 
 const AppRoutes = () => {
   return (
@@ -202,6 +204,11 @@ const AppRoutes = () => {
               element={<OrderDetails />}
             />
 
+            <Route
+              path="/notifications"
+              element={<Notifications />}
+            />
+
           </Route>
 
         </Route>
@@ -300,6 +307,10 @@ const AppRoutes = () => {
           element={<Settings />}
         />
 
+        <Route
+          path="/admin/notifications"
+          element={<AdminNotifications />}
+        />
           </Route>
         </Route>
 

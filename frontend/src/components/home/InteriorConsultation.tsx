@@ -1,8 +1,9 @@
 import { ArrowRight, Sparkles } from "lucide-react";
-
+import { useNavigate } from "react-router-dom";
 import consultationImage from "../../assets/images/looks/interior-consultation.png";
 
 const InteriorConsultation = () => {
+  const navigate = useNavigate();
   return (
     <section className="relative w-full overflow-hidden bg-[#FAF8F5] py-12 sm:py-14 lg:py-16">
       <div className="relative mx-auto max-w-370 px-4 sm:px-6 lg:px-8 xl:px-10">
@@ -93,6 +94,7 @@ const InteriorConsultation = () => {
               {/* CTA */}
 
               <button
+              onClick={()=>navigate("/interior-services")}
                 className="
                   group
                   mt-7

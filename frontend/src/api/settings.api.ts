@@ -4,8 +4,14 @@
  * ========================================
  */
 
+const UTILS_SERVICE_URL =
+  import.meta.env.VITE_UTILS_SERVICE_URL;
+
 const SETTINGS_API_URL =
-  "http://localhost:5002/api/v1/settings";
+  import.meta.env.VITE_PRODUCT_SERVICE_URL.replace(
+    "/products",
+    "/settings",
+  );
 
 /*
  * ========================================
@@ -147,6 +153,12 @@ const request = async <T>(
   endpoint: string,
   options: RequestInit = {},
 ): Promise<T> => {
+  if (!UTILS_SERVICE_URL) {
+    throw new Error(
+      "VITE_UTILS_SERVICE_URL is not defined",
+    );
+  }
+
   const response =
     await fetch(
       `${SETTINGS_API_URL}${endpoint}`,
@@ -209,6 +221,9 @@ export const getSettings =
   async (): Promise<Settings> => {
     return request<Settings>(
       "",
+      {
+        method: "GET",
+      },
     );
   };
 

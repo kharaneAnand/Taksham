@@ -10,6 +10,7 @@ import {
   ArrowRight,
   Package,
   Settings,
+  Bell,
 } from "lucide-react";
 
 import {
@@ -30,6 +31,9 @@ import { useCart } from "../../context/CartContext";
 import {
   useWishlist,
 } from "../../context/WishlistContext";
+import {
+  getUserUnreadNotificationCount,
+} from "../../api/notification.api";
 
 interface AuthUser {
   id?: string | number;
@@ -130,6 +134,11 @@ const Navbar = () => {
     setAuthLoading,
   ] = useState(true);
 
+  const [
+  notificationCount,
+  setNotificationCount,
+] = useState(0);
+
   const accountRef =
     useRef<HTMLDivElement | null>(
       null,
@@ -197,6 +206,40 @@ const Navbar = () => {
 
     getCurrentUser();
   }, []);
+
+  /*
+ * ========================================
+ * Fetch Unread Notification Count
+ * ========================================
+ */
+
+useEffect(() => {
+  const getUnreadNotifications =
+    async () => {
+      if (!user?.id) {
+        setNotificationCount(0);
+        return;
+      }
+
+      try {
+        const count =
+          await getUserUnreadNotificationCount(
+            String(user.id),
+          );
+
+        setNotificationCount(count);
+      } catch (error) {
+        console.error(
+          "Failed to fetch notification count:",
+          error,
+        );
+
+        setNotificationCount(0);
+      }
+    };
+
+  getUnreadNotifications();
+}, [user?.id]);
 
   /*
    * ========================================
@@ -577,7 +620,7 @@ const Navbar = () => {
               type="button"
               onClick={() =>
                 navigate(
-                  "/consultation",
+                  "/interior-services",
                 )
               }
               className="
@@ -610,6 +653,74 @@ const Navbar = () => {
 
               Book Consultation
             </button>
+
+            {/* =================================================
+              NOTIFICATIONS
+          ================================================= */}
+
+          {user && (
+            <button
+              type="button"
+              aria-label="Notifications"
+              onClick={() =>
+                navigate("/notifications")
+              }
+              className="
+                group
+                relative
+                flex
+                h-11
+                w-11
+                shrink-0
+                items-center
+                justify-center
+                rounded-xl
+                text-[#39342E]
+                transition-all
+                duration-300
+                hover:bg-[#F8F5F0]
+                hover:text-[#9A7138]
+                active:scale-95
+              "
+            >
+              <Bell
+                size={21}
+                strokeWidth={1.5}
+                className="
+                  transition-transform
+                  duration-300
+                  group-hover:scale-105
+                "
+              />
+
+              {notificationCount > 0 && (
+                <span
+                  className="
+                    absolute
+                    -right-0.5
+                    -top-0.5
+                    flex
+                    h-5
+                    min-w-5
+                    items-center
+                    justify-center
+                    rounded-full
+                    border-2
+                    border-[#FEFDFC]
+                    bg-[#B7894A]
+                    px-1
+                    text-[8px]
+                    font-bold
+                    text-white
+                  "
+                >
+                  {notificationCount > 99
+                    ? "99+"
+                    : notificationCount}
+                </span>
+              )}
+            </button>
+          )}
 
             {/* =================================================
                 WISHLIST
@@ -1426,6 +1537,65 @@ const Navbar = () => {
           {/* Right actions */}
 
           <div className="flex items-center gap-0.5">
+
+            {/* Notifications */}
+
+          {user && (
+            <button
+              type="button"
+              aria-label="Notifications"
+              onClick={() =>
+                navigate("/notifications")
+              }
+              className="
+                relative
+                flex
+                h-10
+                w-10
+                items-center
+                justify-center
+                rounded-xl
+                text-[#39342E]
+                transition-all
+                duration-200
+                hover:bg-[#F0EAE1]
+                hover:text-[#9A7138]
+                active:scale-95
+              "
+            >
+              <Bell
+                size={20}
+                strokeWidth={1.5}
+              />
+
+              {notificationCount > 0 && (
+                <span
+                  className="
+                    absolute
+                    right-0
+                    top-0
+                    flex
+                    h-4
+                    min-w-4
+                    items-center
+                    justify-center
+                    rounded-full
+                    border
+                    border-[#FAF8F5]
+                    bg-[#B7894A]
+                    px-0.5
+                    text-[8px]
+                    font-bold
+                    text-white
+                  "
+                >
+                  {notificationCount > 99
+                    ? "99+"
+                    : notificationCount}
+                </span>
+              )}
+            </button>
+          )}
             {/* Wishlist */}
 
             <button
@@ -1913,7 +2083,7 @@ const Navbar = () => {
               type="button"
               onClick={() =>
                 navigateAndClose(
-                  "/consultation",
+                  "/interior-services",
                 )
               }
               className="
