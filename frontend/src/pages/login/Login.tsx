@@ -36,7 +36,7 @@ const Login = () => {
 
       toast.success("Welcome back!");
 
-      if (loggedInUser.role === "admin") {
+      if (loggedInUser?.role === "admin") {
         navigate("/admin", {
           replace: true,
         });
@@ -47,9 +47,9 @@ const Login = () => {
       }
     } catch (error: any) {
       const message =
-        error?.response?.data?.message ||
-        error?.response?.data?.errors?.[0]?.message ||
-        "Unable to login. Please check your credentials.";
+        error instanceof Error
+      ? error.message
+      : "Unable to login. Please check your credentials.";
 
       toast.error(message);
     } finally {

@@ -55,6 +55,8 @@ import AdminCustomerDetails from "../pages/admin/CustomerDetails";
 import Settings from "../pages/admin/Settings";
 import AdminNotifications from "../pages/admin/AdminNotifications";
 import Notifications from "../pages/notifications/Notifications";
+import ForgotPassword from "../pages/auth/ForgotPassword";
+import ResetPassword from "../pages/auth/ResetPassword";
 
 const AppRoutes = () => {
   return (
@@ -162,6 +164,16 @@ const AppRoutes = () => {
             <Route
               path="/register"
               element={<Register />}
+            />
+
+            <Route
+              path="/forgot-password"
+              element={<ForgotPassword />}
+            />
+
+            <Route
+              path="/reset-password/:token"
+              element={<ResetPassword />}
             />
 
           </Route>

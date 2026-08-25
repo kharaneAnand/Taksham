@@ -535,11 +535,6 @@ const ProductDetails = () => {
   const wishlisted =
     isWishlisted(product._id);
 
-  const rating =
-    product.rating ?? 0;
-
-  const reviews =
-    product.reviews ?? 0;
 
   const decreaseQuantity = () => {
     setQuantity((current) =>
@@ -967,49 +962,44 @@ const ProductDetails = () => {
             </h1>
 
             <div
+            className="
+              mt-4
+              flex
+              items-center
+              gap-2
+            "
+          >
+            <div className="flex items-center gap-0.5">
+              {Array.from({ length: 4 }).map(
+                (_, index) => (
+                  <Star
+                    key={index}
+                    size={14}
+                    strokeWidth={1.2}
+                    fill="currentColor"
+                    className="text-[#C98A24]"
+                  />
+                ),
+              )}
+
+              <Star
+                size={14}
+                strokeWidth={1.2}
+                className="text-[#D8CEC3]"
+              />
+            </div>
+
+            <span
               className="
-                mt-4
-                flex
-                items-center
-                gap-3
+                ml-1
+                text-[11px]
+                font-semibold
+                text-[#403A33]
               "
             >
-              <div className="flex items-center gap-1">
-                <Star
-                  size={14}
-                  strokeWidth={1.1}
-                  fill="#C98A24"
-                  className="text-[#C98A24]"
-                />
-
-                <span
-                  className="
-                    text-[11px]
-                    font-semibold
-                    text-[#403A33]
-                  "
-                >
-                  {rating.toFixed(1)}
-                </span>
-              </div>
-
-              <span
-                className="
-                  h-3.5
-                  w-px
-                  bg-[#DCD2C5]
-                "
-              />
-
-              <span
-                className="
-                  text-[10px]
-                  text-[#81776C]
-                "
-              >
-                {reviews} reviews
-              </span>
-            </div>
+              4.0
+            </span>
+          </div>
 
             <div
               className="

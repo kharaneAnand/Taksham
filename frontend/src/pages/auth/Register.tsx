@@ -8,7 +8,10 @@ import {
 import {
   useState,
 } from "react";
-import type{FormEvent} from "react"
+
+import type {
+  FormEvent,
+} from "react";
 
 import {
   Link,
@@ -16,13 +19,8 @@ import {
 } from "react-router-dom";
 
 import toast from "react-hot-toast";
-import { AxiosError } from "axios";
 
 import AuthService from "../../services/auth.service";
-
-interface ApiErrorResponse {
-  message?: string;
-}
 
 const Register = () => {
   const navigate = useNavigate();
@@ -48,8 +46,10 @@ const Register = () => {
   const [showPassword, setShowPassword] =
     useState(false);
 
-  const [showConfirmPassword, setShowConfirmPassword] =
-    useState(false);
+  const [
+    showConfirmPassword,
+    setShowConfirmPassword,
+  ] = useState(false);
 
   const [loading, setLoading] =
     useState(false);
@@ -70,6 +70,7 @@ const Register = () => {
       toast.error(
         "Please fill in all the fields.",
       );
+
       return;
     }
 
@@ -77,6 +78,7 @@ const Register = () => {
       toast.error(
         "Passwords do not match.",
       );
+
       return;
     }
 
@@ -92,23 +94,19 @@ const Register = () => {
       });
 
       toast.success(
-        "Account created successfully. Please sign in.",
+        "Account created! Please check your email to verify your account.",
       );
 
       navigate("/login", {
         replace: true,
       });
-
-    } catch (error) {
-      const axiosError =
-        error as AxiosError<ApiErrorResponse>;
-
+    } catch (error: unknown) {
       const message =
-        axiosError.response?.data?.message ||
-        "Unable to create your account. Please try again.";
+        error instanceof Error
+          ? error.message
+          : "Unable to create your account. Please try again.";
 
       toast.error(message);
-
     } finally {
       setLoading(false);
     }
@@ -240,6 +238,7 @@ const Register = () => {
                       )
                     }
                     placeholder="Anand"
+                    disabled={loading}
                     className="
                       h-12
                       w-full
@@ -256,6 +255,8 @@ const Register = () => {
                       focus:border-[#A4773E]
                       focus:ring-4
                       focus:ring-[#A4773E]/8
+                      disabled:cursor-not-allowed
+                      disabled:opacity-60
                     "
                   />
 
@@ -281,6 +282,7 @@ const Register = () => {
                       )
                     }
                     placeholder="Kharane"
+                    disabled={loading}
                     className="
                       h-12
                       w-full
@@ -297,6 +299,8 @@ const Register = () => {
                       focus:border-[#A4773E]
                       focus:ring-4
                       focus:ring-[#A4773E]/8
+                      disabled:cursor-not-allowed
+                      disabled:opacity-60
                     "
                   />
 
@@ -326,6 +330,7 @@ const Register = () => {
                     )
                   }
                   placeholder="you@example.com"
+                  disabled={loading}
                   className="
                     h-12
                     w-full
@@ -342,6 +347,8 @@ const Register = () => {
                     focus:border-[#A4773E]
                     focus:ring-4
                     focus:ring-[#A4773E]/8
+                    disabled:cursor-not-allowed
+                    disabled:opacity-60
                   "
                 />
 
@@ -369,6 +376,7 @@ const Register = () => {
                     )
                   }
                   placeholder="+91 98765 43210"
+                  disabled={loading}
                   className="
                     h-12
                     w-full
@@ -385,6 +393,8 @@ const Register = () => {
                     focus:border-[#A4773E]
                     focus:ring-4
                     focus:ring-[#A4773E]/8
+                    disabled:cursor-not-allowed
+                    disabled:opacity-60
                   "
                 />
 
@@ -418,6 +428,7 @@ const Register = () => {
                       )
                     }
                     placeholder="Create a password"
+                    disabled={loading}
                     className="
                       h-12
                       w-full
@@ -435,6 +446,8 @@ const Register = () => {
                       focus:border-[#A4773E]
                       focus:ring-4
                       focus:ring-[#A4773E]/8
+                      disabled:cursor-not-allowed
+                      disabled:opacity-60
                     "
                   />
 
@@ -445,8 +458,9 @@ const Register = () => {
                         (value) => !value,
                       )
                     }
+                    disabled={loading}
                     aria-label="Toggle password visibility"
-                    className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[#8D8378] hover:bg-[#F4EFE8]"
+                    className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[#8D8378] hover:bg-[#F4EFE8] disabled:cursor-not-allowed"
                   >
                     {showPassword ? (
                       <EyeOff size={15} />
@@ -487,6 +501,7 @@ const Register = () => {
                       )
                     }
                     placeholder="Repeat your password"
+                    disabled={loading}
                     className="
                       h-12
                       w-full
@@ -504,6 +519,8 @@ const Register = () => {
                       focus:border-[#A4773E]
                       focus:ring-4
                       focus:ring-[#A4773E]/8
+                      disabled:cursor-not-allowed
+                      disabled:opacity-60
                     "
                   />
 
@@ -514,8 +531,9 @@ const Register = () => {
                         (value) => !value,
                       )
                     }
+                    disabled={loading}
                     aria-label="Toggle confirm password visibility"
-                    className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[#8D8378] hover:bg-[#F4EFE8]"
+                    className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[#8D8378] hover:bg-[#F4EFE8] disabled:cursor-not-allowed"
                   >
                     {showConfirmPassword ? (
                       <EyeOff size={15} />

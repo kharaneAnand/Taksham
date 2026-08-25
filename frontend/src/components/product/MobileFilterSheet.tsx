@@ -21,7 +21,16 @@ interface MobileFilterSheetProps {
   onClose: () => void;
 }
 
-const COLOR_VALUES: Record<string, string> = {
+/*
+ * ========================================
+ * COLOR MAP
+ * ========================================
+ */
+
+const COLOR_VALUES: Record<
+  string,
+  string
+> = {
   beige: "#C9B9A3",
   brown: "#9B754C",
   black: "#37342F",
@@ -35,7 +44,53 @@ const COLOR_VALUES: Record<string, string> = {
   yellow: "#D4AE43",
   gold: "#C9A35C",
   silver: "#B9B9B9",
+  orange: "#D98745",
+  pink: "#D9A0AE",
+  purple: "#9173B2",
 };
+
+/*
+ * ========================================
+ * NORMALIZE FILTER VALUE
+ * ========================================
+ */
+
+const normalizeFilterValue = (
+  value: string,
+): string => {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-");
+};
+
+/*
+ * ========================================
+ * FORMAT CATEGORY NAME
+ * ========================================
+ */
+
+const formatCategoryName = (
+  value: string,
+): string => {
+  return value
+    .trim()
+    .replace(/[-_]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map(
+      (word) =>
+        word.charAt(0).toUpperCase() +
+        word.slice(1).toLowerCase(),
+    )
+    .join(" ");
+};
+
+/*
+ * ========================================
+ * GET UNIQUE VALUES
+ * ========================================
+ */
 
 const getUniqueValues = (
   values: Array<string | undefined | null>,
@@ -57,28 +112,11 @@ const getUniqueValues = (
   );
 };
 
-const getColorName = (
-  color:
-    | string
-    | {
-        name?: string;
-      }
-    | undefined
-    | null,
-): string | undefined => {
-  if (typeof color === "string") {
-    return color;
-  }
-
-  if (
-    color &&
-    typeof color.name === "string"
-  ) {
-    return color.name;
-  }
-
-  return undefined;
-};
+/*
+ * ========================================
+ * COMPONENT
+ * ========================================
+ */
 
 const MobileFilterSheet = ({
   open,
@@ -87,23 +125,63 @@ const MobileFilterSheet = ({
   onApply,
   onClose,
 }: MobileFilterSheetProps) => {
-  if (!open) return null;
+  if (!open) {
+    return null;
+  }
 
   /*
    * ========================================
-   * BUILD FILTER OPTIONS FROM BACKEND PRODUCTS
+   * CATEGORIES
    * ========================================
+   *
+   * Normalize backend values internally.
+   *
+   * Example:
+   *
+   * "Living Room"
+   * becomes
+   * "living-room"
    */
 
-  const categories = getUniqueValues([
-    ...products.map(
-      (product) => product.category,
+  const categoryValues = Array.from(
+    new Set(
+      products.flatMap((product) =>
+        [
+          product.category,
+          product.subcategory,
+        ]
+          .filter(
+            (
+              value,
+            ): value is string =>
+              Boolean(value?.trim()),
+          )
+          .map(normalizeFilterValue),
+      ),
     ),
+  ).sort((a, b) =>
+    formatCategoryName(a).localeCompare(
+      formatCategoryName(b),
+    ),
+  );
 
-    ...products.map(
-      (product) => product.subcategory,
-    ),
-  ]);
+  const categories = [
+    {
+      value: "All Categories",
+      label: "All Categories",
+    },
+
+    ...categoryValues.map((value) => ({
+      value,
+      label: formatCategoryName(value),
+    })),
+  ];
+
+  /*
+   * ========================================
+   * MATERIALS
+   * ========================================
+   */
 
   const materials = getUniqueValues([
     ...products.map(
@@ -117,10 +195,19 @@ const MobileFilterSheet = ({
     ),
   ]);
 
+  /*
+   * ========================================
+   * COLORS
+   * ========================================
+   */
+
   const colors = getUniqueValues([
     ...products.flatMap((product) =>
-      (product.colors ?? []).map(
-        (color) => getColorName(color),
+      (product.colors ?? []).filter(
+        (
+          color,
+        ): color is string =>
+          typeof color === "string",
       ),
     ),
 
@@ -133,7 +220,7 @@ const MobileFilterSheet = ({
 
   /*
    * ========================================
-   * LOCAL FILTER ACTIONS
+   * LOCAL ACTIONS
    * ========================================
    */
 
@@ -167,8 +254,7 @@ const MobileFilterSheet = ({
       colors:
         filters.colors.includes(color)
           ? filters.colors.filter(
-              (item) =>
-                item !== color,
+              (item) => item !== color,
             )
           : [
               ...filters.colors,
@@ -190,17 +276,46 @@ const MobileFilterSheet = ({
     onClose();
   };
 
+  /*
+   * ========================================
+   * PRICE RANGE
+   * ========================================
+   *
+   * Keep this same as Products.tsx.
+   */
+
   const maxPrice = 100000;
 
+  const safeMinPrice = Math.min(
+    filters.minPrice,
+    maxPrice,
+  );
+
+  const safeMaxPrice = Math.min(
+    Math.max(
+      filters.maxPrice,
+      safeMinPrice + 1000,
+    ),
+    maxPrice,
+  );
+
   const minPercentage =
-    (filters.minPrice / maxPrice) * 100;
+    (safeMinPrice / maxPrice) * 100;
 
   const maxPercentage =
-    (filters.maxPrice / maxPrice) * 100;
+    (safeMaxPrice / maxPrice) * 100;
+
+  /*
+   * ========================================
+   * RENDER
+   * ========================================
+   */
 
   return (
     <div className="fixed inset-0 z-100 sm:hidden">
-      {/* Overlay */}
+      {/* ========================================
+          OVERLAY
+      ======================================== */}
 
       <button
         type="button"
@@ -231,7 +346,9 @@ const MobileFilterSheet = ({
           shadow-[0_-20px_60px_rgba(0,0,0,0.18)]
         "
       >
-        {/* Handle */}
+        {/* ========================================
+            HANDLE
+        ======================================== */}
 
         <div
           className="
@@ -243,7 +360,9 @@ const MobileFilterSheet = ({
           "
         />
 
-        {/* Header */}
+        {/* ========================================
+            HEADER
+        ======================================== */}
 
         <div
           className="
@@ -303,7 +422,9 @@ const MobileFilterSheet = ({
           </button>
         </div>
 
-        {/* CATEGORY */}
+        {/* ========================================
+            CATEGORY
+        ======================================== */}
 
         <div className="mt-8">
           <div className="flex items-center justify-between">
@@ -320,26 +441,29 @@ const MobileFilterSheet = ({
             </p>
 
             <span className="text-[10px] text-[#9A9186]">
-              {filters.category}
+              {filters.category ===
+              "All Categories"
+                ? "All Categories"
+                : formatCategoryName(
+                    filters.category,
+                  )}
             </span>
           </div>
 
           <div className="mt-4 space-y-1">
-            {[
-              "All Categories",
-              ...categories,
-            ].map((category) => {
+            {categories.map((category) => {
               const active =
-                filters.category === category;
+                filters.category ===
+                category.value;
 
               return (
                 <button
-                  key={category}
+                  key={category.value}
                   type="button"
                   onClick={() =>
                     onApply({
                       ...filters,
-                      category,
+                      category: category.value,
                     })
                   }
                   className={`
@@ -369,7 +493,7 @@ const MobileFilterSheet = ({
                       }
                     `}
                   >
-                    {category}
+                    {category.label}
                   </span>
 
                   {active && (
@@ -385,7 +509,9 @@ const MobileFilterSheet = ({
           </div>
         </div>
 
-        {/* MATERIAL */}
+        {/* ========================================
+            MATERIAL
+        ======================================== */}
 
         <div
           className="
@@ -452,7 +578,9 @@ const MobileFilterSheet = ({
           </div>
         </div>
 
-        {/* PRICE RANGE */}
+        {/* ========================================
+            PRICE RANGE
+        ======================================== */}
 
         <div
           className="
@@ -477,12 +605,12 @@ const MobileFilterSheet = ({
 
             <span className="text-[11px] text-[#7D7368]">
               ₹
-              {filters.minPrice.toLocaleString(
+              {safeMinPrice.toLocaleString(
                 "en-IN",
               )}
               {" - "}
               ₹
-              {filters.maxPrice.toLocaleString(
+              {safeMaxPrice.toLocaleString(
                 "en-IN",
               )}
             </span>
@@ -526,7 +654,7 @@ const MobileFilterSheet = ({
                 min={0}
                 max={maxPrice}
                 step={1000}
-                value={filters.minPrice}
+                value={safeMinPrice}
                 onChange={(event) => {
                   const value = Number(
                     event.target.value,
@@ -537,8 +665,10 @@ const MobileFilterSheet = ({
 
                     minPrice: Math.min(
                       value,
-                      filters.maxPrice - 1000,
+                      safeMaxPrice - 1000,
                     ),
+
+                    maxPrice: safeMaxPrice,
                   });
                 }}
                 className="
@@ -560,7 +690,7 @@ const MobileFilterSheet = ({
                 min={0}
                 max={maxPrice}
                 step={1000}
-                value={filters.maxPrice}
+                value={safeMaxPrice}
                 onChange={(event) => {
                   const value = Number(
                     event.target.value,
@@ -569,9 +699,11 @@ const MobileFilterSheet = ({
                   onApply({
                     ...filters,
 
+                    minPrice: safeMinPrice,
+
                     maxPrice: Math.max(
                       value,
-                      filters.minPrice + 1000,
+                      safeMinPrice + 1000,
                     ),
                   });
                 }}
@@ -630,17 +762,25 @@ const MobileFilterSheet = ({
               />
             </div>
 
-            <div className="mt-4 flex justify-between text-[11px] text-[#766D63]">
+            <div
+              className="
+                mt-4
+                flex
+                justify-between
+                text-[11px]
+                text-[#766D63]
+              "
+            >
               <span>
                 ₹
-                {filters.minPrice.toLocaleString(
+                {safeMinPrice.toLocaleString(
                   "en-IN",
                 )}
               </span>
 
               <span>
                 ₹
-                {filters.maxPrice.toLocaleString(
+                {safeMaxPrice.toLocaleString(
                   "en-IN",
                 )}
               </span>
@@ -648,7 +788,9 @@ const MobileFilterSheet = ({
           </div>
         </div>
 
-        {/* COLOR */}
+        {/* ========================================
+            COLOR
+        ======================================== */}
 
         <div
           className="
@@ -678,7 +820,7 @@ const MobileFilterSheet = ({
               const backgroundColor =
                 COLOR_VALUES[
                   color.toLowerCase()
-                ] ?? color;
+                ] ?? "#C9B9A3";
 
               return (
                 <button
@@ -726,7 +868,9 @@ const MobileFilterSheet = ({
           </div>
         </div>
 
-        {/* RATING */}
+        {/* ========================================
+            RATING
+        ======================================== */}
 
         <div
           className="
@@ -807,7 +951,13 @@ const MobileFilterSheet = ({
                     )}
                   </span>
 
-                  <span className="text-[13px] tracking-[0.04em] text-[#C88924]">
+                  <span
+                    className="
+                      text-[13px]
+                      tracking-[0.04em]
+                      text-[#C88924]
+                    "
+                  >
                     {"★".repeat(rating)}
 
                     <span className="text-[#D8CEC3]">
@@ -826,7 +976,9 @@ const MobileFilterSheet = ({
           </div>
         </div>
 
-        {/* ACTIONS */}
+        {/* ========================================
+            ACTIONS
+        ======================================== */}
 
         <div
           className="

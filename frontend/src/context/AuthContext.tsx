@@ -5,7 +5,9 @@ import {
   useState,
 } from "react";
 
-import type { ReactNode } from "react";
+import type {
+  ReactNode,
+} from "react";
 
 import type {
   LoginInput,
@@ -13,6 +15,13 @@ import type {
 } from "../types/auth";
 
 import AuthService from "../services/auth.service";
+
+
+/*
+ * ========================================
+ * AUTH CONTEXT TYPE
+ * ========================================
+ */
 
 interface AuthContextType {
   user: User | null;
@@ -22,20 +31,36 @@ interface AuthContextType {
   isAuthenticated: boolean;
 
   login: (
-    data: LoginInput
+    data: LoginInput,
   ) => Promise<User>;
 
   logout: () => Promise<void>;
 
   checkAuth: () => Promise<void>;
 
-  setUser: (user: User | null) => void;
+  setUser: (
+    user: User | null,
+  ) => void;
 }
+
+
+/*
+ * ========================================
+ * AUTH CONTEXT
+ * ========================================
+ */
 
 const AuthContext =
   createContext<AuthContextType | null>(
-    null
+    null,
   );
+
+
+/*
+ * ========================================
+ * AUTH PROVIDER
+ * ========================================
+ */
 
 export const AuthProvider = ({
   children,
@@ -48,48 +73,101 @@ export const AuthProvider = ({
   const [loading, setLoading] =
     useState(true);
 
- 
+
+  /*
+   * ========================================
+   * LOGIN
+   * ========================================
+   */
 
   const login = async (
-    data: LoginInput
+    data: LoginInput,
   ): Promise<User> => {
-    const loggedInUser =
+    const user =
       await AuthService.login(data);
 
-    setUser(loggedInUser);
+    console.log(
+      "Logged in user:",
+      user,
+    );
 
-    return loggedInUser;
-  };
-
-
-
-  const logout = async () => {
-    await AuthService.logout();
-
-    setUser(null);
-  };
-
- 
-
-  const checkAuth = async () => {
-    try {
-      const authenticatedUser =
-        await AuthService.me();
-
-      setUser(authenticatedUser);
-    } catch {
-      setUser(null);
-    } finally {
-      setLoading(false);
+    if (!user) {
+      throw new Error(
+        "Login failed. User data was not returned.",
+      );
     }
+
+    setUser(user);
+
+    return user;
   };
 
+
+  /*
+   * ========================================
+   * LOGOUT
+   * ========================================
+   */
+
+  const logout =
+    async (): Promise<void> => {
+      try {
+        await AuthService.logout();
+      } finally {
+        /*
+         * Always clear frontend user state
+         * even if the backend session has
+         * already expired.
+         */
+
+        setUser(null);
+      }
+    };
+
+
+  /*
+   * ========================================
+   * CHECK AUTHENTICATION
+   * ========================================
+   */
+
+  const checkAuth =
+    async (): Promise<void> => {
+      try {
+        const authenticatedUser =
+          await AuthService.me();
+
+        setUser(
+          authenticatedUser,
+        );
+      } catch {
+        /*
+         * User is not authenticated.
+         */
+
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+
+  /*
+   * ========================================
+   * INITIAL AUTH CHECK
+   * ========================================
+   */
 
   useEffect(() => {
-    checkAuth();
+    void checkAuth();
   }, []);
 
-  
+
+  /*
+   * ========================================
+   * PROVIDER
+   * ========================================
+   */
 
   return (
     <AuthContext.Provider
@@ -116,6 +194,11 @@ export const AuthProvider = ({
 };
 
 
+/*
+ * ========================================
+ * USE AUTH HOOK
+ * ========================================
+ */
 
 export const useAuth = () => {
   const context =
@@ -123,7 +206,7 @@ export const useAuth = () => {
 
   if (!context) {
     throw new Error(
-      "useAuth must be used inside AuthProvider"
+      "useAuth must be used inside AuthProvider",
     );
   }
 

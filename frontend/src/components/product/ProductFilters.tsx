@@ -10,16 +10,40 @@ export interface ProductFilterState {
 }
 
 interface ProductFiltersProps {
+  /*
+   * Products currently displayed on the page.
+   */
   products: Product[];
+
+  /*
+   * Full product list used to build
+   * sidebar filter options and counts.
+   */
+  filterProducts: Product[];
+
   filters: ProductFilterState;
-  onCategoryChange: (category: string) => void;
-  onMaterialToggle: (material: string) => void;
-  onColorToggle: (color: string) => void;
+
+  onCategoryChange: (
+    category: string,
+  ) => void;
+
+  onMaterialToggle: (
+    material: string,
+  ) => void;
+
+  onColorToggle: (
+    color: string,
+  ) => void;
+
   onPriceChange: (
     minPrice: number,
     maxPrice: number,
   ) => void;
-  onRatingChange: (minRating: number) => void;
+
+  onRatingChange: (
+    minRating: number,
+  ) => void;
+
   onClear: () => void;
 }
 
@@ -42,40 +66,108 @@ const colorMap: Record<string, string> = {
   Purple: "#9173B2",
 };
 
+/*
+ * ========================================
+ * NORMALIZE FILTER VALUE
+ * ========================================
+ */
+
+const normalizeFilterValue = (
+  value: string,
+): string => {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-");
+};
+
+/*
+ * ========================================
+ * FORMAT CATEGORY NAME
+ * ========================================
+ */
+
+const formatCategoryName = (
+  value: string,
+): string => {
+  return value
+    .trim()
+    .replace(/[-_]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map(
+      (word) =>
+        word.charAt(0).toUpperCase() +
+        word.slice(1).toLowerCase(),
+    )
+    .join(" ");
+};
+
+/*
+ * ========================================
+ * GET COLOR VALUE
+ * ========================================
+ */
+
 const getColorValue = (
   color: string,
 ): string => {
+  const normalizedColor =
+    color.charAt(0).toUpperCase() +
+    color.slice(1).toLowerCase();
+
   return (
-    colorMap[
-      color.charAt(0).toUpperCase() +
-        color.slice(1).toLowerCase()
-    ] ?? "#C9B9A3"
+    colorMap[normalizedColor] ??
+    "#C9B9A3"
   );
 };
+
+/*
+ * ========================================
+ * GET CATEGORY COUNT
+ * ========================================
+ *
+ * Only compares actual product.category.
+ *
+ * We do NOT mix subcategory here because
+ * Products.tsx sends the selected sidebar
+ * value to the backend as `category`.
+ * ========================================
+ */
 
 const getCategoryCount = (
   products: Product[],
   category: string,
-) => {
+): number => {
   if (category === "All Categories") {
     return products.length;
   }
 
   const normalizedCategory =
-    category.toLowerCase();
+    normalizeFilterValue(category);
 
   return products.filter((product) => {
+    if (!product.category) {
+      return false;
+    }
+
     return (
-      product.category?.toLowerCase() ===
-        normalizedCategory ||
-      product.subcategory?.toLowerCase() ===
-        normalizedCategory
+      normalizeFilterValue(
+        product.category,
+      ) === normalizedCategory
     );
   }).length;
 };
 
+/*
+ * ========================================
+ * COMPONENT
+ * ========================================
+ */
+
 const ProductFilters = ({
   products,
+  filterProducts,
   filters,
   onCategoryChange,
   onMaterialToggle,
@@ -86,43 +178,83 @@ const ProductFilters = ({
 }: ProductFiltersProps) => {
   /*
    * ========================================
-   * DYNAMIC FILTER OPTIONS FROM BACKEND DATA
+   * FULL DATA SOURCE
+   * ========================================
+   *
+   * Always use filterProducts for sidebar
+   * options.
+   *
+   * `products` contains only the current
+   * filtered and paginated API response.
+   */
+
+  const sidebarProducts =
+    filterProducts.length > 0
+      ? filterProducts
+      : products;
+
+  /*
+   * ========================================
+   * CATEGORIES
+   * ========================================
+   *
+   * Only actual product.category values.
+   *
+   * Do not include product.subcategory
+   * because the backend request currently
+   * sends this filter as `category`.
+   */
+
+  const categoryValues = Array.from(
+    new Set(
+      sidebarProducts
+        .map((product) => product.category)
+        .filter(
+          (value): value is string =>
+            Boolean(value?.trim()),
+        )
+        .map(normalizeFilterValue),
+    ),
+  ).sort((a, b) =>
+    formatCategoryName(a).localeCompare(
+      formatCategoryName(b),
+    ),
+  );
+
+  const categories = [
+    {
+      value: "All Categories",
+      label: "All Categories",
+    },
+
+    ...categoryValues.map((value) => ({
+      value,
+      label: formatCategoryName(value),
+    })),
+  ];
+
+  /*
+   * ========================================
+   * MATERIALS
    * ========================================
    */
 
-  const categories = [
-    "All Categories",
-    ...Array.from(
-      new Set(
-        products.flatMap((product) =>
-          [
-            product.category,
-            product.subcategory,
-          ].filter(
-            (value): value is string =>
-              Boolean(value),
-          ),
-        ),
-      ),
-    ).sort((a, b) =>
-      a.localeCompare(b),
-    ),
-  ];
-
   const materials = Array.from(
     new Set(
-      products.flatMap((product) => {
+      sidebarProducts.flatMap((product) => {
         const values: string[] = [];
 
-        if (product.material) {
-          values.push(product.material);
+        if (product.material?.trim()) {
+          values.push(
+            product.material.trim(),
+          );
         }
 
         product.variants?.forEach(
           (variant) => {
-            if (variant.material) {
+            if (variant.material?.trim()) {
               values.push(
-                variant.material,
+                variant.material.trim(),
               );
             }
           },
@@ -133,29 +265,46 @@ const ProductFilters = ({
     ),
   ).sort((a, b) => a.localeCompare(b));
 
+  /*
+   * ========================================
+   * COLORS
+   * ========================================
+   */
+
   const colorNames = Array.from(
     new Set(
-      products.flatMap((product) => {
-        const values: string[] = [];
+      sidebarProducts.flatMap(
+        (product) => {
+          const values: string[] = [];
 
-        product.colors?.forEach((color) => {
-          if (typeof color === "string") {
-            values.push(color);
-          }
-        });
+          product.colors?.forEach(
+            (color) => {
+              if (
+                typeof color === "string" &&
+                color.trim()
+              ) {
+                values.push(
+                  color.trim(),
+                );
+              }
+            },
+          );
 
-        product.variants?.forEach(
-          (variant) => {
-            if (variant.color) {
-              values.push(
-                variant.color,
-              );
-            }
-          },
-        );
+          product.variants?.forEach(
+            (variant) => {
+              if (
+                variant.color?.trim()
+              ) {
+                values.push(
+                  variant.color.trim(),
+                );
+              }
+            },
+          );
 
-        return values;
-      }),
+          return values;
+        },
+      ),
     ),
   ).sort((a, b) => a.localeCompare(b));
 
@@ -171,22 +320,27 @@ const ProductFilters = ({
    */
 
   const highestProductPrice =
-    products.length > 0
+    sidebarProducts.length > 0
       ? Math.max(
-          ...products.flatMap((product) => [
-            product.price,
-            ...(product.variants ?? [])
-              .map((variant) =>
-                variant.price ?? 0,
+          ...sidebarProducts.flatMap(
+            (product) => [
+              product.price,
+              ...(
+                product.variants ?? []
+              ).map(
+                (variant) =>
+                  variant.price ?? 0,
               ),
-          ]),
+            ],
+          ),
         )
       : 100000;
 
   const maxPriceLimit = Math.max(
     100000,
-    Math.ceil(highestProductPrice / 1000) *
-      1000,
+    Math.ceil(
+      highestProductPrice / 1000,
+    ) * 1000,
   );
 
   const hasActiveFilters =
@@ -207,6 +361,10 @@ const ProductFilters = ({
         xl:w-63
       "
     >
+      {/* ========================================
+          FILTER HEADER
+      ======================================== */}
+
       <div className="flex items-center justify-between">
         <h2
           className="
@@ -261,19 +419,23 @@ const ProductFilters = ({
         <div className="mt-4 space-y-1">
           {categories.map((category) => {
             const active =
-              filters.category === category;
+              category.value ===
+              filters.category;
 
-            const count = getCategoryCount(
-              products,
-              category,
-            );
+            const count =
+              getCategoryCount(
+                sidebarProducts,
+                category.value,
+              );
 
             return (
               <button
-                key={category}
+                key={category.value}
                 type="button"
                 onClick={() =>
-                  onCategoryChange(category)
+                  onCategoryChange(
+                    category.value,
+                  )
                 }
                 className={`
                   group
@@ -304,7 +466,7 @@ const ProductFilters = ({
                     }
                   `}
                 >
-                  {category}
+                  {category.label}
                 </span>
 
                 <span
@@ -661,7 +823,9 @@ const ProductFilters = ({
                 aria-label={color.name}
                 title={color.name}
                 onClick={() =>
-                  onColorToggle(color.name)
+                  onColorToggle(
+                    color.name,
+                  )
                 }
                 className={`
                   relative
@@ -777,7 +941,9 @@ const ProductFilters = ({
                   </span>
 
                   <span className="text-[12px] text-[#CFC6BC]">
-                    {"★".repeat(5 - rating)}
+                    {"★".repeat(
+                      5 - rating,
+                    )}
                   </span>
                 </span>
 

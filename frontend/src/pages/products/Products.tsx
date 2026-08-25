@@ -33,18 +33,6 @@ const PRODUCTS_PER_PAGE = 12;
  * ========================================
  * URL CATEGORY PARAMETER MAP
  * ========================================
- *
- * URL values are converted to the exact
- * values stored in the backend database.
- *
- * Example:
- *
- * ?category=sofa
- *
- * becomes:
- *
- * category=sofas
- * ========================================
  */
 
 const CATEGORY_PARAM_MAP: Record<
@@ -89,10 +77,6 @@ const CATEGORY_PARAM_MAP: Record<
 /*
  * ========================================
  * ROOM PARAMETER MAP
- * ========================================
- *
- * These values must match the values stored
- * in MongoDB exactly.
  * ========================================
  */
 
@@ -194,7 +178,7 @@ const getPaginationItems = (
 
 /*
  * ========================================
- * NORMALIZE CATEGORY PARAMETER
+ * NORMALIZE PARAMETER
  * ========================================
  */
 
@@ -223,11 +207,10 @@ const getCategoryFromParam = (
   const normalized =
     normalizeCategoryParam(categoryParam);
 
-  if (CATEGORY_PARAM_MAP[normalized]) {
-    return CATEGORY_PARAM_MAP[normalized];
-  }
-
-  return normalized;
+  return (
+    CATEGORY_PARAM_MAP[normalized] ??
+    normalized
+  );
 };
 
 /*
@@ -249,6 +232,36 @@ const formatCategoryName = (
         word.slice(1),
     )
     .join(" ");
+};
+
+/*
+ * ========================================
+ * SAFE COLOR NAME
+ * ========================================
+ */
+
+const getColorName = (
+  color:
+    | string
+    | {
+        name?: string;
+      }
+    | undefined
+    | null,
+): string | undefined => {
+  if (typeof color === "string") {
+    return color;
+  }
+
+  if (
+    color &&
+    typeof color === "object" &&
+    typeof color.name === "string"
+  ) {
+    return color.name;
+  }
+
+  return undefined;
 };
 
 /*
@@ -347,7 +360,6 @@ const Products = () => {
       }));
 
       setRoomFilter(room);
-
       setCurrentPage(1);
     };
 
@@ -368,7 +380,7 @@ const Products = () => {
 
   /*
    * ========================================
-   * RESET PAGE ON FILTER CHANGE
+   * RESET PAGE
    * ========================================
    */
 
@@ -418,6 +430,13 @@ const Products = () => {
         setLoading(true);
         setError(null);
 
+        /*
+         * Backend currently accepts
+         * a single material/color.
+         * Multiple selections are
+         * filtered locally below.
+         */
+
         const material =
           filters.materials.length === 1
             ? filters.materials[0]
@@ -435,12 +454,6 @@ const Products = () => {
 
             room: roomFilter,
 
-            /*
-             * IMPORTANT:
-             *
-             * Send the selected category as
-             * "category", NOT "subcategory".
-             */
             category:
               filters.category !==
               "All Categories"
@@ -529,6 +542,138 @@ const Products = () => {
 
   /*
    * ========================================
+   * FILTER PRODUCTS LOCALLY
+   * ========================================
+   */
+
+  const filterProducts = (
+    productList: Product[],
+  ): Product[] => {
+    return productList.filter(
+      (product) => {
+        /*
+         * CATEGORY
+         */
+
+        const matchesCategory =
+          filters.category ===
+            "All Categories" ||
+          product.category ===
+            filters.category ||
+          product.subcategory ===
+            filters.category;
+
+        /*
+         * MATERIAL
+         */
+
+        const productMaterials = [
+          product.material,
+
+          ...(product.variants ?? []).map(
+            (variant) =>
+              variant.material,
+          ),
+        ]
+          .filter(
+            (
+              material,
+            ): material is string =>
+              typeof material === "string" &&
+              material.trim().length > 0,
+          )
+          .map((material) =>
+            material.trim().toLowerCase(),
+          );
+
+        const matchesMaterial =
+          filters.materials.length === 0 ||
+          filters.materials.some(
+            (selectedMaterial) =>
+              productMaterials.includes(
+                selectedMaterial
+                  .trim()
+                  .toLowerCase(),
+              ),
+          );
+
+        /*
+         * COLOR
+         */
+
+        const productColors = [
+          ...(product.colors ?? []).map(
+            (color) =>
+              getColorName(color),
+          ),
+
+          ...(product.variants ?? []).map(
+            (variant) =>
+              getColorName(variant.color),
+          ),
+        ]
+          .filter(
+            (
+              color,
+            ): color is string =>
+              typeof color === "string" &&
+              color.trim().length > 0,
+          )
+          .map((color) =>
+            color.trim().toLowerCase(),
+          );
+
+        const matchesColor =
+          filters.colors.length === 0 ||
+          filters.colors.some(
+            (selectedColor) =>
+              productColors.includes(
+                selectedColor
+                  .trim()
+                  .toLowerCase(),
+              ),
+          );
+
+        /*
+         * PRICE
+         */
+
+        const productPrice =
+          typeof product.price === "number"
+            ? product.price
+            : Number(product.price);
+
+        const matchesPrice =
+          Number.isNaN(productPrice) ||
+          (productPrice >=
+            filters.minPrice &&
+            productPrice <=
+              filters.maxPrice);
+
+        /*
+         * RATING
+         */
+
+        const STATIC_PRODUCT_RATING = 4.8;
+
+        const matchesRating =
+          filters.minRating === 0 ||
+          STATIC_PRODUCT_RATING >=
+            filters.minRating;
+
+        return (
+          matchesCategory &&
+          matchesMaterial &&
+          matchesColor &&
+          matchesPrice &&
+          matchesRating
+        );
+      },
+    );
+  };
+
+  /*
+   * ========================================
    * FILTER OPTIONS
    * ========================================
    */
@@ -541,15 +686,16 @@ const Products = () => {
         ),
 
         ...products
-          .map(
-            (product) =>
-              product.category,
-          )
+          .flatMap((product) => [
+            product.category,
+            product.subcategory,
+          ])
           .filter(
             (
               category,
             ): category is string =>
-              Boolean(category),
+              typeof category === "string" &&
+              category.trim().length > 0,
           ),
       ],
     ),
@@ -557,49 +703,46 @@ const Products = () => {
 
   const materials = Array.from(
     new Set(
-      products.flatMap((product) => {
-        const productMaterials = [
+      products
+        .flatMap((product) => [
           product.material,
 
-          ...(
-            product.variants?.map(
-              (variant) =>
-                variant.material,
-            ) ?? []
+          ...(product.variants ?? []).map(
+            (variant) =>
+              variant.material,
           ),
-        ];
-
-        return productMaterials.filter(
+        ])
+        .filter(
           (
             material,
           ): material is string =>
-            Boolean(material),
-        );
-      }),
+            typeof material === "string" &&
+            material.trim().length > 0,
+        ),
     ),
   );
 
   const colors = Array.from(
     new Set(
-      products.flatMap((product) => {
-        const productColors = [
-          ...(product.colors ?? []),
-
-          ...(
-            product.variants?.map(
-              (variant) =>
-                variant.color,
-            ) ?? []
+      products
+        .flatMap((product) => [
+          ...(product.colors ?? []).map(
+            (color) =>
+              getColorName(color),
           ),
-        ];
 
-        return productColors.filter(
+          ...(product.variants ?? []).map(
+            (variant) =>
+              getColorName(variant.color),
+          ),
+        ])
+        .filter(
           (
             color,
           ): color is string =>
-            Boolean(color),
-        );
-      }),
+            typeof color === "string" &&
+            color.trim().length > 0,
+        ),
     ),
   );
 
@@ -659,10 +802,12 @@ const Products = () => {
   ) => {
     setFilters((current) => ({
       ...current,
+
       materials:
         current.materials.includes(material)
           ? current.materials.filter(
-              (item) => item !== material,
+              (item) =>
+                item !== material,
             )
           : [
               ...current.materials,
@@ -678,6 +823,7 @@ const Products = () => {
   ) => {
     setFilters((current) => ({
       ...current,
+
       colors: current.colors.includes(color)
         ? current.colors.filter(
             (item) => item !== color,
@@ -791,12 +937,6 @@ const Products = () => {
       currentPage,
       totalPages,
     );
-
-  /*
-   * ========================================
-   * ROOM DISPLAY NAME
-   * ========================================
-   */
 
   const roomDisplayName =
     roomFilter ?? null;
@@ -1226,6 +1366,7 @@ const Products = () => {
           <ProductFilters
             products={products}
             filters={filters}
+            filterProducts={filterProducts(products)}
             onCategoryChange={
               handleCategoryChange
             }
@@ -1467,7 +1608,7 @@ const Products = () => {
               !error &&
               products.length > 0 && (
                 <ProductGrid
-                  products={products}
+                  products={filterProducts(products)}
                   viewMode={viewMode}
                   onAddToCart={
                     handleAddToCart
@@ -1478,6 +1619,87 @@ const Products = () => {
             {!loading &&
               !error &&
               products.length === 0 && (
+                <div
+                  className="
+                    flex
+                    min-h-90
+                    flex-col
+                    items-center
+                    justify-center
+                    rounded-[20px]
+                    border
+                    border-dashed
+                    border-[#DCCFC0]
+                    bg-[#F7F2EA]
+                    px-6
+                    text-center
+                  "
+                >
+                  <span
+                    className="
+                      font-serif
+                      text-[42px]
+                      text-[#B7894A]/30
+                    "
+                  >
+                    00
+                  </span>
+
+                  <h3
+                    className="
+                      mt-2
+                      font-serif
+                      text-[28px]
+                      text-[#332D26]
+                    "
+                  >
+                    Nothing found
+                  </h3>
+
+                  <p
+                    className="
+                      mt-2
+                      max-w-[320px]
+                      text-[13px]
+                      leading-5
+                      text-[#83786B]
+                    "
+                  >
+                    Try adjusting your filters
+                    to discover more pieces from
+                    the Taksham collection.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="
+                      mt-5
+                      rounded-[9px]
+                      bg-[#8F6B3F]
+                      px-5
+                      py-3
+                      text-[11px]
+                      font-semibold
+                      uppercase
+                      tracking-[0.08em]
+                      text-white
+                      shadow-[0_8px_22px_rgba(143,107,63,0.18)]
+                      transition-all
+                      duration-300
+                      hover:bg-[#795832]
+                    "
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              )}
+
+            {!loading &&
+              !error &&
+              products.length > 0 &&
+              filterProducts(products).length ===
+                0 && (
                 <div
                   className="
                     flex

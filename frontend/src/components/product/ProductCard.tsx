@@ -74,11 +74,6 @@ const ProductCard = ({
     null,
   );
 
-  const rating =
-    product.rating ?? 0;
-
-  const reviews =
-    product.reviews ?? 0;
 
   const {
     isWishlisted,
@@ -707,55 +702,31 @@ const ProductCard = ({
         )}
 
         <div
-          className="
-            mt-2
-            flex
-            min-w-0
-            items-center
-            gap-1.5
-          "
-        >
-          <div className="flex items-center gap-0.5">
-            {[1, 2, 3, 4, 5].map(
-              (star) => (
-                <Star
-                  key={star}
-                  size={9}
-                  strokeWidth={1.5}
-                  className={
-                    star <= rating
-                      ? "fill-[#C98A24] text-[#C98A24]"
-                      : "text-[#D8CEC0]"
-                  }
-                />
-              ),
-            )}
-          </div>
-
-          <span
-            className="
-              text-[7px]
-              text-[#91877B]
-              sm:text-[8px]
-            "
-          >
-            {rating > 0
-              ? rating.toFixed(1)
-              : "New"}
-          </span>
-
-          {reviews > 0 && (
-            <span
-              className="
-                text-[7px]
-                text-[#A39A90]
-                sm:text-[8px]
-              "
-            >
-              ({reviews})
-            </span>
+        className="
+          mt-2
+          flex
+          min-w-0
+          items-center
+          gap-1.5
+        "
+      >
+        <div className="flex items-center gap-0.5">
+          {[1, 2, 3, 4, 5].map(
+            (star) => (
+              <Star
+                key={star}
+                size={9}
+                strokeWidth={1.5}
+                className={
+                  star <= 4
+                    ? "fill-[#C98A24] text-[#C98A24]"
+                    : "text-[#D8CEC0]"
+                }
+              />
+            ),
           )}
         </div>
+      </div>
 
         <button
           type="button"
