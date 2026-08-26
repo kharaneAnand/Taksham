@@ -4,8 +4,20 @@ const env = {
   PORT:
     Number(process.env.PORT) || 5004,
 
+  /*
+   * ========================================
+   * Database
+   * ========================================
+   */
+
   MONGO_URI:
     process.env.MONGODB_URI || "",
+
+  /*
+   * ========================================
+   * JWT
+   * ========================================
+   */
 
   JWT_ACCESS_SECRET:
     process.env.JWT_ACCESS_SECRET || "",
@@ -21,22 +33,44 @@ const env = {
     (process.env.JWT_REFRESH_EXPIRES_IN ||
       "7d") as `${number}${"s" | "m" | "h" | "d" | "w" | "y"}`,
 
+  /*
+   * ========================================
+   * Microservices
+   * ========================================
+   */
+
   CART_SERVICE_URL:
     process.env.CART_SERVICE_URL ||
     "http://localhost:5003/api/v1/cart",
 
+  AUTH_SERVICE_URL:
+  process.env.AUTH_SERVICE_URL ||
+  "http://localhost:5001/api/v1",
+
   PRODUCT_SERVICE_URL:
     process.env.PRODUCT_SERVICE_URL ||
     "http://localhost:5002/api/v1/products",
-  
-   UTILS_SERVICE_URL:
+
+  UTILS_SERVICE_URL:
     process.env.UTILS_SERVICE_URL ||
     "http://localhost:5005/api/v1",
 
   /*
-   * ----------------------------------------
+   * ========================================
+   * Email
+   * ========================================
+   */
+
+  EMAIL_USER:
+    process.env.EMAIL_USER || "",
+
+  EMAIL_PASSWORD:
+    process.env.EMAIL_PASSWORD || "",
+
+  /*
+   * ========================================
    * Internal Service Authentication
-   * ----------------------------------------
+   * ========================================
    */
 
   INTERNAL_SERVICE_SECRET:
@@ -44,9 +78,9 @@ const env = {
     "",
 
   /*
-   * ----------------------------------------
+   * ========================================
    * Razorpay
-   * ----------------------------------------
+   * ========================================
    */
 
   RAZORPAY_KEY_ID:
@@ -79,6 +113,18 @@ if (!env.JWT_ACCESS_SECRET) {
 if (!env.JWT_REFRESH_SECRET) {
   throw new Error(
     "JWT_REFRESH_SECRET is not configured",
+  );
+}
+
+if (!env.EMAIL_USER) {
+  throw new Error(
+    "EMAIL_USER is not configured",
+  );
+}
+
+if (!env.EMAIL_PASSWORD) {
+  throw new Error(
+    "EMAIL_PASSWORD is not configured",
   );
 }
 

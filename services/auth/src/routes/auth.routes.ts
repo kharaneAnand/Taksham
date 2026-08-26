@@ -6,6 +6,7 @@ import authenticate from "../middleware/auth.middleware.js";
 import authorize from "../middleware/authorize.middleware.js";
 import upload from "../utils/multer.js";
 import { UserRole } from "../constants/role.js";
+import authenticateInternalService from "../middleware/internal-service.middleware.js";
 
 const router = Router();
 
@@ -144,6 +145,12 @@ router.get(
   ),
 
   AuthController.getCustomerById,
+);
+
+router.get(
+  "/internal/users/:userId/email",
+  authenticateInternalService,
+  AuthController.getUserEmail,
 );
 
 

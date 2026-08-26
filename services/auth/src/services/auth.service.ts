@@ -131,7 +131,7 @@ class AuthService {
       expiresAt:
         new Date(
           Date.now() +
-            60 * 60 * 1000,
+            15 * 60 * 1000,
         ),
     });
 
@@ -225,9 +225,16 @@ class AuthService {
      * This does NOT contain a verification
      * token or verification link.
      */
-    await this.sendVerificationEmail(
-      user,
-    );
+    try {
+        await this.sendVerificationEmail(
+          user,
+        );
+      } catch (error) {
+        console.error(
+          "Failed to send welcome email:",
+          error,
+        );
+      }
 
 
     const userObject =
@@ -515,11 +522,13 @@ class AuthService {
 
     const verificationToken =
       await UserToken.findOne({
-        token:
-          hashedToken,
-
+        token: hashedToken,
         type:
           TokenType.EMAIL_VERIFICATION,
+
+        expiresAt: {
+          $gt: new Date(),
+        },
       });
 
     if (!verificationToken) {
@@ -694,13 +703,14 @@ class AuthService {
       hashToken(token);
 
     const resetToken =
-      await UserToken.findOne({
-        token:
-          hashedToken,
+    await UserToken.findOne({
+      token: hashedToken,
+      type: TokenType.PASSWORD_RESET,
 
-        type:
-          TokenType.PASSWORD_RESET,
-      });
+      expiresAt: {
+        $gt: new Date(),
+      },
+    });
 
     if (!resetToken) {
       throw new ApiError(
@@ -1257,7 +1267,50 @@ class AuthService {
 
     return customer;
   }
+
+   /*
+   * ========================================
+   * INTERNAL - Get User Email
+   * ========================================
+   *
+   * Used by trusted internal services
+   * for transactional emails.
+   * ========================================
+   */
+
+  async getUserEmail(
+    userId: string,
+  ) {
+
+    const user =
+      await User.findById(
+        userId,
+      )
+        .select(
+          "email firstName lastName",
+        )
+        .lean();
+
+    if (!user) {
+      throw new ApiError(
+        StatusCodes.NOT_FOUND,
+        "User not found",
+      );
+    }
+
+    return {
+      email:
+        user.email,
+
+      firstName:
+        user.firstName,
+
+      lastName:
+        user.lastName,
+    };
+  }
 }
+
 
 
 export default new AuthService();

@@ -12,6 +12,14 @@ import {
   StatusCodes,
 } from "../constants/http.js";
 
+import {
+  sendEmail,
+} from "../utils/send-email.js";
+
+import {
+  orderConfirmationTemplate,
+} from "../templates/index.js";
+
 /*
  * ========================================
  * Types
@@ -28,6 +36,30 @@ interface StockItem {
   productId: string;
   quantity: number;
   variantId?: string;
+}
+
+interface UserResponse {
+  success?: boolean;
+
+  message?: string;
+
+  data?: {
+    email?: string;
+  };
+}
+
+interface UserEmailResponse {
+  success?: boolean;
+
+  message?: string;
+
+  data?: {
+    email: string;
+
+    firstName: string;
+
+    lastName: string;
+  };
 }
 
 /*
@@ -485,6 +517,74 @@ class PaymentService {
     }
   }
 
+
+
+/*
+ * ----------------------------------------
+ * Get User Email
+ * ----------------------------------------
+ *
+ * Fetches the customer's email and name
+ * from the Auth Service.
+ */
+
+private async getUserEmail(
+  userId: string,
+): Promise<{
+  email: string;
+  firstName: string;
+  lastName: string;
+}> {
+  const response = await fetch(
+    `${env.AUTH_SERVICE_URL}/auth/internal/users/${userId}/email`,
+    {
+      method: "GET",
+
+      headers: {
+        Accept:
+          "application/json",
+
+        "x-internal-service-secret":
+          env.INTERNAL_SERVICE_SECRET,
+      },
+    },
+  );
+
+  let result:
+    | UserEmailResponse
+    | null = null;
+
+  try {
+    result =
+      (await response.json()) as UserEmailResponse;
+  } catch {
+    result = null;
+  }
+
+  if (!response.ok) {
+    throw new ApiError(
+      response.status >= 400 &&
+        response.status < 500
+        ? response.status
+        : StatusCodes.INTERNAL_SERVER_ERROR,
+
+      result?.message ||
+        "Failed to fetch user email",
+    );
+  }
+
+  if (
+    !result?.data?.email
+  ) {
+    throw new ApiError(
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      "Auth service returned invalid user email data",
+    );
+  }
+
+  return result.data;
+}
+
   /*
    * ========================================
    * CART
@@ -539,6 +639,132 @@ class PaymentService {
       );
     }
   }
+
+    /*
+   * ========================================
+   * ORDER EMAIL
+   * ========================================
+   */
+
+  private async sendOrderConfirmationEmail(
+  order: {
+    orderNumber: string;
+
+    items: Array<{
+      productName: string;
+
+      productImage: string;
+
+      quantity: number;
+
+      price: number;
+
+      subtotal: number;
+
+      variant?: {
+        color?: string;
+
+        material?: string;
+      };
+    }>;
+
+    shippingAddress: {
+      firstName: string;
+
+      lastName: string;
+
+      address: string;
+
+      city: string;
+
+      state: string;
+
+      pincode: string;
+    };
+
+    paymentMethod:
+      | "cod"
+      | "online";
+
+    subtotal: number;
+
+    shippingCost: number;
+
+    discountAmount: number;
+
+    total: number;
+  },
+
+  email: string,
+): Promise<void> {
+  await sendEmail({
+    to: email,
+
+    subject:
+      `Order Confirmed - ${order.orderNumber}`,
+
+    html:
+      orderConfirmationTemplate({
+        firstName:
+          order.shippingAddress.firstName,
+
+        orderNumber:
+          order.orderNumber,
+
+        items:
+          order.items.map(
+            (item) => ({
+              productName:
+                item.productName,
+
+              quantity:
+                item.quantity,
+
+              price:
+                item.price,
+
+              subtotal:
+                item.subtotal,
+
+              ...(item.variant
+                ? {
+                    variant: {
+                      ...(item.variant.color
+                        ? {
+                            color:
+                              item.variant.color,
+                          }
+                        : {}),
+
+                      ...(item.variant.material
+                        ? {
+                            material:
+                              item.variant.material,
+                          }
+                        : {}),
+                    },
+                  }
+                : {}),
+            }),
+          ),
+
+        subtotal:
+          order.subtotal,
+
+        discountAmount:
+          order.discountAmount,
+
+        shippingCost:
+          order.shippingCost,
+
+        total:
+          order.total,
+
+        paymentMethod:
+          order.paymentMethod,
+      }),
+  });
+}
 
   /*
    * ========================================
@@ -716,6 +942,23 @@ class PaymentService {
       razorpaySignature;
 
     await order.save();
+
+    try {
+      const user =
+        await this.getUserEmail(
+          userId,
+        );
+
+      await this.sendOrderConfirmationEmail(
+        order,
+        user.email,
+      );
+    } catch (error) {
+      console.error(
+        "Order confirmation email failed:",
+        error,
+      );
+    }
 
     /*
      * ------------------------------------

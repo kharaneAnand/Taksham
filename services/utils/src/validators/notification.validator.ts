@@ -121,6 +121,34 @@ export const createNotificationSchema =
 
       metadata:
         notificationMetadataSchema.optional(),
+
+      /*
+       * ------------------------------------
+       * Email
+       * ------------------------------------
+       *
+       * Email is optional because
+       * notifications can exist without
+       * sending an email.
+       */
+
+      email: z
+        .string()
+        .trim()
+        .email(
+          "Enter a valid email address",
+        )
+        .optional(),
+
+      /*
+       * Controls whether an email should
+       * be sent for this notification.
+       */
+
+      sendEmail: z
+        .boolean()
+        .optional()
+        .default(false),
     })
     .superRefine(
       (data, context) => {
@@ -144,6 +172,28 @@ export const createNotificationSchema =
 
             message:
               "Recipient ID is required for user notifications",
+          });
+        }
+
+        /*
+         * If email delivery is requested,
+         * an email address is required.
+         */
+
+        if (
+          data.sendEmail &&
+          !data.email
+        ) {
+          context.addIssue({
+            code:
+              z.ZodIssueCode.custom,
+
+            path: [
+              "email",
+            ],
+
+            message:
+              "Email is required when sendEmail is true",
           });
         }
       },

@@ -371,6 +371,32 @@ getCustomerById =
     },
   );
 
+  /*
+ * ========================================
+ * INTERNAL - Get User Email
+ * ========================================
+ */
+
+getUserEmail =
+  asyncHandler(
+    async (
+      req,
+      res,
+    ) => {
+      const user =
+        await authService.getUserEmail(
+          req.params.userId,
+        );
+
+      return successResponse(
+        res,
+        StatusCodes.OK,
+        "User email fetched successfully",
+        user,
+      );
+    },
+  );
+
 
 }
 
