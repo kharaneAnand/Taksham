@@ -4,6 +4,12 @@ import {
   successResponse,
 } from "../helpers/response.js";
 
+import ApiError from "../helpers/ApiError.js";
+
+import {
+  StatusCodes,
+} from "../constants/http.js";
+
 import paymentService from "../services/payment.service.js";
 
 import type {
@@ -60,17 +66,13 @@ class PaymentController {
         const result =
           await paymentService.createPaymentOrder(
             request.user.id,
-
             request.body.orderId,
           );
 
-        successResponse(
+        return successResponse(
           res,
-
-          200,
-
+          StatusCodes.OK,
           "Payment order created successfully",
-
           result,
         );
       },
@@ -78,7 +80,7 @@ class PaymentController {
 
   /*
    * ----------------------------------------
-   * Verify Payment
+   * Verify Razorpay Payment
    * POST /api/v1/payments/verify
    * ----------------------------------------
    */
@@ -100,27 +102,16 @@ class PaymentController {
          * ------------------------------------
          * Get Access Token
          * ------------------------------------
-         *
-         * The Payment Service needs this
-         * token to clear the user's cart
-         * after successful payment.
-         * ------------------------------------
          */
 
         const accessToken =
           req.cookies?.accessToken;
 
         if (!accessToken) {
-          res.status(401).json({
-            success: false,
-
-            message:
-              "Invalid token",
-
-            errors: null,
-          });
-
-          return;
+          throw new ApiError(
+            StatusCodes.UNAUTHORIZED,
+            "Invalid token",
+          );
         }
 
         /*
@@ -131,11 +122,8 @@ class PaymentController {
 
         const {
           orderId,
-
           razorpayPaymentId,
-
           razorpayOrderId,
-
           razorpaySignature,
         } = request.body;
 
@@ -148,15 +136,10 @@ class PaymentController {
         const order =
           await paymentService.verifyPayment(
             request.user.id,
-
             accessToken,
-
             orderId,
-
             razorpayPaymentId,
-
             razorpayOrderId,
-
             razorpaySignature,
           );
 
@@ -166,13 +149,10 @@ class PaymentController {
          * ------------------------------------
          */
 
-        successResponse(
+        return successResponse(
           res,
-
-          200,
-
+          StatusCodes.OK,
           "Payment verified successfully",
-
           order,
         );
       },

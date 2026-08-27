@@ -5,6 +5,7 @@ dotenv.config();
 const requiredEnvVariables = [
   "PORT",
   "MONGODB_URI",
+   "CLIENT_URL",
   "AUTH_SERVICE_URL",
   "INTERNAL_SERVICE_SECRET",
 ] as const;
@@ -23,6 +24,7 @@ interface Env {
   PORT: number;
 
   MONGODB_URI: string;
+  CLIENT_URL: string;
 
   AUTH_SERVICE_URL: string;
 
@@ -39,6 +41,9 @@ const env: Env = {
 
   MONGODB_URI:
     process.env.MONGODB_URI!,
+
+  CLIENT_URL:
+    process.env.CLIENT_URL!,
 
   AUTH_SERVICE_URL:
     process.env.AUTH_SERVICE_URL!,

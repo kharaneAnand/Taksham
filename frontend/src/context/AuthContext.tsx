@@ -86,11 +86,6 @@ export const AuthProvider = ({
     const user =
       await AuthService.login(data);
 
-    console.log(
-      "Logged in user:",
-      user,
-    );
-
     if (!user) {
       throw new Error(
         "Login failed. User data was not returned.",

@@ -37,6 +37,7 @@ interface ProductCardProps {
   ) => void;
 }
 
+
 /*
  * ========================================
  * IMAGE HELPER
@@ -50,15 +51,35 @@ const getImageUrl = (
     return "/placeholder-product.png";
   }
 
-  if (typeof image === "string") {
-    return image;
+  const imageUrl =
+    typeof image === "string"
+      ? image
+      : image.url;
+
+  if (!imageUrl) {
+    return "/placeholder-product.png";
   }
 
-  return (
-    image.url ||
-    "/placeholder-product.png"
-  );
+  /*
+   * ========================================
+   * CLOUDINARY OPTIMIZATION
+   * ========================================
+   */
+
+  if (
+    imageUrl.includes(
+      "res.cloudinary.com",
+    )
+  ) {
+    return imageUrl.replace(
+      "/upload/",
+      "/upload/f_auto,q_auto,w_600/",
+    );
+  }
+
+  return imageUrl;
 };
+
 
 const ProductCard = ({
   product,
@@ -67,9 +88,34 @@ const ProductCard = ({
 }: ProductCardProps) => {
   const navigate = useNavigate();
 
+
+  /*
+   * ========================================
+   * SELECTED COLOR
+   * ========================================
+   */
+
   const [
     selectedColor,
     setSelectedColor,
+  ] = useState<string | null>(
+    null,
+  );
+
+
+  /*
+   * ========================================
+   * LOADED IMAGE
+   *
+   * Tracks the exact image URL that has
+   * successfully finished loading.
+   * This avoids the useEffect loading-state race.
+   * ========================================
+   */
+
+  const [
+    loadedImage,
+    setLoadedImage,
   ] = useState<string | null>(
     null,
   );
@@ -80,9 +126,11 @@ const ProductCard = ({
     toggleWishlist,
   } = useWishlist();
 
+
   const wishlisted = isWishlisted(
     product._id,
   );
+
 
   /*
    * ========================================
@@ -94,6 +142,7 @@ const ProductCard = ({
     product.subcategory ||
     product.category ||
     "Furniture";
+
 
   /*
    * ========================================
@@ -115,12 +164,17 @@ const ProductCard = ({
             Boolean(color),
         ) ?? [];
 
+
     const productColors =
       product.colors
-        ?.map((color) =>
-          color.trim(),
+        ?.map(
+          (color) =>
+            color.trim(),
         )
-        .filter(Boolean) ?? [];
+        .filter(
+          Boolean,
+        ) ?? [];
+
 
     return Array.from(
       new Set([
@@ -132,6 +186,7 @@ const ProductCard = ({
     product.colors,
     product.variants,
   ]);
+
 
   /*
    * ========================================
@@ -146,6 +201,7 @@ const ProductCard = ({
         selectedColor?.toLowerCase(),
     );
 
+
   /*
    * ========================================
    * DISPLAY PRICE
@@ -156,12 +212,10 @@ const ProductCard = ({
     selectedVariant?.price ??
     product.price;
 
+
   /*
    * ========================================
    * OFFER
-   *
-   * Received from ProductGrid.
-   * ProductCard does not make API calls.
    * ========================================
    */
 
@@ -169,10 +223,11 @@ const ProductCard = ({
     offerResult?.offer !== null &&
     offerResult?.offer !== undefined;
 
+
   /*
-   * For a selected variant, calculate
-   * the same discount percentage on the
-   * variant price.
+   * ========================================
+   * FINAL PRICE
+   * ========================================
    */
 
   const finalPrice =
@@ -187,6 +242,7 @@ const ProductCard = ({
             ),
         )
       : displayPrice;
+
 
   /*
    * ========================================
@@ -204,17 +260,20 @@ const ProductCard = ({
       );
     }
 
+
     if (product.image) {
       return getImageUrl(
         product.image,
       );
     }
 
+
     if (product.images?.[0]) {
       return getImageUrl(
         product.images[0],
       );
     }
+
 
     return "/placeholder-product.png";
   }, [
@@ -223,6 +282,20 @@ const ProductCard = ({
     product.image,
     product.images,
   ]);
+
+
+  /*
+   * ========================================
+   * IMAGE LOADING STATE
+   *
+   * Loading is true until the CURRENT
+   * productImage has finished loading.
+   * ========================================
+   */
+
+  const imageLoading =
+    loadedImage !== productImage;
+
 
   /*
    * ========================================
@@ -235,6 +308,7 @@ const ProductCard = ({
       `/products/${product.slug}`,
     );
   };
+
 
   return (
     <article
@@ -298,6 +372,11 @@ const ProductCard = ({
           "
         />
 
+
+        {/* ========================================
+            PRODUCT IMAGE
+        ======================================== */}
+
         <div
           className="
             absolute
@@ -311,6 +390,7 @@ const ProductCard = ({
         >
           <div
             className="
+              relative
               flex
               h-[88%]
               w-[88%]
@@ -319,13 +399,43 @@ const ProductCard = ({
               overflow-hidden
             "
           >
+            {imageLoading && (
+              <div
+                className="
+                  absolute
+                  left-1/2
+                  top-1/2
+                  h-[55%]
+                  w-[55%]
+                  -translate-x-1/2
+                  -translate-y-1/2
+                  animate-pulse
+                  rounded-full
+                  bg-[#E2D8CB]/70
+                "
+              />
+            )}
+
+
             <img
               key={productImage}
               src={productImage}
               alt={product.name}
               loading="lazy"
               draggable={false}
-              className="
+              onLoad={() =>
+                setLoadedImage(
+                  productImage,
+                )
+              }
+              onError={() =>
+                setLoadedImage(
+                  productImage,
+                )
+              }
+              className={`
+                relative
+                z-10
                 block
                 h-full
                 w-full
@@ -336,14 +446,21 @@ const ProductCard = ({
                 object-contain
                 object-center
                 select-none
-                transition-transform
+                transition-all
                 duration-700
                 ease-[cubic-bezier(0.22,1,0.36,1)]
                 lg:group-hover:scale-[1.025]
-              "
+
+                ${
+                  imageLoading
+                    ? "opacity-0 scale-[0.98]"
+                    : "opacity-100 scale-100"
+                }
+              `}
             />
           </div>
         </div>
+
 
         <div
           className="
@@ -357,6 +474,11 @@ const ProductCard = ({
             to-white/8
           "
         />
+
+
+        {/* ========================================
+            BADGES
+        ======================================== */}
 
         <div
           className="
@@ -399,6 +521,7 @@ const ProductCard = ({
             </div>
           )}
 
+
           {hasOffer && offerResult && (
             <div
               className="
@@ -421,11 +544,17 @@ const ProductCard = ({
                   sm:text-[7px]
                 "
               >
-                {offerResult.discountPercentage}% OFF
+                {offerResult.discountPercentage}
+                % OFF
               </span>
             </div>
           )}
         </div>
+
+
+        {/* ========================================
+            WISHLIST
+        ======================================== */}
 
         <button
           type="button"
@@ -437,7 +566,9 @@ const ProductCard = ({
           onClick={async (event) => {
             event.stopPropagation();
 
-            await toggleWishlist(product);
+            await toggleWishlist(
+              product,
+            );
           }}
           className="
             absolute
@@ -483,6 +614,11 @@ const ProductCard = ({
           />
         </button>
 
+
+        {/* ========================================
+            VIEW PRODUCT
+        ======================================== */}
+
         <button
           type="button"
           aria-label={`View ${product.name}`}
@@ -525,6 +661,11 @@ const ProductCard = ({
           />
         </button>
       </div>
+
+
+      {/* ========================================
+          PRODUCT DETAILS
+      ======================================== */}
 
       <div
         className="
@@ -586,6 +727,7 @@ const ProductCard = ({
               {category}
             </p>
           </button>
+
 
           <div
             className="
@@ -652,6 +794,11 @@ const ProductCard = ({
           </div>
         </div>
 
+
+        {/* ========================================
+            COLORS
+        ======================================== */}
+
         {availableColors.length > 0 && (
           <div
             className="
@@ -675,7 +822,9 @@ const ProductCard = ({
                     aria-label={`Select ${color}`}
                     title={color}
                     onClick={() =>
-                      setSelectedColor(color)
+                      setSelectedColor(
+                        color,
+                      )
                     }
                     className={`
                       h-3
@@ -701,37 +850,49 @@ const ProductCard = ({
           </div>
         )}
 
+
+        {/* ========================================
+            RATING
+        ======================================== */}
+
         <div
-        className="
-          mt-2
-          flex
-          min-w-0
-          items-center
-          gap-1.5
-        "
-      >
-        <div className="flex items-center gap-0.5">
-          {[1, 2, 3, 4, 5].map(
-            (star) => (
-              <Star
-                key={star}
-                size={9}
-                strokeWidth={1.5}
-                className={
-                  star <= 4
-                    ? "fill-[#C98A24] text-[#C98A24]"
-                    : "text-[#D8CEC0]"
-                }
-              />
-            ),
-          )}
+          className="
+            mt-2
+            flex
+            min-w-0
+            items-center
+            gap-1.5
+          "
+        >
+          <div className="flex items-center gap-0.5">
+            {[1, 2, 3, 4, 5].map(
+              (star) => (
+                <Star
+                  key={star}
+                  size={9}
+                  strokeWidth={1.5}
+                  className={
+                    star <= 4
+                      ? "fill-[#C98A24] text-[#C98A24]"
+                      : "text-[#D8CEC0]"
+                  }
+                />
+              ),
+            )}
+          </div>
         </div>
-      </div>
+
+
+        {/* ========================================
+            ADD TO CART
+        ======================================== */}
 
         <button
           type="button"
           onClick={() =>
-            onAddToCart?.(product)
+            onAddToCart?.(
+              product,
+            )
           }
           className="
             group/cart

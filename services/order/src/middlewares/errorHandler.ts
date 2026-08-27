@@ -4,7 +4,9 @@ import type {
   Response,
 } from "express";
 
-import { MongoServerError } from "mongodb";
+import {
+  MongoServerError,
+} from "mongodb";
 
 import mongoose from "mongoose";
 
@@ -12,7 +14,9 @@ import jwt from "jsonwebtoken";
 
 import ApiError from "../helpers/ApiError.js";
 
-import { errorResponse } from "../helpers/response.js";
+import {
+  errorResponse,
+} from "../helpers/response.js";
 
 import {
   StatusCodes,
@@ -23,6 +27,8 @@ import {
   SERVER_MESSAGES,
 } from "../constants/messages.js";
 
+import env from "../config/env.js";
+
 const errorHandler = (
   error: Error,
   _req: Request,
@@ -30,10 +36,14 @@ const errorHandler = (
   _next: NextFunction,
 ): void => {
   /*
+   * ========================================
    * ApiError
+   * ========================================
    */
 
-  if (error instanceof ApiError) {
+  if (
+    error instanceof ApiError
+  ) {
     errorResponse(
       res,
       error.statusCode,
@@ -45,7 +55,9 @@ const errorHandler = (
   }
 
   /*
-   * MongoDB duplicate key
+   * ========================================
+   * MongoDB Duplicate Key
+   * ========================================
    */
 
   if (
@@ -62,7 +74,9 @@ const errorHandler = (
   }
 
   /*
-   * Mongoose validation
+   * ========================================
+   * Mongoose Validation
+   * ========================================
    */
 
   if (
@@ -72,14 +86,16 @@ const errorHandler = (
     errorResponse(
       res,
       StatusCodes.BAD_REQUEST,
-      error.message,
+      "Invalid data provided",
     );
 
     return;
   }
 
   /*
-   * JWT expired
+   * ========================================
+   * JWT Expired
+   * ========================================
    */
 
   if (
@@ -96,7 +112,9 @@ const errorHandler = (
   }
 
   /*
-   * JWT invalid
+   * ========================================
+   * JWT Invalid
+   * ========================================
    */
 
   if (
@@ -113,7 +131,9 @@ const errorHandler = (
   }
 
   /*
-   * Unknown error
+   * ========================================
+   * Unknown Error
+   * ========================================
    */
 
   console.error(
@@ -121,10 +141,18 @@ const errorHandler = (
     error,
   );
 
+  /*
+   * Never expose internal errors
+   * in production.
+   */
+
   errorResponse(
     res,
     StatusCodes.INTERNAL_SERVER_ERROR,
     SERVER_MESSAGES.INTERNAL_SERVER_ERROR,
+    env.NODE_ENV !== "production"
+      ? error.message
+      : undefined,
   );
 };
 

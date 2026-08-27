@@ -1,8 +1,52 @@
 import "dotenv/config";
 
+const requiredEnvVariables = [
+  "PORT",
+  "MONGODB_URI",
+
+  "JWT_ACCESS_SECRET",
+  "JWT_REFRESH_SECRET",
+
+  "CLIENT_URL",
+
+  "CART_SERVICE_URL",
+  "AUTH_SERVICE_URL",
+  "PRODUCT_SERVICE_URL",
+  "UTILS_SERVICE_URL",
+
+  "EMAIL_USER",
+  "EMAIL_PASSWORD",
+
+  "INTERNAL_SERVICE_SECRET",
+
+  "RAZORPAY_KEY_ID",
+  "RAZORPAY_KEY_SECRET",
+] as const;
+
+for (const key of requiredEnvVariables) {
+  if (!process.env[key]) {
+    throw new Error(
+      `❌ Missing environment variable: ${key}`,
+    );
+  }
+}
+
 const env = {
+  /*
+   * ========================================
+   * Application
+   * ========================================
+   */
+
+  NODE_ENV:
+    process.env.NODE_ENV ||
+    "development",
+
   PORT:
-    Number(process.env.PORT) || 5004,
+    Number(process.env.PORT),
+
+  CLIENT_URL:
+    process.env.CLIENT_URL!,
 
   /*
    * ========================================
@@ -11,7 +55,7 @@ const env = {
    */
 
   MONGO_URI:
-    process.env.MONGODB_URI || "",
+    process.env.MONGODB_URI!,
 
   /*
    * ========================================
@@ -20,18 +64,18 @@ const env = {
    */
 
   JWT_ACCESS_SECRET:
-    process.env.JWT_ACCESS_SECRET || "",
+    process.env.JWT_ACCESS_SECRET!,
 
   JWT_REFRESH_SECRET:
-    process.env.JWT_REFRESH_SECRET || "",
+    process.env.JWT_REFRESH_SECRET!,
 
   JWT_ACCESS_EXPIRES_IN:
-    (process.env.JWT_ACCESS_EXPIRES_IN ||
-      "15m") as `${number}${"s" | "m" | "h" | "d" | "w" | "y"}`,
+    process.env.JWT_ACCESS_EXPIRES_IN ||
+    "15m",
 
   JWT_REFRESH_EXPIRES_IN:
-    (process.env.JWT_REFRESH_EXPIRES_IN ||
-      "7d") as `${number}${"s" | "m" | "h" | "d" | "w" | "y"}`,
+    process.env.JWT_REFRESH_EXPIRES_IN ||
+    "7d",
 
   /*
    * ========================================
@@ -40,20 +84,16 @@ const env = {
    */
 
   CART_SERVICE_URL:
-    process.env.CART_SERVICE_URL ||
-    "http://localhost:5003/api/v1/cart",
+    process.env.CART_SERVICE_URL!,
 
   AUTH_SERVICE_URL:
-  process.env.AUTH_SERVICE_URL ||
-  "http://localhost:5001/api/v1",
+    process.env.AUTH_SERVICE_URL!,
 
   PRODUCT_SERVICE_URL:
-    process.env.PRODUCT_SERVICE_URL ||
-    "http://localhost:5002/api/v1/products",
+    process.env.PRODUCT_SERVICE_URL!,
 
   UTILS_SERVICE_URL:
-    process.env.UTILS_SERVICE_URL ||
-    "http://localhost:5005/api/v1",
+    process.env.UTILS_SERVICE_URL!,
 
   /*
    * ========================================
@@ -62,10 +102,10 @@ const env = {
    */
 
   EMAIL_USER:
-    process.env.EMAIL_USER || "",
+    process.env.EMAIL_USER!,
 
   EMAIL_PASSWORD:
-    process.env.EMAIL_PASSWORD || "",
+    process.env.EMAIL_PASSWORD!,
 
   /*
    * ========================================
@@ -74,8 +114,7 @@ const env = {
    */
 
   INTERNAL_SERVICE_SECRET:
-    process.env.INTERNAL_SERVICE_SECRET ||
-    "",
+    process.env.INTERNAL_SERVICE_SECRET!,
 
   /*
    * ========================================
@@ -84,13 +123,12 @@ const env = {
    */
 
   RAZORPAY_KEY_ID:
-    process.env.RAZORPAY_KEY_ID ||
-    "",
+    process.env.RAZORPAY_KEY_ID!,
 
   RAZORPAY_KEY_SECRET:
-    process.env.RAZORPAY_KEY_SECRET ||
-    "",
+    process.env.RAZORPAY_KEY_SECRET!,
 };
+
 
 /*
  * ========================================

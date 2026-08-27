@@ -841,32 +841,35 @@ private async getUserEmail(
       );
     }
 
-    /*
-     * ------------------------------------
-     * 4. Generate Signature
-     * ------------------------------------
-     */
-
-    const generatedSignature =
-      crypto
-        .createHmac(
-          "sha256",
-          env.RAZORPAY_KEY_SECRET,
-        )
-        .update(
-          `${razorpayOrderId}|${razorpayPaymentId}`,
-        )
-        .digest("hex");
-
+   
     /*
      * ------------------------------------
      * 5. Compare Signatures
      * ------------------------------------
      */
 
-    const isValid =
-      generatedSignature ===
-      razorpaySignature;
+    const generatedSignature =
+    crypto
+      .createHmac(
+        "sha256",
+        env.RAZORPAY_KEY_SECRET,
+      )
+      .update(
+        `${razorpayOrderId}|${razorpayPaymentId}`,
+      )
+      .digest("hex");
+
+  const isValid =
+    crypto.timingSafeEqual(
+      Buffer.from(
+        generatedSignature,
+        "utf8",
+      ),
+      Buffer.from(
+        razorpaySignature,
+        "utf8",
+      ),
+    );
 
     if (!isValid) {
       order.paymentStatus =

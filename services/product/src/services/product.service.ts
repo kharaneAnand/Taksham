@@ -459,9 +459,8 @@ class ProductService {
                 -quantity,
             },
           },
-
           {
-            new: true,
+            returnDocument: "after",
           },
         );
 
@@ -535,11 +534,10 @@ class ProductService {
           $inc: {
             stock: -quantity,
           },
-        },
-
-        {
-          new: true,
-        },
+        },  
+      {
+        returnDocument: "after",
+      },
       );
 
     if (!product) {
@@ -662,7 +660,7 @@ class ProductService {
           },
 
           {
-            new: true,
+           returnDocument: "after",
           },
         );
 
@@ -730,7 +728,7 @@ class ProductService {
         },
 
         {
-          new: true,
+         returnDocument: "after",
         },
       );
 

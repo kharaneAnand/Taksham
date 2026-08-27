@@ -9,11 +9,14 @@ const startServer =
     try {
       await connectDB();
 
-      app.listen(env.PORT, () => {
-        console.log(
-          `Product service is running on port ${env.PORT}`,
-        );
-      });
+      app.listen(
+        env.PORT,
+        () => {
+          console.log(
+            `Product service is running on port ${env.PORT}`,
+          );
+        },
+      );
     } catch (error) {
       console.error(
         "Failed to start server:",

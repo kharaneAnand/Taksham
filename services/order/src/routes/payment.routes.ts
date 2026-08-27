@@ -3,6 +3,9 @@ import { Router } from "express";
 import PaymentController from "../controllers/payment.controller.js";
 
 import authenticate from "../middlewares/auth.middleware.js";
+import {
+  paymentRateLimiter,
+} from "../middlewares/rateLimit.middleware.js";
 
 
 const router =
@@ -30,6 +33,7 @@ router.use(
 
 router.post(
   "/create-order",
+  paymentRateLimiter,
   PaymentController.createPaymentOrder,
 );
 
@@ -44,6 +48,7 @@ router.post(
 
 router.post(
   "/verify",
+  paymentRateLimiter,
   PaymentController.verifyPayment,
 );
 

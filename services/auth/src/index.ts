@@ -6,11 +6,32 @@ const startServer = async (): Promise<void> => {
   try {
     await connectDB();
 
-    app.listen(env.PORT, () => {
-      console.log(`auth service is running on the ${env.PORT}`) ;
-    });
+    const server = app.listen(
+      env.PORT,
+      () => {
+        console.log(
+          `Auth service running on port ${env.PORT} in ${env.NODE_ENV} mode`,
+        );
+      },
+    );
+
+    server.on(
+      "error",
+      (error) => {
+        console.error(
+          "Server error:",
+          error,
+        );
+
+        process.exit(1);
+      },
+    );
   } catch (error) {
-    console.error("Failed to start server:", error);
+    console.error(
+      "Failed to start server:",
+      error,
+    );
+
     process.exit(1);
   }
 };

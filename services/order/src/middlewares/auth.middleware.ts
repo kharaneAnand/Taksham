@@ -41,7 +41,6 @@ export interface AuthenticatedRequest<
   > {
   user: {
     id: string;
-
     role: string;
   };
 }
@@ -58,12 +57,6 @@ const authenticate = (
   next: NextFunction,
 ): void => {
   try {
-    /*
-     * ------------------------------------
-     * Get Access Token
-     * ------------------------------------
-     */
-
     const accessToken =
       req.cookies?.[
         COOKIE_NAMES.ACCESS_TOKEN
@@ -76,22 +69,10 @@ const authenticate = (
       );
     }
 
-    /*
-     * ------------------------------------
-     * Verify Access Token
-     * ------------------------------------
-     */
-
     const payload =
       verifyAccessToken(
         accessToken,
       );
-
-    /*
-     * ------------------------------------
-     * Validate Token Payload
-     * ------------------------------------
-     */
 
     if (
       !payload.userId ||
@@ -103,20 +84,11 @@ const authenticate = (
       );
     }
 
-    /*
-     * ------------------------------------
-     * Attach User To Request
-     * ------------------------------------
-     */
-
     (
       req as AuthenticatedRequest
     ).user = {
-      id:
-        payload.userId,
-
-      role:
-        payload.role,
+      id: payload.userId,
+      role: payload.role,
     };
 
     next();

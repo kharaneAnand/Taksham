@@ -5,6 +5,7 @@ dotenv.config();
 const requiredEnvVariables = [
   "PORT",
   "MONGODB_URI",
+  "CLIENT_URL",
   "CLOUDINARY_CLOUD_NAME",
   "CLOUDINARY_API_KEY",
   "CLOUDINARY_API_SECRET",
@@ -23,10 +24,14 @@ interface Env {
 
   PORT: number;
 
+  CLIENT_URL: string;
+
   MONGODB_URI: string;
 
   CLOUDINARY_CLOUD_NAME: string;
+
   CLOUDINARY_API_KEY: string;
+
   CLOUDINARY_API_SECRET: string;
 }
 
@@ -38,6 +43,9 @@ const env: Env = {
   PORT: Number(
     process.env.PORT,
   ),
+
+  CLIENT_URL:
+    process.env.CLIENT_URL!,
 
   MONGODB_URI:
     process.env.MONGODB_URI!,

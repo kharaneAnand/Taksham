@@ -7,17 +7,24 @@ import authorize from "../middleware/authorize.middleware.js";
 import upload from "../utils/multer.js";
 import { UserRole } from "../constants/role.js";
 import authenticateInternalService from "../middleware/internal-service.middleware.js";
+import {
+  loginRateLimiter,
+  registerRateLimiter,
+  sensitiveRateLimiter,
+} from "../middleware/rateLimit.middleware.js";
 
 const router = Router();
 
 router.post(
   "/register",
+  registerRateLimiter,
   validate(registerSchema),
   AuthController.register
 );
 
 router.post(
   "/login",
+  loginRateLimiter,
   validate(loginSchema),
   AuthController.login
 );
@@ -53,18 +60,21 @@ router.get(
 
 router.post(
   "/resend-verification-email",
+  sensitiveRateLimiter,
   validate(resendVerificationEmailSchema),
   AuthController.resendVerificationEmail
 );
 
 router.post(
   "/forgot-password",
+  sensitiveRateLimiter,
   validate(forgotPasswordSchema),
   AuthController.forgotPassword
 );
 
 router.post(
   "/reset-password/:token",
+  sensitiveRateLimiter,
   validate(resetPasswordSchema),
   AuthController.resetPassword
 );

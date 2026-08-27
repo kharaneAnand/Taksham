@@ -8,48 +8,210 @@ import compression from "compression";
 
 import morgan from "morgan";
 
+import env from "./config/env.js";
+
 import mediaRoutes from "./routes/media.routes.js";
 import offerRoutes from "./routes/offer.routes.js";
 import couponRoutes from "./routes/coupon.routes.js";
-import notFound from "./middleware/notFound.middleware.js";
 import notificationRoutes from "./routes/notification.routes.js";
+
+import notFound from "./middleware/notFound.middleware.js";
 import errorHandler from "./middleware/error.middleware.js";
 
 const app = express();
 
+/*
+ * ========================================
+ * TRUST PROXY
+ * ========================================
+ */
+
+if (
+  env.NODE_ENV === "production"
+) {
+  app.set(
+    "trust proxy",
+    1,
+  );
+}
+
+/*
+ * ========================================
+ * CORS
+ * ========================================
+ */
+
+const allowedOrigins = [
+  env.CLIENT_URL,
+  "http://localhost:5173",
+];
+
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: (
+      origin,
+      callback,
+    ) => {
+      /*
+       * Allow requests without an Origin header.
+       *
+       * Examples:
+       * - health checks
+       * - server-to-server requests
+       * - Postman during development
+       */
+
+      if (!origin) {
+        return callback(
+          null,
+          true,
+        );
+      }
+
+      if (
+        allowedOrigins.includes(
+          origin,
+        )
+      ) {
+        return callback(
+          null,
+          true,
+        );
+      }
+
+      return callback(
+        new Error(
+          "Not allowed by CORS",
+        ),
+      );
+    },
+
     credentials: true,
+
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+      "OPTIONS",
+    ],
+
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+    ],
   }),
 );
 
-app.use(helmet());
+/*
+ * ========================================
+ * SECURITY / PERFORMANCE
+ * ========================================
+ */
 
-app.use(compression());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: {
+      policy: "cross-origin",
+    },
+  }),
+);
 
-app.use(express.json());
+app.use(
+  compression(),
+);
 
-app.use(express.urlencoded({ extended: true }));
+/*
+ * ========================================
+ * LOGGING
+ * ========================================
+ */
 
-app.use(morgan("dev"));
+if (
+  env.NODE_ENV !== "production"
+) {
+  app.use(
+    morgan(
+      "dev",
+    ),
+  );
+}
 
-app.get("/", (_req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Media Service is running",
-  });
-});
+/*
+ * ========================================
+ * BODY PARSERS
+ * ========================================
+ */
 
-app.use("/api/v1/media", mediaRoutes);
-app.use("/api/v1/offers",offerRoutes,);
-app.use("/api/v1/coupons",couponRoutes,);
+app.use(
+  express.json({
+    limit: "100kb",
+  }),
+);
+
+app.use(
+  express.urlencoded({
+    extended: true,
+    limit: "100kb",
+  }),
+);
+
+/*
+ * ========================================
+ * HEALTH CHECK
+ * ========================================
+ */
+
+app.get(
+  "/health",
+  (_req, res) => {
+    res.status(200).json({
+      success: true,
+      message:
+        "Utils service is healthy",
+    });
+  },
+);
+
+/*
+ * ========================================
+ * ROUTES
+ * ========================================
+ */
+
+app.use(
+  "/api/v1/media",
+  mediaRoutes,
+);
+
+app.use(
+  "/api/v1/offers",
+  offerRoutes,
+);
+
+app.use(
+  "/api/v1/coupons",
+  couponRoutes,
+);
+
 app.use(
   "/api/v1/notifications",
   notificationRoutes,
 );
-app.use(notFound);
 
-app.use(errorHandler);
+/*
+ * ========================================
+ * ERROR HANDLING
+ * ========================================
+ */
+
+app.use(
+  notFound,
+);
+
+app.use(
+  errorHandler,
+);
 
 export default app;

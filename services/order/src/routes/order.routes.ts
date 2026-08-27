@@ -15,6 +15,10 @@ import {
   adminOrderQuerySchema,
 } from "../validators/order.validator.js";
 
+import {
+  createOrderRateLimiter,
+} from "../middlewares/rateLimit.middleware.js";
+
 const router =
   Router();
 
@@ -38,6 +42,7 @@ router.use(
 
 router.post(
   "/",
+  createOrderRateLimiter,
   validate(
     createOrderSchema,
   ),
