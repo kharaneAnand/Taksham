@@ -76,29 +76,25 @@ type PaymentMethod =
   | "cod"
   | "online";
 
+type DeliveryArea =
+  | "pune"
+  | "pcmc"
+  | null;
+
 type AddressForm = {
   firstName: string;
-
   lastName: string;
-
   phone: string;
-
   address: string;
-
   landmark: string;
-
   city: string;
-
   state: string;
-
   pincode: string;
 };
 
 type RazorpayResponse = {
   razorpay_payment_id: string;
-
   razorpay_order_id: string;
-
   razorpay_signature: string;
 };
 
@@ -116,20 +112,14 @@ type RazorpayInstance = {
 type RazorpayConstructor = new (
   options: {
     key: string;
-
     amount: number;
-
     currency: string;
-
     name: string;
-
     description: string;
-
     order_id: string;
 
     prefill?: {
       name?: string;
-
       contact?: string;
     };
 
@@ -170,24 +160,94 @@ const RAZORPAY_KEY_ID =
 const RAZORPAY_SCRIPT_URL =
   "https://checkout.razorpay.com/v1/checkout.js";
 
-const initialAddress: AddressForm =
-  {
-    firstName: "",
+const initialAddress: AddressForm = {
+  firstName: "",
+  lastName: "",
+  phone: "",
+  address: "",
+  landmark: "",
+  city: "",
+  state: "",
+  pincode: "",
+};
 
-    lastName: "",
+/*
+ * DELIVERY AREA
+ *
+ * Pune and PCMC are the supported delivery areas.
+ *
+ * 411xxx = Pune / PCMC region
+ * 412xxx = Pune district / PCMC surrounding region
+ *
+ * The city name is also validated so a random location
+ * with a similar pincode cannot be selected.
+ */
 
-    phone: "",
+const getDeliveryArea = (
+  city: string,
+  pincode: string,
+): DeliveryArea => {
+  const normalizedCity =
+    city
+      .trim()
+      .toLowerCase();
 
-    address: "",
+  const normalizedPincode =
+    pincode.trim();
 
-    landmark: "",
+  if (
+    !/^\d{6}$/.test(
+      normalizedPincode,
+    )
+  ) {
+    return null;
+  }
 
-    city: "",
+  const isPunePincode =
+    normalizedPincode.startsWith(
+      "411",
+    ) ||
+    normalizedPincode.startsWith(
+      "412",
+    );
 
-    state: "",
+  if (!isPunePincode) {
+    return null;
+  }
 
-    pincode: "",
-  };
+  const puneCities = [
+    "pune",
+    "pune city",
+  ];
+
+  const pcmcCities = [
+    "pcmc",
+    "pimpri chinchwad",
+    "pimpri-chinchwad",
+    "pimpri",
+    "chinchwad",
+  ];
+
+  if (
+    puneCities.includes(
+      normalizedCity,
+    )
+  ) {
+    return "pune";
+  }
+
+  if (
+    pcmcCities.includes(
+      normalizedCity,
+    )
+  ) {
+    return "pcmc";
+  }
+
+  return null;
+};
+
+  
 
 /* ========================================
  * HELPERS
@@ -197,13 +257,15 @@ const formatCurrency = (
   value: number,
   settings?: Settings | null,
 ) => {
-  const safeValue = Math.max(
-    0,
-    Math.round(value),
-  );
+  const safeValue =
+    Math.max(
+      0,
+      Math.round(value),
+    );
 
   const currencySymbol =
-    settings?.currencySymbol || "₹";
+    settings?.currencySymbol ||
+    "₹";
 
   return `${currencySymbol}${safeValue.toLocaleString(
     "en-IN",
@@ -419,6 +481,12 @@ const Checkout = () => {
     useState(false);
 
   const [
+    hasAcceptedPolicy,
+    setHasAcceptedPolicy,
+  ] =
+    useState(false);
+
+  const [
     errors,
     setErrors,
   ] =
@@ -430,6 +498,32 @@ const Checkout = () => {
         >
       >
     >({});
+
+  /* ========================================
+   * DELIVERY AREA
+   *
+   * IMPORTANT:
+   * These are declared only ONCE.
+   * Do not add another copy later.
+   * ======================================== */
+
+  const selectedDeliveryArea =
+    useMemo(
+      () =>
+        getDeliveryArea(
+          address.city,
+          address.pincode,
+        ),
+      [
+        address.city,
+        address.pincode,
+      ],
+    );
+
+  const isDeliveryAvailable =
+    Boolean(
+      selectedDeliveryArea,
+    );
 
   /* ========================================
    * FETCH SETTINGS
@@ -493,9 +587,7 @@ const Checkout = () => {
    * ======================================== */
 
   useEffect(() => {
-    if (
-      !settings
-    ) {
+    if (!settings) {
       return;
     }
 
@@ -530,15 +622,12 @@ const Checkout = () => {
    * ======================================== */
 
   useEffect(() => {
-    if (
-      !settings
-    ) {
+    if (!settings) {
       return;
     }
 
     if (
-      paymentMethod ===
-        "cod" &&
+      paymentMethod === "cod" &&
       !settings.codEnabled &&
       settings.onlinePaymentEnabled
     ) {
@@ -842,9 +931,7 @@ const Checkout = () => {
       price: number,
       offer: Offer | null,
     ) => {
-      if (
-        !offer
-      ) {
+      if (!offer) {
         return 0;
       }
 
@@ -1024,9 +1111,7 @@ const Checkout = () => {
             normalizedCode,
         );
 
-      if (
-        !coupon
-      ) {
+      if (!coupon) {
         toast.error(
           "Invalid coupon code",
         );
@@ -1133,8 +1218,10 @@ const Checkout = () => {
         "Coupon removed",
       );
     };
-    /* ========================================
+      /* ========================================
    * COUPON DISCOUNT
+   *
+   * DECLARED ONLY ONCE
    * ======================================== */
 
   const couponDiscount =
@@ -1145,7 +1232,10 @@ const Checkout = () => {
 
       if (
         subtotalAfterOffers <
-        (selectedCoupon.minimumOrderAmount ?? 0)
+        (
+          selectedCoupon.minimumOrderAmount ??
+          0
+        )
       ) {
         return 0;
       }
@@ -1155,9 +1245,10 @@ const Checkout = () => {
         "percentage"
       ) {
         const calculatedDiscount =
-          (subtotalAfterOffers *
-            selectedCoupon.discountValue) /
-          100;
+          (
+            subtotalAfterOffers *
+            selectedCoupon.discountValue
+          ) / 100;
 
         const maximumDiscount =
           selectedCoupon.maximumDiscountAmount;
@@ -1189,17 +1280,21 @@ const Checkout = () => {
   /* ========================================
    * SHIPPING
    *
-   * VALUES COME FROM ADMIN SETTINGS.
+   * DECLARED ONLY ONCE
    * ======================================== */
 
   const shippingCost =
     useMemo(() => {
-      if (!settings) {
+      if (
+        !settings ||
+        !isDeliveryAvailable
+      ) {
         return 0;
       }
 
       if (
-        shippingMethod === "express"
+        shippingMethod ===
+        "express"
       ) {
         if (
           !settings.expressDeliveryEnabled
@@ -1230,6 +1325,7 @@ const Checkout = () => {
     }, [
       settings,
       shippingMethod,
+      isDeliveryAvailable,
     ]);
 
   const selectedDeliveryMinDays =
@@ -1387,7 +1483,9 @@ const Checkout = () => {
         }),
       );
 
-      if (errors[field]) {
+      if (
+        errors[field]
+      ) {
         setErrors(
           (
             currentErrors,
@@ -1456,6 +1554,11 @@ const Checkout = () => {
       ) {
         nextErrors.city =
           "City is required";
+      } else if (
+        !selectedDeliveryArea
+      ) {
+        nextErrors.city =
+          "Delivery is currently available only in Pune and PCMC";
       }
 
       if (
@@ -1477,16 +1580,25 @@ const Checkout = () => {
       ) {
         nextErrors.pincode =
           "Enter a valid 6-digit pincode";
+      } else if (
+        !selectedDeliveryArea
+      ) {
+        nextErrors.pincode =
+          "This pincode is outside our delivery area";
       }
 
-      setErrors(nextErrors);
+      setErrors(
+        nextErrors,
+      );
 
       const firstError =
         Object.values(
           nextErrors,
         )[0];
 
-      if (firstError) {
+      if (
+        firstError
+      ) {
         toast.error(
           firstError,
         );
@@ -1507,17 +1619,20 @@ const Checkout = () => {
     async (
       order: {
         _id: string;
-
         orderNumber: string;
       },
     ) => {
-      if (!settings?.onlinePaymentEnabled) {
+      if (
+        !settings?.onlinePaymentEnabled
+      ) {
         throw new Error(
           "Online payment is currently unavailable.",
         );
       }
 
-      if (!RAZORPAY_KEY_ID) {
+      if (
+        !RAZORPAY_KEY_ID
+      ) {
         throw new Error(
           "Razorpay Key ID is not configured.",
         );
@@ -1548,7 +1663,9 @@ const Checkout = () => {
         );
       }
 
-      if (!paymentOrder.amount) {
+      if (
+        !paymentOrder.amount
+      ) {
         throw new Error(
           "Invalid Razorpay payment amount.",
         );
@@ -1588,6 +1705,9 @@ const Checkout = () => {
           notes: {
             orderNumber:
               order.orderNumber,
+            deliveryArea:
+              selectedDeliveryArea ||
+              "",
           },
 
           theme: {
@@ -1686,13 +1806,25 @@ const Checkout = () => {
 
   const handlePlaceOrder =
     async () => {
-      if (isPlacingOrder) {
+      if (
+        isPlacingOrder
+      ) {
         return;
       }
 
       if (!settings) {
         toast.error(
           "Store settings are still loading. Please try again.",
+        );
+
+        return;
+      }
+
+      if (
+        !isDeliveryAvailable
+      ) {
+        toast.error(
+          "Delivery is currently available only in Pune and PCMC service areas.",
         );
 
         return;
@@ -1710,7 +1842,8 @@ const Checkout = () => {
       }
 
       if (
-        shippingMethod === "standard" &&
+        shippingMethod ===
+          "standard" &&
         !settings.standardDeliveryEnabled
       ) {
         toast.error(
@@ -1721,7 +1854,8 @@ const Checkout = () => {
       }
 
       if (
-        shippingMethod === "express" &&
+        shippingMethod ===
+          "express" &&
         !settings.expressDeliveryEnabled
       ) {
         toast.error(
@@ -1743,7 +1877,8 @@ const Checkout = () => {
       }
 
       if (
-        paymentMethod === "online" &&
+        paymentMethod ===
+          "online" &&
         !settings.onlinePaymentEnabled
       ) {
         toast.error(
@@ -1752,8 +1887,18 @@ const Checkout = () => {
 
         return;
       }
+    
+      if (!hasAcceptedPolicy) {
+        toast.error(
+          "Please accept the Cancellation, Return and Refund Policy to continue.",
+        );
 
-      if (!validateAddress()) {
+        return;
+      }
+
+      if (
+        !validateAddress()
+      ) {
         return;
       }
 
@@ -1769,7 +1914,9 @@ const Checkout = () => {
       }
 
       try {
-        setIsPlacingOrder(true);
+        setIsPlacingOrder(
+          true,
+        );
 
         const orderData:
           CreateOrderInput = {
@@ -1847,7 +1994,9 @@ const Checkout = () => {
         await openRazorpayCheckout(
           order,
         );
-      } catch (error) {
+      } catch (
+        error
+      ) {
         console.error(
           "Failed to place order:",
           error,
@@ -1859,10 +2008,13 @@ const Checkout = () => {
             : "Failed to place order",
         );
 
-        setIsPlacingOrder(false);
+        setIsPlacingOrder(
+          false,
+        );
       }
     };
-    return (
+
+  return (
     <main
       className="
         min-h-screen
@@ -1881,10 +2033,6 @@ const Checkout = () => {
           lg:py-10
         "
       >
-        {/* ====================================
-         * HEADER
-         * ==================================== */}
-
         <div
           className="
             mb-8
@@ -1949,10 +2097,6 @@ const Checkout = () => {
             lg:grid-cols-[minmax(0,1fr)_420px]
           "
         >
-          {/* ====================================
-           * LEFT
-           * ==================================== */}
-
           <div
             className="
               space-y-6
@@ -2012,7 +2156,7 @@ const Checkout = () => {
                       text-[#93877A]
                     "
                   >
-                    Where should we deliver your order?
+                    Delivery is currently available in Pune and PCMC.
                   </p>
                 </div>
               </div>
@@ -2083,8 +2227,7 @@ const Checkout = () => {
 
                       <input
                         type={
-                          field ===
-                          "phone"
+                          field === "phone"
                             ? "tel"
                             : "text"
                         }
@@ -2098,6 +2241,13 @@ const Checkout = () => {
                             field,
                             event.target.value,
                           )
+                        }
+                        placeholder={
+                          field === "city"
+                            ? "Pune or PCMC"
+                            : field === "pincode"
+                              ? "Enter 6-digit pincode"
+                              : undefined
                         }
                         className={`
                           h-11
@@ -2260,6 +2410,33 @@ const Checkout = () => {
                   />
                 </label>
               </div>
+
+              {address.city.trim() &&
+                address.pincode.trim() && (
+                  <div
+                    className={`
+                      mt-4
+                      rounded-xl
+                      border
+                      px-3
+                      py-3
+                      text-[9px]
+                      ${
+                        isDeliveryAvailable
+                          ? "border-[#BED1BB] bg-[#F1F7EF] text-[#587154]"
+                          : "border-[#E8C4BC] bg-[#FDF1EE] text-[#9A5E52]"
+                      }
+                    `}
+                  >
+                    {isDeliveryAvailable
+                      ? `Delivery available in ${
+                          selectedDeliveryArea === "pune"
+                            ? "Pune"
+                            : "PCMC"
+                        }.`
+                      : "Sorry, delivery is currently available only for supported Pune and PCMC pincodes."}
+                  </div>
+                )}
             </section>
 
             {/* SHIPPING */}
@@ -2321,165 +2498,186 @@ const Checkout = () => {
                 </div>
               </div>
 
-              <div
-                className="
-                  grid
-                  gap-3
-                  sm:grid-cols-2
-                "
-              >
-                {settings?.standardDeliveryEnabled && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShippingMethod(
-                        "standard",
-                      )
-                    }
-                    className={`
+              {!isDeliveryAvailable &&
+                address.city.trim() &&
+                address.pincode.trim() ? (
+                  <div
+                    className="
                       rounded-xl
                       border
-                      p-4
-                      text-left
-                      transition
-                      ${
-                        shippingMethod ===
-                        "standard"
-                          ? "border-[#A4773E] bg-[#FBF5ED]"
-                          : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
-                      }
-                    `}
+                      border-[#E8C4BC]
+                      bg-[#FDF1EE]
+                      px-4
+                      py-4
+                      text-[10px]
+                      text-[#9A5E52]
+                    "
                   >
-                    <div
-                      className="
-                        flex
-                        items-center
-                        justify-between
-                      "
-                    >
-                      <span
-                        className="
-                          text-[10px]
-                          font-semibold
-                          text-[#332D27]
-                        "
-                      >
-                        Standard Delivery
-                      </span>
-
-                      {shippingMethod ===
-                        "standard" && (
-                        <Check
-                          size={15}
-                          className="
-                            text-[#A4773E]
-                          "
-                        />
-                      )}
-                    </div>
-
-                    <p
-                      className="
-                        mt-2
-                        text-[9px]
-                        text-[#8B8074]
-                      "
-                    >
-                      {formatCurrency(
-                        Number(
-                          settings.standardDeliveryCharge,
-                        ) || 0,
-                      )}
-
-                      {" · "}
-
-                      {settings.standardDeliveryMinDays ===
-                      settings.standardDeliveryMaxDays
-                        ? `${settings.standardDeliveryMinDays} day delivery`
-                        : `${settings.standardDeliveryMinDays}-${settings.standardDeliveryMaxDays} days delivery`}
-                    </p>
-                  </button>
-                )}
-
-                {settings?.expressDeliveryEnabled && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShippingMethod(
-                        "express",
-                      )
-                    }
-                    className={`
-                      rounded-xl
-                      border
-                      p-4
-                      text-left
-                      transition
-                      ${
-                        shippingMethod ===
-                        "express"
-                          ? "border-[#A4773E] bg-[#FBF5ED]"
-                          : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
-                      }
-                    `}
+                    Delivery is not available for this city and pincode.
+                    We currently deliver only in Pune and PCMC.
+                  </div>
+                ) : (
+                  <div
+                    className="
+                      grid
+                      gap-3
+                      sm:grid-cols-2
+                    "
                   >
-                    <div
-                      className="
-                        flex
-                        items-center
-                        justify-between
-                      "
-                    >
-                      <span
-                        className="
-                          text-[10px]
-                          font-semibold
-                          text-[#332D27]
-                        "
+                    {settings?.standardDeliveryEnabled && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShippingMethod(
+                            "standard",
+                          )
+                        }
+                        className={`
+                          rounded-xl
+                          border
+                          p-4
+                          text-left
+                          transition
+                          ${
+                            shippingMethod === "standard"
+                              ? "border-[#A4773E] bg-[#FBF5ED]"
+                              : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
+                          }
+                        `}
                       >
-                        Express Delivery
-                      </span>
-
-                      {shippingMethod ===
-                        "express" && (
-                        <Check
-                          size={15}
+                        <div
                           className="
-                            text-[#A4773E]
+                            flex
+                            items-center
+                            justify-between
                           "
-                        />
-                      )}
-                    </div>
+                        >
+                          <span
+                            className="
+                              text-[10px]
+                              font-semibold
+                              text-[#332D27]
+                            "
+                          >
+                            Standard Delivery
+                          </span>
 
-                    <p
-                      className="
-                        mt-2
-                        text-[9px]
-                        text-[#8B8074]
-                      "
-                    >
-                      {formatCurrency(
-                        Number(
-                          settings.expressDeliveryCharge,
-                        ) || 0,
-                      )}
+                          {shippingMethod ===
+                            "standard" && (
+                            <Check
+                              size={15}
+                              className="
+                                text-[#A4773E]
+                              "
+                            />
+                          )}
+                        </div>
 
-                      {" · "}
+                        <p
+                          className="
+                            mt-2
+                            text-[9px]
+                            text-[#8B8074]
+                          "
+                        >
+                          {formatCurrency(
+                            Number(
+                              settings.standardDeliveryCharge,
+                            ) || 0,
+                            settings,
+                          )}
 
-                      {settings.expressDeliveryMinDays ===
-                      settings.expressDeliveryMaxDays
-                        ? `${settings.expressDeliveryMinDays} day delivery`
-                        : `${settings.expressDeliveryMinDays}-${settings.expressDeliveryMaxDays} days delivery`}
-                    </p>
-                  </button>
+                          {" · "}
+
+                          {settings.standardDeliveryMinDays ===
+                          settings.standardDeliveryMaxDays
+                            ? `${settings.standardDeliveryMinDays} day delivery`
+                            : `${settings.standardDeliveryMinDays}-${settings.standardDeliveryMaxDays} days delivery`}
+                        </p>
+                      </button>
+                    )}
+
+                    {settings?.expressDeliveryEnabled && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShippingMethod(
+                            "express",
+                          )
+                        }
+                        className={`
+                          rounded-xl
+                          border
+                          p-4
+                          text-left
+                          transition
+                          ${
+                            shippingMethod === "express"
+                              ? "border-[#A4773E] bg-[#FBF5ED]"
+                              : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
+                          }
+                        `}
+                      >
+                        <div
+                          className="
+                            flex
+                            items-center
+                            justify-between
+                          "
+                        >
+                          <span
+                            className="
+                              text-[10px]
+                              font-semibold
+                              text-[#332D27]
+                            "
+                          >
+                            Express Delivery
+                          </span>
+
+                          {shippingMethod ===
+                            "express" && (
+                            <Check
+                              size={15}
+                              className="
+                                text-[#A4773E]
+                              "
+                            />
+                          )}
+                        </div>
+
+                        <p
+                          className="
+                            mt-2
+                            text-[9px]
+                            text-[#8B8074]
+                          "
+                        >
+                          {formatCurrency(
+                            Number(
+                              settings.expressDeliveryCharge,
+                            ) || 0,
+                            settings,
+                          )}
+
+                          {" · "}
+
+                          {settings.expressDeliveryMinDays ===
+                          settings.expressDeliveryMaxDays
+                            ? `${settings.expressDeliveryMinDays} day delivery`
+                            : `${settings.expressDeliveryMinDays}-${settings.expressDeliveryMaxDays} days delivery`}
+                        </p>
+                      </button>
+                    )}
+                  </div>
                 )}
-              </div>
 
               {!isSettingsLoading &&
                 !settings?.standardDeliveryEnabled &&
                 !settings?.expressDeliveryEnabled && (
                   <p
                     className="
+                      mt-3
                       text-[10px]
                       text-[#A05D52]
                     "
@@ -2488,8 +2686,7 @@ const Checkout = () => {
                   </p>
                 )}
             </section>
-
-            {/* PAYMENT */}
+                {/* PAYMENT */}
 
             <section
               className="
@@ -2570,8 +2767,7 @@ const Checkout = () => {
                       text-left
                       transition
                       ${
-                        paymentMethod ===
-                        "cod"
+                        paymentMethod === "cod"
                           ? "border-[#A4773E] bg-[#FBF5ED]"
                           : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
                       }
@@ -2594,8 +2790,7 @@ const Checkout = () => {
                         Cash on Delivery
                       </span>
 
-                      {paymentMethod ===
-                        "cod" && (
+                      {paymentMethod === "cod" && (
                         <Check
                           size={15}
                           className="
@@ -2632,8 +2827,7 @@ const Checkout = () => {
                       text-left
                       transition
                       ${
-                        paymentMethod ===
-                        "online"
+                        paymentMethod === "online"
                           ? "border-[#A4773E] bg-[#FBF5ED]"
                           : "border-[#DED4C8] bg-white hover:border-[#C7B49E]"
                       }
@@ -2656,8 +2850,7 @@ const Checkout = () => {
                         Pay Online
                       </span>
 
-                      {paymentMethod ===
-                        "online" && (
+                      {paymentMethod === "online" && (
                         <Check
                           size={15}
                           className="
@@ -2685,6 +2878,7 @@ const Checkout = () => {
                 !settings?.onlinePaymentEnabled && (
                   <p
                     className="
+                      mt-3
                       text-[10px]
                       text-[#A05D52]
                     "
@@ -2894,8 +3088,7 @@ const Checkout = () => {
                           "
                         >
                           <div>
-                            {itemOfferDiscount >
-                              0 && (
+                            {itemOfferDiscount > 0 && (
                               <p
                                 className="
                                   text-[8px]
@@ -2905,6 +3098,7 @@ const Checkout = () => {
                               >
                                 {formatCurrency(
                                   originalTotal,
+                                  settings,
                                 )}
                               </p>
                             )}
@@ -2919,12 +3113,12 @@ const Checkout = () => {
                             >
                               {formatCurrency(
                                 discountedTotal,
+                                settings,
                               )}
                             </p>
                           </div>
 
-                          {itemOfferDiscount >
-                            0 && (
+                          {itemOfferDiscount > 0 && (
                             <p
                               className="
                                 text-[8px]
@@ -2935,6 +3129,7 @@ const Checkout = () => {
                               Save{" "}
                               {formatCurrency(
                                 itemOfferDiscount,
+                                settings,
                               )}
                             </p>
                           )}
@@ -3148,9 +3343,7 @@ const Checkout = () => {
                           text-[#4F684B]
                         "
                       >
-                        {
-                          selectedCoupon.code
-                        }
+                        {selectedCoupon.code}
                       </span>
                     </div>
 
@@ -3225,6 +3418,7 @@ const Checkout = () => {
                 >
                   {formatCurrency(
                     originalSubtotal,
+                    settings,
                   )}
                 </span>
               </div>
@@ -3260,6 +3454,7 @@ const Checkout = () => {
                     −
                     {formatCurrency(
                       offerDiscount,
+                      settings,
                     )}
                   </span>
                 </div>
@@ -3285,9 +3480,7 @@ const Checkout = () => {
                     <Gift size={12} />
 
                     Coupon (
-                    {
-                      selectedCoupon.code
-                    }
+                    {selectedCoupon.code}
                     )
                   </span>
 
@@ -3300,6 +3493,7 @@ const Checkout = () => {
                     −
                     {formatCurrency(
                       couponDiscount,
+                      settings,
                     )}
                   </span>
                 </div>
@@ -3327,45 +3521,53 @@ const Checkout = () => {
                     text-[#403931]
                   "
                 >
-                  {shippingCost === 0
-                    ? "FREE"
-                    : formatCurrency(
-                        shippingCost,
-                      )}
+                  {!isDeliveryAvailable &&
+                  address.city.trim() &&
+                  address.pincode.trim()
+                    ? "Unavailable"
+                    : shippingCost === 0
+                      ? "FREE"
+                      : formatCurrency(
+                          shippingCost,
+                          settings,
+                        )}
                 </span>
               </div>
 
-              {(selectedDeliveryMinDays > 0 ||
-                selectedDeliveryMaxDays > 0) && (
-                <div
-                  className="
-                    flex
-                    items-center
-                    justify-between
-                    text-[9px]
-                  "
-                >
-                  <span
+              {isDeliveryAvailable &&
+                (
+                  selectedDeliveryMinDays > 0 ||
+                  selectedDeliveryMaxDays > 0
+                ) && (
+                  <div
                     className="
-                      text-[#978D82]
+                      flex
+                      items-center
+                      justify-between
+                      text-[9px]
                     "
                   >
-                    Estimated delivery
-                  </span>
+                    <span
+                      className="
+                        text-[#978D82]
+                      "
+                    >
+                      Estimated delivery
+                    </span>
 
-                  <span
-                    className="
-                      font-medium
-                      text-[#75695D]
-                    "
-                  >
-                    {selectedDeliveryMinDays ===
-                    selectedDeliveryMaxDays
-                      ? `${selectedDeliveryMinDays} day`
-                      : `${selectedDeliveryMinDays}-${selectedDeliveryMaxDays} days`}
-                  </span>
-                </div>
-              )}
+                    <span
+                      className="
+                        font-medium
+                        text-[#75695D]
+                      "
+                    >
+                      {selectedDeliveryMinDays ===
+                      selectedDeliveryMaxDays
+                        ? `${selectedDeliveryMinDays} day`
+                        : `${selectedDeliveryMinDays}-${selectedDeliveryMaxDays} days`}
+                    </span>
+                  </div>
+                )}
 
               {totalSavings > 0 && (
                 <div
@@ -3398,6 +3600,7 @@ const Checkout = () => {
                   >
                     {formatCurrency(
                       totalSavings,
+                      settings,
                     )}
                   </span>
                 </div>
@@ -3445,8 +3648,209 @@ const Checkout = () => {
               >
                 {formatCurrency(
                   estimatedTotal,
+                  settings,
                 )}
               </p>
+            </div>
+
+                        {/* CANCELLATION, RETURN AND REFUND POLICY */}
+
+            <div
+              className="
+                mt-6
+                rounded-xl
+                border
+                border-[#E2D8CC]
+                bg-[#FBF8F4]
+                p-4
+              "
+            >
+              <div
+                className="
+                  flex
+                  items-start
+                  gap-2
+                "
+              >
+                <ShieldCheck
+                  size={15}
+                  className="
+                    mt-0.5
+                    shrink-0
+                    text-[#9A7138]
+                  "
+                />
+
+                <div
+                  className="
+                    min-w-0
+                    flex-1
+                  "
+                >
+                  <h3
+                    className="
+                      text-[9px]
+                      font-semibold
+                      uppercase
+                      tracking-widest
+                      text-[#554C43]
+                    "
+                  >
+                    Cancellation, Return and Refund Policy
+                  </h3>
+
+                  <div
+                    className="
+                      mt-3
+                      max-h-52
+                      space-y-3
+                      overflow-y-auto
+                      pr-2
+                      text-[8px]
+                      leading-5
+                      text-[#81776C]
+                    "
+                  >
+                    <div>
+                      <p
+                        className="
+                          font-semibold
+                          text-[#554C43]
+                        "
+                      >
+                        1. Cancellations Prior to Dispatch
+                      </p>
+
+                      <p className="mt-1">
+                        <span className="font-medium">
+                          1.1. Grace Period:
+                        </span>{" "}
+                        The Customer may cancel an order within
+                        twenty-four (24) hours of order placement to
+                        receive a full refund of the purchase price,
+                        provided that vendor allocation has not occurred
+                        and raw materials have not been cut.
+                      </p>
+
+                      <p className="mt-1">
+                        <span className="font-medium">
+                          1.2. Production Stage:
+                        </span>{" "}
+                        Any cancellation request submitted after the
+                        initial 24-hour window, or once production has
+                        commenced, shall be subject to the Company's sole
+                        discretion. Approved cancellations at this stage
+                        shall incur a restocking fee ranging from
+                        twenty-five percent (25%) to fifty percent (50%)
+                        of the order value. Orders for which raw
+                        materials have already been cut are strictly
+                        non-cancellable and non-refundable.
+                      </p>
+
+                      <p className="mt-1">
+                        <span className="font-medium">
+                          1.3. In-Transit Orders:
+                        </span>{" "}
+                        Orders that have been dispatched or are actively
+                        in transit cannot be cancelled under any
+                        circumstances.
+                      </p>
+                    </div>
+
+                    <div>
+                      <p
+                        className="
+                          font-semibold
+                          text-[#554C43]
+                        "
+                      >
+                        2. Post-Delivery Returns and Remedies
+                      </p>
+
+                      <p className="mt-1">
+                        <span className="font-medium">
+                          2.1. Non-Damaged Goods:
+                        </span>{" "}
+                        Delivered items that are free from manufacturing
+                        defects or damage are non-returnable and
+                        non-refundable. The Company enforces a strict
+                        "No Change of Mind" policy, particularly with
+                        respect to custom-made or made-to-order
+                        furniture.
+                      </p>
+
+                      <p className="mt-1">
+                        <span className="font-medium">
+                          2.2. Damaged or Defective Goods:
+                        </span>{" "}
+                        In the event an item arrives in a damaged or
+                        defective condition, the Customer must notify the
+                        Company immediately. Any remedy, including repair
+                        or replacement of the affected part or the entire
+                        unit, is contingent upon inspection and
+                        verification by an authorized technician
+                        appointed by the Company. Upon successful
+                        verification, all approved repairs or
+                        replacements shall be performed at the sole
+                        expense of the Company.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <label
+                className="
+                  mt-4
+                  flex
+                  cursor-pointer
+                  items-start
+                  gap-2.5
+                  border-t
+                  border-[#E5DACE]
+                  pt-4
+                "
+              >
+                <input
+                  type="checkbox"
+                  checked={
+                    hasAcceptedPolicy
+                  }
+                  onChange={(
+                    event,
+                  ) =>
+                    setHasAcceptedPolicy(
+                      event.target.checked,
+                    )
+                  }
+                  className="
+                    mt-0.5
+                    h-4
+                    w-4
+                    shrink-0
+                    cursor-pointer
+                    accent-[#8F6B3F]
+                  "
+                />
+
+                <span
+                  className="
+                    text-[8px]
+                    leading-5
+                    text-[#62584D]
+                  "
+                >
+                  I have read and agree to the{" "}
+                  <span
+                    className="
+                      font-semibold
+                      text-[#554C43]
+                    "
+                  >
+                    Cancellation, Return and Refund Policy.
+                  </span>
+                </span>
+              </label>
             </div>
 
             {/* PLACE ORDER */}
@@ -3460,6 +3864,7 @@ const Checkout = () => {
                 isPlacingOrder ||
                 isSettingsLoading ||
                 !settings ||
+                !hasAcceptedPolicy ||
                 (!settings.standardDeliveryEnabled &&
                   !settings.expressDeliveryEnabled) ||
                 (!settings.codEnabled &&
@@ -3541,8 +3946,8 @@ const Checkout = () => {
                 "
               />
 
-              Secure checkout · Product offers are automatic ·
-              Coupons require a valid code
+              Secure checkout · Delivery available in Pune & PCMC ·
+              Product offers are automatic · Coupons require a valid code
             </div>
           </aside>
         </div>
